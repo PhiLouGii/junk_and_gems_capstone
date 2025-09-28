@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/screens/welcome_screen.dart'; 
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -67,16 +68,22 @@ const SizedBox(height: 16),
                   ],
                 ),
 
-                // Buttons Section
+               // Buttons Section
                 Column(
                   children: [
-                    // Get Started Button
+                    // Get Started Button - UPDATED TO NAVIGATE
                     SizedBox(
                       width: double.infinity,
                       height: 60,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Navigate to some other screen
+                          // Navigate to WelcomeScreen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const WelcomeScreen(),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
