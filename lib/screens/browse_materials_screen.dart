@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
+import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'create_listing_screen.dart';
 
 class BrowseMaterialsScreen extends StatelessWidget {
@@ -387,7 +388,12 @@ class BrowseMaterialsScreen extends StatelessWidget {
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_outline, false),
+          _navItem(Icons.person_2_outlined, false, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            );
+          }),
         ],
       ),
     );

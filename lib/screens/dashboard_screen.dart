@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
+import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'browse_materials_screen.dart'; // Make sure this file exists
 
 class DashboardScreen extends StatelessWidget {
@@ -471,7 +472,12 @@ class DashboardScreen extends StatelessWidget {
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_outline, false),
+          _navItem(Icons.person_2_outlined, false, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            );
+          }),
         ],
       ),
     );
