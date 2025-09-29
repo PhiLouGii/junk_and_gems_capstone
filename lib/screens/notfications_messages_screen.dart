@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
+import 'package:junk_and_gems/screens/chat_screen.dart';
 
 class NotificationsMessagesScreen extends StatefulWidget {
   const NotificationsMessagesScreen({super.key});
@@ -336,25 +337,38 @@ class _NotificationsMessagesScreenState
           const SizedBox(height: 20),
 
           // Conversations List
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: conversations.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final conversation = conversations[index];
-              return _buildConversationCard(
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: conversations.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final conversation = conversations[index];
+            return GestureDetector(
+              onTap: () {
+                // Navigate to chat screen with the selected user
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatScreen(
+                      userName: conversation['name'] as String,
+                    ),
+                  ),
+                );
+              },
+              child: _buildConversationCard(
                 name: conversation['name'] as String,
                 message: conversation['message'] as String,
                 time: conversation['time'] as String,
                 isUnread: conversation['isUnread'] as bool,
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildConversationCard({
     required String name,

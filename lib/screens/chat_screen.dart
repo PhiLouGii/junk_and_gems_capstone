@@ -18,7 +18,7 @@ class _ChatScreenState extends State<ChatScreen> {
       time: '10:30 AM',
     ),
     ChatMessage(
-      text: "Great! They're still available. When can you pick them up?",
+      text: "Yes we still have them. When can you come pick them up?",
       isSent: true,
       time: '10:31 AM',
     ),
@@ -28,7 +28,7 @@ class _ChatScreenState extends State<ChatScreen> {
       time: '10:32 AM',
     ),
     ChatMessage(
-      text: "Perfect! I'm at 123 Green Street, Western West. Look for the blue gate.",
+      text: "You see where the big tree ends next to Machabeng, yes look for the black gate.",
       isSent: true,
       time: '10:33 AM',
     ),
@@ -328,7 +328,7 @@ class _ChatScreenState extends State<ChatScreen> {
       Future.delayed(const Duration(seconds: 1), () {
         setState(() {
           _messages.add(ChatMessage(
-            text: "Thanks for letting me know! I'll see you then.",
+            text: "Okay I will come. 👍🏽👍🏽",
             isSent: false,
             time: _getCurrentTime(),
           ));
