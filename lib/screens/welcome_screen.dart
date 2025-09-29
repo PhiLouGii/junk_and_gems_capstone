@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/login_screen.dart';
+import 'package:junk_and_gems/screens/signup_screen.dart'; 
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -27,7 +28,6 @@ class WelcomeScreen extends StatelessWidget {
                 // Logo Section
                 Column(
                   children: [
-                    // Logo Image
                     Image.asset(
                       'assets/images/logo.png',
                       width: 350,
@@ -35,7 +35,6 @@ class WelcomeScreen extends StatelessWidget {
                       fit: BoxFit.contain,
                     ),
                     const SizedBox(height: 20),
-                    
                   ],
                 ),
 
@@ -63,17 +62,23 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 40),
                     
-                    // Join Now Button
+                    // Join Now Button - UPDATED
                     SizedBox(
                       width: double.infinity,
                       height: 60,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Navigate to registration/signup screen
+                          // Navigate to sign up screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignUpScreen(),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFBEC092), // Cream color
-                          foregroundColor: const Color.fromARGB(255, 75, 73, 41), // Dark green
+                          backgroundColor: const Color(0xFFBEC092),
+                          foregroundColor: const Color.fromARGB(255, 75, 73, 41),
                           elevation: 4,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
@@ -91,7 +96,7 @@ class WelcomeScreen extends StatelessWidget {
                     
                     const SizedBox(height: 40),
                     
-                    // Log In Button - UPDATED WITH NAVIGATION
+                    // Log In Button
                     SizedBox(
                       width: double.infinity,
                       height: 60,
