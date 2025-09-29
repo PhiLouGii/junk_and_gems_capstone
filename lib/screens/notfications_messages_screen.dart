@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
+import 'package:junk_and_gems/screens/profile_screen.dart';
 
 class NotificationsMessagesScreen extends StatefulWidget {
   const NotificationsMessagesScreen({super.key});
@@ -468,7 +469,12 @@ class _NotificationsMessagesScreenState
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_outline, false),
+          _navItem(Icons.person_2_outlined, false, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+            );
+          }),
         ],
       ),
     );
