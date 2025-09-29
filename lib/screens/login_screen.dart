@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/screens/signup_screen.dart';
+import 'package:junk_and_gems/screens/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +14,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
   bool isLoading = false;
 
   Future<void> loginUser() async {
@@ -33,16 +33,14 @@ class _LoginScreenState extends State<LoginScreen> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Success
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Welcome, ${data['name']}!")),
-        );
+        // Navigate to Dashboard and pass the user's name
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => DashboardScreen(name: data['name'])),
+          MaterialPageRoute(
+            builder: (_) => DashboardScreen(userName: data['name']),
+          ),
         );
       } else {
-        // Error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: ${data['error']}")),
         );
@@ -285,20 +283,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Container(width: 100, height: 100, decoration: BoxDecoration(color: blobColor.withOpacity(0.3), borderRadius: BorderRadius.circular(50))),
         ),
       ],
-    );
-  }
-}
-
-// Simple dashboard screen after login
-class DashboardScreen extends StatelessWidget {
-  final String name;
-  const DashboardScreen({super.key, required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
-      body: Center(child: Text('Hello, $name!', style: const TextStyle(fontSize: 24))),
     );
   }
 }
