@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
+import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'browse_materials_screen.dart'; // Make sure this file exists
 
 class DashboardScreen extends StatelessWidget {
@@ -464,7 +465,12 @@ class DashboardScreen extends StatelessWidget {
             );
           }),
           _navItem(Icons.shopping_bag_outlined, false),
-          _navItem(Icons.notifications_active_outlined, false),
+          _navItem(Icons.notifications_active_outlined, false, onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
+            );
+          }),
           _navItem(Icons.person_outline, false),
         ],
       ),
