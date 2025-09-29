@@ -1,8 +1,60 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/screens/signup_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  bool isLoading = false;
+
+  Future<void> loginUser() async {
+    setState(() => isLoading = true);
+
+    try {
+      final url = Uri.parse('http://10.0.2.2:3000/login');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': emailController.text,
+          'password': passwordController.text,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        // Success
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Welcome, ${data['name']}!")),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => DashboardScreen(name: data['name'])),
+        );
+      } else {
+        // Error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${data['error']}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Network error: $e")),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11,15 +63,12 @@ class LoginScreen extends StatelessWidget {
       body: Stack(
         children: [
           _buildBackgroundBlobs(context),
-
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
                   const SizedBox(height: 40),
-
-                  // Logo Section
                   Column(
                     children: [
                       Image.asset(
@@ -40,10 +89,7 @@ class LoginScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 40),
-
-                  // Login Form Section
                   Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
@@ -77,23 +123,19 @@ class LoginScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 32),
-
-                        // Email
                         _buildTextField(
+                          controller: emailController,
                           hintText: 'Email',
                           icon: Icons.email_outlined,
                         ),
                         const SizedBox(height: 20),
-
-                        // Password
                         _buildTextField(
+                          controller: passwordController,
                           hintText: 'Password',
                           icon: Icons.lock_outline,
                           obscureText: true,
                         ),
                         const SizedBox(height: 20),
-
-                        // Remember Me / Forgot Password
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -120,9 +162,7 @@ class LoginScreen extends StatelessWidget {
                               ],
                             ),
                             GestureDetector(
-                              onTap: () {
-                                // Forgot password handler
-                              },
+                              onTap: () {},
                               child: const Text(
                                 'Forgot Password?',
                                 style: TextStyle(
@@ -135,13 +175,11 @@ class LoginScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 30),
-
-                        // Log In Button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: isLoading ? null : loginUser,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF88844D),
                               foregroundColor: Colors.white,
@@ -150,68 +188,21 @@ class LoginScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: const Text(
-                              'Log In',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                            ),
+                            child: isLoading
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : const Text(
+                                    'Log In',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 30),
-
-                        // Or login with
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'Or login with',
-                                style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: Colors.grey.shade400, thickness: 1)),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Google Login
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: OutlinedButton(
-                            onPressed: () {},
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.black,
-                              side: const BorderSide(color: Color(0xFF88844D), width: 2),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Image.asset(
-                                  'assets/images/google_icon.png',
-                                  width: 24,
-                                  height: 24,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata),
-                                ),
-                                const SizedBox(width: 12),
-                                const Text('Google', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Sign Up link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text("Don't have an account? ", style: TextStyle(color: Colors.black54)),
                             GestureDetector(
                               onTap: () {
-                                // Navigate to your existing SignUpScreen
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const SignUpScreen()),
@@ -230,7 +221,7 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
+                  )
                 ],
               ),
             ),
@@ -239,6 +230,30 @@ class LoginScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+  }) =>
+      Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F2E4),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: TextField(
+          controller: controller,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            hintText: hintText,
+            hintStyle: const TextStyle(color: Colors.black54),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            prefixIcon: Icon(icon, color: const Color(0xFF88844D)),
+          ),
+        ),
+      );
 
   Widget _buildBackgroundBlobs(BuildContext context) {
     const Color blobColor = Color(0xFFA3A87F);
@@ -272,20 +287,18 @@ class LoginScreen extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildTextField({required String hintText, required IconData icon, bool obscureText = false}) {
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFFF7F2E4), borderRadius: BorderRadius.circular(16)),
-      child: TextField(
-        obscureText: obscureText,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.black54),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          prefixIcon: Icon(icon, color: const Color(0xFF88844D)),
-        ),
-      ),
+// Simple dashboard screen after login
+class DashboardScreen extends StatelessWidget {
+  final String name;
+  const DashboardScreen({super.key, required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Dashboard')),
+      body: Center(child: Text('Hello, $name!', style: const TextStyle(fontSize: 24))),
     );
   }
 }
