@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
+import 'package:junk_and_gems/screens/settings_screen.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -296,14 +297,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        _buildAccountItem(icon: Icons.shopping_bag_outlined, label: 'My Purchases'),
+        _buildAccountItem(icon: Icons.shopping_bag_outlined, label: 'My Purchases', onTap: () {}),
         const SizedBox(height: 12),
-        _buildAccountItem(icon: Icons.settings_outlined, label: 'Settings'),
+        _buildAccountItem(icon: Icons.settings_outlined, label: 'Settings', onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsScreen()),
+          );
+        }),
       ],
     );
   }
 
-  Widget _buildAccountItem({required IconData icon, required String label}) {
+  Widget _buildAccountItem({required IconData icon, required String label, VoidCallback? onTap}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -312,30 +318,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
           BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: const Color(0xFF88844D), size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(label,
-                  style: const TextStyle(fontSize: 16, color: Color(0xFF88844D), fontWeight: FontWeight.w600)),
-            ),
-            Icon(Icons.arrow_forward_ios, color: const Color(0xFF88844D).withOpacity(0.6), size: 16),
-          ],
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16.0),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFBEC092),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF88844D), size: 20),
         ),
+        title: Text(
+          label,
+          style: const TextStyle(fontSize: 16, color: Color(0xFF88844D), fontWeight: FontWeight.w600),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          color: const Color(0xFF88844D).withOpacity(0.6),
+          size: 16,
+        ),
+        onTap: onTap,
       ),
     );
   }
+
+
+
 
   /// =========================
   /// Bottom Navigation Bar

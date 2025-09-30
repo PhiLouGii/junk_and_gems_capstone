@@ -334,6 +334,16 @@ class _ChatScreenState extends State<ChatScreen> {
           ));
         });
       });
+      
+      Future.delayed(const Duration(seconds: 3), () {
+        setState(() {
+          _messages.add(ChatMessage(
+            text: "See you soon. 😃",
+            isSent: false,
+            time: _getCurrentTime(),
+          ));
+        });
+      });
     }
   }
 
