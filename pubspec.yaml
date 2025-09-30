@@ -74,10 +74,25 @@ flutter:
     - assets/images/logo.png
     - assets/images/upcycled1.jpg
     - assets/images/upcycled2.jpg
+    - assets/images/featured1.jpg
+    - assets/images/featured2.jpg
+    - assets/images/featured3.jpg
+    - assets/images/featured4.jpg
+    - assets/images/featured5.jpg
+    - assets/images/featured6.jpg
     - assets/images/plastic_bottles.jpg
     - assets/images/bottle_caps.jpg
     - assets/images/old_jeans.jpg
     - assets/images/old_cds.jpg
+    - assets/images/contributor1.jpg
+    - assets/images/contributor2.jpg
+    - assets/images/contributor3.jpg
+    - assets/images/contributor4.jpg
+    - assets/images/home_decor.jpg  
+    - assets/images/home_furniture.jpg
+    - assets/images/crafts.jpg
+    - assets/images/fashion.jpg
+    - assets/images/jewelry.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

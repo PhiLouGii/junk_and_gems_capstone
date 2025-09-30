@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
+import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
-import 'browse_materials_screen.dart'; // Make sure this file exists
+import 'browse_materials_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final String userName;
@@ -44,8 +45,8 @@ class DashboardScreen extends StatelessWidget {
     return Center(
       child: Image.asset(
         'assets/images/logo.png',
-        width: 200,
-        height: 200,
+        width: 150,
+        height: 150,
         fit: BoxFit.contain,
       ),
     );
@@ -59,16 +60,16 @@ class DashboardScreen extends StatelessWidget {
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
                 'Welcome, $userName!',
                 style: const TextStyle(
-                  fontSize: 26,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color.fromARGB(255, 96, 93, 54),
+                  color: Color(0xFF88844D),
                 ),
               ),
               const SizedBox(height: 8),
@@ -97,7 +98,7 @@ class DashboardScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color.fromARGB(255, 85, 83, 48),
+            color: Color(0xFF88844D),
           ),
         ),
         const SizedBox(height: 16),
@@ -117,7 +118,7 @@ class DashboardScreen extends StatelessWidget {
               );
             }),
             _buildUpcycledCard('Denim Handbag', 'assets/images/upcycled1.jpg'),
-            _buildUpcycledCard('Beer Bottle Chair', 'assets/images/upcycled2.jpg'),
+            _buildUpcycledCard('Bottle Lamp', 'assets/images/upcycled2.jpg'),
           ],
         ),
       ],
@@ -139,11 +140,19 @@ class DashboardScreen extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon != null) Icon(icon, size: 28, color: const Color(0xFF88844D)),
+            if (icon != null) 
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 24, color: const Color(0xFF88844D)),
+              ),
             const SizedBox(height: 8),
             Text(
               title,
@@ -177,21 +186,28 @@ class DashboardScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
+            // Fallback if image doesn't exist
             Image.asset(
               imagePath,
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: const Color(0xFFBEC092),
+                  child: const Icon(Icons.recycling, size: 40, color: Color(0xFF88844D)),
+                );
+              },
             ),
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                   ),
@@ -207,7 +223,7 @@ class DashboardScreen extends StatelessWidget {
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.bottomRight,
                       child: ElevatedButton(
@@ -216,8 +232,9 @@ class DashboardScreen extends StatelessWidget {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF88844D),
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           elevation: 2,
@@ -225,7 +242,6 @@ class DashboardScreen extends StatelessWidget {
                         child: const Text(
                           'Shop Now',
                           style: TextStyle(
-                            color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -249,7 +265,11 @@ class DashboardScreen extends StatelessWidget {
       children: [
         const Text(
           'Impact',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Color(0xFF88844D)
+          ),
         ),
         const SizedBox(height: 12),
         Container(
@@ -264,13 +284,13 @@ class DashboardScreen extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildImpactCell('150', 'pieces donated'),
-              _buildImpactCell('4', 'Upcycled items bought'),
-              _buildImpactCell('2500', 'Gems'),
+              _buildImpactCell('4', 'upcycled items'),
+              _buildImpactCell('2500', 'gems earned'),
             ],
           ),
         ),
@@ -284,21 +304,25 @@ class DashboardScreen extends StatelessWidget {
         Text(
           value,
           style: const TextStyle(
-            fontSize: 20,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: Color.fromARGB(255, 74, 72, 42),
+            color: Color(0xFF88844D),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: Colors.black.withOpacity(0.7)),
+          style: TextStyle(
+            fontSize: 12, 
+            color: Colors.black.withOpacity(0.7),
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
   }
 
-  // Artisan Carousel
+  // Artisan Carousel with Profile Pictures
   Widget _buildArtisanCarousel() {
     final items = _artisanHighlights();
 
@@ -307,24 +331,29 @@ class DashboardScreen extends StatelessWidget {
       children: [
         const Text(
           "Artisan Highlights",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Color(0xFF88844D)
+          ),
         ),
         const SizedBox(height: 12),
         cs.CarouselSlider(
           items: items,
           options: cs.CarouselOptions(
-            height: 180,
+            height: 200,
             autoPlay: true,
-            autoPlayInterval: const Duration(seconds: 3),
+            autoPlayInterval: const Duration(seconds: 4),
             enlargeCenterPage: true,
-            viewportFraction: 0.4,
+            viewportFraction: 0.45,
+            enableInfiniteScroll: true,
           ),
         ),
       ],
     );
   }
 
-  // Contributors Carousel
+  // Contributors Carousel with Profile Pictures
   Widget _buildContributorCarousel() {
     final items = _frequentContributors();
 
@@ -333,114 +362,213 @@ class DashboardScreen extends StatelessWidget {
       children: [
         const Text(
           "Frequent Contributors",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Color(0xFF88844D)
+          ),
         ),
         const SizedBox(height: 12),
         cs.CarouselSlider(
           items: items,
           options: cs.CarouselOptions(
-            height: 180,
+            height: 200,
             autoPlay: true,
-            autoPlayInterval: const Duration(seconds: 3),
+            autoPlayInterval: const Duration(seconds: 4),
             enlargeCenterPage: true,
-            viewportFraction: 0.4,
+            viewportFraction: 0.45,
+            enableInfiniteScroll: true,
           ),
         ),
       ],
     );
   }
 
-  // Artisan Highlights
+  // Artisan Highlights with Profile Pictures
   List<Widget> _artisanHighlights() {
     final artisans = [
-      {'name': 'Limakatso L.', 'specialty': 'Jewellery'},
-      {'name': 'Nthati R.', 'specialty': 'Home Decor'},
-      {'name': 'Bonn F.', 'specialty': 'Fashion'},
-      {'name': 'Meredith G.', 'specialty': 'Furniture'},
-      {'name': 'Miranda B.', 'specialty': 'Art & Crafts'},
-      {'name': 'Cristina Y.', 'specialty': 'Home Decor'},
+      {'name': 'Limakatso L.', 'specialty': 'Jewellery', 'image': 'assets/images/artisan1.jpg'},
+      {'name': 'Nthati R.', 'specialty': 'Home Decor', 'image': 'assets/images/artisan2.jpg'},
+      {'name': 'Bonn F.', 'specialty': 'Fashion', 'image': 'assets/images/artisan3.jpg'},
+      {'name': 'Meredith G.', 'specialty': 'Furniture', 'image': 'assets/images/artisan4.jpg'},
+      {'name': 'Miranda B.', 'specialty': 'Art & Crafts', 'image': 'assets/images/artisan5.jpg'},
+      {'name': 'Cristina Y.', 'specialty': 'Home Decor', 'image': 'assets/images/artisan6.jpg'},
     ];
 
     return artisans.map((a) {
       return Container(
         width: 140,
         decoration: BoxDecoration(
-          color: const Color(0xFFE4E5C2),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.person, size: 40, color: Color(0xFFBEC092)),
+            const SizedBox(height: 16),
+            // Profile Picture with fallback
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(
+                  color: const Color(0xFFBEC092),
+                  width: 2,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(35),
+                child: Image.asset(
+                  a['image']!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: const Color(0xFFE4E5C2),
+                      child: const Icon(
+                        Icons.person,
+                        size: 30,
+                        color: Color(0xFF88844D),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
-            Text(
-              a['name']!,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D)),
-              textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                a['name']!,
+                style: const TextStyle(
+                  fontSize: 16, 
+                  fontWeight: FontWeight.w600, 
+                  color: Color(0xFF88844D)
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             if (a['specialty']!.isNotEmpty)
-              Text(
-                a['specialty']!,
-                style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)),
-                textAlign: TextAlign.center,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  a['specialty']!,
+                  style: TextStyle(
+                    fontSize: 14, 
+                    color: Colors.black.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+            const SizedBox(height: 16),
           ],
         ),
       );
     }).toList();
   }
 
-  // Frequent Contributors
+  // Frequent Contributors with Profile Pictures
   List<Widget> _frequentContributors() {
     final contributors = [
-      {'name': 'Richard W.', 'contribution': 'Fabric & Wood'},
-      {'name': 'Mahloli M.', 'contribution': 'Plastic bottles'},
-      {'name': 'Alex T.', 'contribution': 'Cables'},
-      {'name': 'Liteboho N.', 'contribution': 'Wood'},
-      {'name': 'Philippa G.', 'contribution': 'Cardboard'},
-      {'name': 'Jackson A.', 'contribution': 'Old CDs'},
+      {'name': 'Richard W.', 'contribution': 'Fabric & Wood', 'image': 'assets/images/contributor1.jpg'},
+      {'name': 'Mahloli M.', 'contribution': 'Plastic bottles', 'image': 'assets/images/contributor2.jpg'},
+      {'name': 'Alex T.', 'contribution': 'Cables', 'image': 'assets/images/contributor3.jpg'},
+      {'name': 'Liteboho N.', 'contribution': 'Wood', 'image': 'assets/images/contributor4.jpg'},
+      {'name': 'Philippa G.', 'contribution': 'Cardboard', 'image': 'assets/images/contributor5.jpg'},
+      {'name': 'Jackson A.', 'contribution': 'Old CDs', 'image': 'assets/images/contributor6.jpg'},
     ];
 
     return contributors.map((c) {
       return Container(
         width: 140,
         decoration: BoxDecoration(
-          color: const Color(0xFFE4E5C2),
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(12),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.person, size: 40, color: Color(0xFFBEC092)),
+            const SizedBox(height: 16),
+            // Profile Picture with fallback
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(
+                  color: const Color(0xFFBEC092),
+                  width: 2,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(35),
+                child: Image.asset(
+                  c['image']!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: const Color(0xFFE4E5C2),
+                      child: const Icon(
+                        Icons.person,
+                        size: 30,
+                        color: Color(0xFF88844D),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
-            Text(
-              c['name']!,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D)),
-              textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                c['name']!,
+                style: const TextStyle(
+                  fontSize: 16, 
+                  fontWeight: FontWeight.w600, 
+                  color: Color(0xFF88844D)
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            Text(
-              c['contribution']!,
-              style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)),
-              textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                c['contribution']!,
+                style: TextStyle(
+                  fontSize: 14, 
+                  color: Colors.black.withOpacity(0.6),
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       );
@@ -451,28 +579,42 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFFBEC092),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(Icons.home, true, onTap: () {}),
-          _navItem(Icons.inventory_2_outlined, false, onTap: () {
+          _navItem(Icons.home_filled, true, 'Home', onTap: () {}),
+          _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
             );
           }),
-          _navItem(Icons.shopping_bag_outlined, false),
-          _navItem(Icons.notifications_active_outlined, false, onTap: () {
+          _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MarketplaceScreen(userName: userName), // FIXED: Use dynamic userName
+              ),
+            );
+          }),
+          _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_2_outlined, false, onTap: () {
+          _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfileScreen()),
@@ -483,15 +625,30 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _navItem(IconData icon, bool isSelected, {VoidCallback? onTap}) {
+  Widget _navItem(IconData icon, bool isSelected, String label, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: isSelected
-            ? const BoxDecoration(color: Color(0xFFF7F2E4), shape: BoxShape.circle)
-            : null,
-        padding: const EdgeInsets.all(12),
-        child: Icon(icon, color: const Color(0xFF88844D), size: 28),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
