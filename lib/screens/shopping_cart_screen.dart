@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/screens/checkout_screen.dart';
 
 class ShoppingCartScreen extends StatefulWidget {
   const ShoppingCartScreen({super.key});
@@ -472,32 +473,43 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           
           // Checkout Button
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextButton(
-                onPressed: () {
-                  // Navigate to checkout
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Checkout',
-                  style: TextStyle(
-                    color: Color(0xFF88844D),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+  child: Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFFBEC092),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: TextButton(
+      onPressed: () {
+        // Navigate to checkout
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CheckoutScreen(
+              cartItems: _cartItems,
+              subtotal: _subtotal,
+              gemsDiscount: _appliedGems.toDouble(),
+              total: _total,
             ),
           ),
+        );
+      },
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      child: const Text(
+        'Checkout',
+        style: TextStyle(
+          color: Color(0xFF88844D),
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ),
+  ),
+),
         ],
       ),
     );
