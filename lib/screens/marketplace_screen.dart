@@ -715,7 +715,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
               (Route<dynamic> route) => false, // This removes all previous routes
             );
           }),
-          _navItem(Icons.search, false, 'Browse', onTap: () {
+          _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
