@@ -26,6 +26,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final TextEditingController _expiryController = TextEditingController();
   final TextEditingController _cvcController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+  
+  // Mobile payment form controllers
+  final TextEditingController _ecocashPhoneController = TextEditingController();
+  final TextEditingController _mpesaPhoneController = TextEditingController();
 
   @override
   void dispose() {
@@ -33,6 +37,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _expiryController.dispose();
     _cvcController.dispose();
     _nameController.dispose();
+    _ecocashPhoneController.dispose();
+    _mpesaPhoneController.dispose();
     super.dispose();
   }
 
@@ -78,6 +84,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             // Card Payment Form (only visible when card is selected)
             if (_selectedPaymentMethod == 'Card (Credit/Debit)')
               _buildCardPaymentForm(),
+            
+            // EcoCash Payment Form (only visible when EcoCash is selected)
+            if (_selectedPaymentMethod == 'EcoCash')
+              _buildEcoCashPaymentForm(),
+            
+            // M-Pesa Payment Form (only visible when M-Pesa is selected)
+            if (_selectedPaymentMethod == 'M-Pesa')
+              _buildMPesaPaymentForm(),
           ],
         ),
       ),
@@ -416,7 +430,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _buildCardTextField(
             label: 'Name on Card',
             controller: _nameController,
-            hintText: 'John Doe',
+            hintText: 'Mahloli Makhetha',
           ),
           const SizedBox(height: 16),
           
@@ -442,6 +456,150 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEcoCashPaymentForm() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'EcoCash Payment',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF88844D),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Phone Number Input
+          _buildMobileTextField(
+            label: 'EcoCash Phone Number',
+            controller: _ecocashPhoneController,
+            hintText: 'xxxx xxxx',
+            keyboardType: TextInputType.phone,
+            prefixText: '+266 ',
+          ),
+          const SizedBox(height: 12),
+          
+          // Instructions
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F2E4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBEC092)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Instructions:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF88844D),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '1. Enter your EcoCash registered phone number\n2. Confirm payment to receive a prompt\n3. Enter your EcoCash PIN to complete payment',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF88844D),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMPesaPaymentForm() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'M-Pesa Payment',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF88844D),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Phone Number Input
+          _buildMobileTextField(
+            label: 'M-Pesa Phone Number',
+            controller: _mpesaPhoneController,
+            hintText: 'xxxx xxxx',
+            keyboardType: TextInputType.phone,
+            prefixText: '+266 ',
+          ),
+          const SizedBox(height: 12),
+          
+          // Instructions
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F2E4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBEC092)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Instructions:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF88844D),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '1. Enter your M-Pesa registered phone number\n2. Confirm payment to receive a prompt\n3. Enter your M-Pesa PIN to complete payment',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF88844D),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -489,14 +647,82 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Widget _buildMobileTextField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required TextInputType keyboardType,
+    required String prefixText,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF88844D),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F2E4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092)),
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text(
+                  prefixText,
+                  style: const TextStyle(
+                    color: Color(0xFF88844D),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  decoration: InputDecoration(
+                    hintText: hintText,
+                    hintStyle: TextStyle(
+                      color: const Color(0xFF88844D).withOpacity(0.6),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   void _processPayment(BuildContext context) {
-    // Validate card details if card payment is selected
+    // Validate form based on selected payment method
     if (_selectedPaymentMethod == 'Card (Credit/Debit)') {
       if (_cardNumberController.text.isEmpty ||
           _expiryController.text.isEmpty ||
           _cvcController.text.isEmpty ||
           _nameController.text.isEmpty) {
         _showErrorDialog(context, 'Please fill in all card details');
+        return;
+      }
+    } else if (_selectedPaymentMethod == 'EcoCash') {
+      if (_ecocashPhoneController.text.isEmpty) {
+        _showErrorDialog(context, 'Please enter your EcoCash phone number');
+        return;
+      }
+    } else if (_selectedPaymentMethod == 'M-Pesa') {
+      if (_mpesaPhoneController.text.isEmpty) {
+        _showErrorDialog(context, 'Please enter your M-Pesa phone number');
         return;
       }
     }
@@ -541,7 +767,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
           content: const Text(
-            'Your order has been confirmed and will be shipped soon.',
+            'Your order has been confirmed and will be delivered soon.',
             style: TextStyle(
               color: Color(0xFF88844D),
             ),
