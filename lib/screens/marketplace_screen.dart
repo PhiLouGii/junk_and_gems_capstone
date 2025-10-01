@@ -3,7 +3,9 @@ import 'package:flutter/rendering.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
-import 'package:junk_and_gems/screens/dashboard_screen.dart'; 
+import 'package:junk_and_gems/screens/dashboard_screen.dart';
+import 'package:junk_and_gems/screens/product_details_screen.dart'; 
+import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   final String userName;
@@ -33,8 +35,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'image': 'assets/images/featured2.jpg',
     },
     {
-      'title': 'Sta-Soft Lamp',
-      'artisan': 'Keletso N.',
+      'title': 'Sta-Soft Lamp M400',
+      'artisan': 'Nthati Radiapole',
       'price': 'M400',
       'image': 'assets/images/featured3.jpg',
     },
@@ -68,8 +70,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
   final List<Map<String, String>> _products = [
     {
-      'title': 'Sta-Soft Lamp',
-      'artisan': 'Keletso N.',
+      'title': 'Sta-Soft Lamp M400',
+      'artisan': 'Nthati Radiapole',
       'price': 'M400',
       'image': 'assets/images/featured3.jpg',
     },
@@ -171,11 +173,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                     Icons.shopping_cart_outlined,
                     color: Color(0xFF88844D),
                     size: 28,
-                  ),
-                  onPressed: () {
-                    // Navigate to cart screen
-                  },
                 ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ShoppingCartScreen()),
+             );
+           },
+     ),
                 if (_cartItemCount > 0)
                   Positioned(
                     right: 8,
@@ -308,112 +313,122 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                 final productIndex = index % _featuredProducts.length;
                 final product = _featuredProducts[productIndex];
                 
-                return Container(
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProductDetailScreen(product: product),
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Product Image
-                      Container(
-                        height: 120,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(16),
-                          ),
-                          color: const Color(0xFFE4E5C2),
+                    );
+                  },
+                  child: Container(
+                    width: 160,
+                    margin: const EdgeInsets.only(right: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(16),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product Image
+                        Container(
+                          height: 120,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                            color: const Color(0xFFE4E5C2),
                           ),
-                          child: Image.asset(
-                            product['image']!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: const Color(0xFFE4E5C2),
-                                child: const Icon(
-                                  Icons.recycling,
-                                  size: 40,
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                            child: Image.asset(
+                              product['image']!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: const Color(0xFFE4E5C2),
+                                  child: const Icon(
+                                    Icons.recycling,
+                                    size: 40,
+                                    color: Color(0xFF88844D),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // Product Details
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product['title']!,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                   color: Color(0xFF88844D),
                                 ),
-                              );
-                            },
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'By ${product['artisan']!}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black.withOpacity(0.6),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    product['price']!,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF88844D),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFBEC092),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.shopping_bag_outlined,
+                                      size: 16,
+                                      color: Color(0xFF88844D),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      
-                      // Product Details
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product['title']!,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF88844D),
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'By ${product['artisan']!}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.black.withOpacity(0.6),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  product['price']!,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF88844D),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBEC092),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.shopping_bag_outlined,
-                                    size: 16,
-                                    color: Color(0xFF88844D),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
@@ -539,110 +554,120 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           itemCount: _products.length,
           itemBuilder: (context, index) {
             final product = _products[index];
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 6,
-                    offset: const Offset(0, 3),
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProductDetailScreen(product: product),
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Product Image
-                  Container(
-                    height: 120,
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                      color: Color(0xFFE4E5C2),
+                );
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
                     ),
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Product Image
+                    Container(
+                      height: 120,
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                        color: Color(0xFFE4E5C2),
                       ),
-                      child: Image.asset(
-                        product['image']!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: const Color(0xFFE4E5C2),
-                            child: const Icon(
-                              Icons.recycling,
-                              size: 40,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                        child: Image.asset(
+                          product['image']!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: const Color(0xFFE4E5C2),
+                              child: const Icon(
+                                Icons.recycling,
+                                size: 40,
+                                color: Color(0xFF88844D),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Product Details
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            product['title']!,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: Color(0xFF88844D),
                             ),
-                          );
-                        },
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'By ${product['artisan']!}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black.withOpacity(0.6),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                product['price']!,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF88844D),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFBEC092),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 16,
+                                  color: Color(0xFF88844D),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Product Details
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product['title']!,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF88844D),
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'By ${product['artisan']!}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black.withOpacity(0.6),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              product['price']!,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF88844D),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFBEC092),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.shopping_bag_outlined,
-                                size: 16,
-                                color: Color(0xFF88844D),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -673,7 +698,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             // Navigate to DashboardScreen and clear the entire navigation stack
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => DashboardScreen(userName: widget.userName)), // FIXED: Removed $userName! syntax error
+              MaterialPageRoute(builder: (context) => DashboardScreen(userName: widget.userName)),
               (Route<dynamic> route) => false, // This removes all previous routes
             );
           }),
