@@ -6,6 +6,7 @@ import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/screens/product_details_screen.dart'; 
 import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
+import 'package:junk_and_gems/screens/create_product_listing_screen.dart'; // Add this import
 
 class MarketplaceScreen extends StatefulWidget {
   final String userName;
@@ -70,8 +71,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
   final List<Map<String, String>> _products = [
     {
-      'title': 'Sta-Soft Lamp M400',
-      'artisan': 'Nthati Radiapole',
+      'title': 'Sta-Soft Lamp',
+      'artisan': 'Nthati R.',
       'price': 'M400',
       'image': 'assets/images/featured3.jpg',
     },
@@ -150,6 +151,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     return Scaffold(
       backgroundColor: const Color(0xFFF7F2E4),
       bottomNavigationBar: _buildBottomNavBar(context),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateProductListingScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFFBEC092),
+        foregroundColor: const Color(0xFF88844D),
+        child: const Icon(Icons.add, size: 30),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       appBar: AppBar(
         backgroundColor: const Color(0xFFF7F2E4),
         elevation: 0,
