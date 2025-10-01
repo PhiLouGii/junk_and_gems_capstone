@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
+import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 
 class NotificationsMessagesScreen extends StatefulWidget {
@@ -442,34 +443,46 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  /// =========================
-  /// Bottom Navigation Bar
-  /// =========================
-   Widget _buildBottomNavBar(BuildContext context) {
+  // Bottom Nav Bar
+  Widget _buildBottomNavBar(BuildContext context) {
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFFBEC092),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(Icons.home, false, onTap: () => Navigator.pop(context)),
-          _navItem(Icons.inventory_2_outlined, false, onTap: () {
+          _navItem(Icons.home_filled, false, 'Home', onTap: () {}),
+          _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
             );
           }),
-          _navItem(Icons.shopping_bag_outlined, false),
-          _navItem(Icons.notifications_active_outlined, true, onTap: () {
-            Navigator.pushReplacement(
+          _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MarketplaceScreen(userName: 'User'),
+              ),
+            );
+          }),
+          _navItem(Icons.notifications_outlined, true, 'Alerts', onTap: () {
+            Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_2_outlined, false, onTap: () {
+          _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfileScreen()),
@@ -480,15 +493,30 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  Widget _navItem(IconData icon, bool isSelected, {VoidCallback? onTap}) {
+  Widget _navItem(IconData icon, bool isSelected, String label, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: isSelected
-            ? const BoxDecoration(color: Color(0xFFF7F2E4), shape: BoxShape.circle)
-            : null,
-        padding: const EdgeInsets.all(12),
-        child: Icon(icon, color: const Color(0xFF88844D), size: 28),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

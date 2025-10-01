@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/providers/language_provider.dart';
 import 'package:junk_and_gems/screens/legal_webview_screen.dart';
 import 'package:junk_and_gems/utils/legal_content.dart';
+import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -250,55 +252,58 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   }
 
   Widget _buildLanguageToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFBEC092),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.language, color: Color(0xFF88844D), size: 20),
+  return Consumer<LanguageProvider>(
+    builder: (context, languageProvider, child) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        title: Text(
-          'App Language',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF88844D),
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.language, color: Color(0xFF88844D), size: 20),
+          ),
+          title: Text(
+            'App Language',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF88844D),
+            ),
+          ),
+          subtitle: Text(
+            languageProvider.isSesotho ? 'Sesotho' : 'English',
+            style: TextStyle(
+              fontSize: 14,
+              color: const Color(0xFF88844D).withOpacity(0.7),
+            ),
+          ),
+          trailing: Switch(
+            value: languageProvider.isSesotho,
+            onChanged: (value) {
+              languageProvider.toggleLanguage(value);
+            },
+            activeColor: const Color(0xFF88844D),
           ),
         ),
-        subtitle: Text(
-          _isSesotho ? 'Sesotho' : 'English',
-          style: TextStyle(
-            fontSize: 14,
-            color: const Color(0xFF88844D).withOpacity(0.7),
-          ),
-        ),
-        trailing: Switch(
-          value: _isSesotho,
-          onChanged: (value) {
-            setState(() {
-              _isSesotho = value;
-            });
-          },
-          activeColor: const Color(0xFF88844D),
-        ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
+
 
   Widget _buildFontSizeSlider() {
     return Container(
@@ -378,108 +383,121 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   }
 
   Widget _buildFontSizePreview() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Preview',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF88844D),
+  return Consumer<LanguageProvider>(
+    builder: (context, languageProvider, child) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _isSesotho 
-                ? 'Ho lokile, kea utloa hantle!' 
-                : 'This is how your text will look with the selected font size.',
-            style: TextStyle(
-              fontSize: 14 * _fontSize,
-              color: const Color(0xFF88844D),
-              height: 1.4,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Preview',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF88844D),
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 12),
+            Text(
+              languageProvider.isSesotho
+                  ? 'Ho lokile, kea utloa hantle!'
+                  : 'This is how your text will look with the selected font size.',
+              style: TextStyle(
+                fontSize: 14 * _fontSize,
+                color: const Color(0xFF88844D),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 
   Widget _buildPreviewCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _isSesotho ? 'Pono ea App' : 'App Preview',
-            style: TextStyle(
-              fontSize: 18 * _fontSize,
-              fontWeight: FontWeight.bold,
-              color: const Color(0xFF88844D),
+  return Consumer<LanguageProvider>(
+    builder: (context, languageProvider, child) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _isSesotho 
-                ? 'Sena ke mohlala o hlahisang hore sebatli se tla shebahala joang app ena.' 
-                : 'This is a sample preview showing how the app interface will look.',
-            style: TextStyle(
-              fontSize: 14 * _fontSize,
-              color: const Color(0xFF88844D).withOpacity(0.8),
-              height: 1.4,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              languageProvider.isSesotho ? 'Pono ea App' : 'App Preview',
+              style: TextStyle(
+                fontSize: 18 * _fontSize,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF88844D),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE4E5C2),
-              borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 8),
+            Text(
+              languageProvider.isSesotho
+                  ? 'Sena ke mohlala o hlahisang hore sebatli se tla shebahala joang app ena.'
+                  : 'This is a sample preview showing how the app interface will look.',
+              style: TextStyle(
+                fontSize: 14 * _fontSize,
+                color: const Color(0xFF88844D).withOpacity(0.8),
+                height: 1.4,
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.recycling, color: const Color(0xFF88844D), size: 20 * _fontSize),
-                const SizedBox(width: 8),
-                Text(
-                  _isSesotho ? 'Ho fana ka Thepa' : 'Donate Materials',
-                  style: TextStyle(
-                    fontSize: 14 * _fontSize,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF88844D),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE4E5C2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.recycling,
+                      color: const Color(0xFF88844D),
+                      size: 20 * _fontSize),
+                  const SizedBox(width: 8),
+                  Text(
+                    languageProvider.isSesotho
+                        ? 'Ho fana ka Thepa'
+                        : 'Donate Materials',
+                    style: TextStyle(
+                      fontSize: 14 * _fontSize,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF88844D),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    },
+  );
+}
 }
