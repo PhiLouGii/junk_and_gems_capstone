@@ -53,12 +53,16 @@ class _LoginScreenState extends State<LoginScreen> {
           await _saveUserData(data['token'], data['user']);
           
           // Navigate to Dashboard and pass the user's name
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DashboardScreen(userName: data['user']['name']),
-            ),
-          );
+          // After login, navigate like this:
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) => DashboardScreen( // Use data['user'] instead of userData
+      userName: data['user']['name'],
+      userId: data['user']['id'].toString(),
+    ),
+  ),
+);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Error: Invalid response format from server")),

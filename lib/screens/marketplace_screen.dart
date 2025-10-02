@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
@@ -10,7 +11,9 @@ import 'package:junk_and_gems/screens/create_product_listing_screen.dart'; // Ad
 
 class MarketplaceScreen extends StatefulWidget {
   final String userName;
-  const MarketplaceScreen({super.key, required this.userName});
+  final String? userId; // Make userId nullable
+
+  const MarketplaceScreen({super.key, required this.userName, this.userId});
 
   @override
   State<MarketplaceScreen> createState() => _MarketplaceScreenState();
@@ -20,6 +23,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   final ScrollController _featuredController = ScrollController();
   late AnimationController _animationController;
   late Animation<double> _animation;
+  Map<String, String> _userData = {};
   int _cartItemCount = 1; 
 
   final List<Map<String, String>> _featuredProducts = [
@@ -114,6 +118,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startAutoScroll();
     });
+    _loadUserData();
   }
 
   void _startAutoScroll() {
@@ -145,6 +150,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     _animationController.dispose();
     super.dispose();
   }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userData = {
+        'name': prefs.getString('userName') ?? 'User',
+        'userId': prefs.getString('userId') ?? '',
+        // Add other user data if needed
+      };
+    });
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -709,11 +727,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         children: [
           _navItem(Icons.home_filled, false, 'Home', onTap: () {
             // Navigate to DashboardScreen and clear the entire navigation stack
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => DashboardScreen(userName: widget.userName)),
-              (Route<dynamic> route) => false, // This removes all previous routes
-            );
+            // After login, navigate like this:
+Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) => DashboardScreen(
+      userName: _userData['name']!,
+      userId: _userData['userId'] ?? '', // Use _userData and handle null
+    ),
+  ),
+);
           }),
           _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(

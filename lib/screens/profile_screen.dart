@@ -71,8 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
           onPressed: () => Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName)),
+            context, MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName, userId: userData['userId'] ?? '')),
           ),
         ),
         centerTitle: true,
@@ -410,7 +409,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _navItem(Icons.home_filled, false, 'Home', onTap: () {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName)),
+              MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName, userId: userData['userId'] ?? '')),
               (route) => false,
             );
           }),
@@ -424,7 +423,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => MarketplaceScreen(userName: userName),
+                builder: (context) => MarketplaceScreen(userName: userName, userId: userData['userId'] ?? ''),
               ),
             );
           }),

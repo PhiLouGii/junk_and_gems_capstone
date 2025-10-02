@@ -4,11 +4,69 @@ import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/utils/session_manager.dart';
+import 'package:junk_and_gems/services/user_service.dart';
 import 'browse_materials_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final String userName;
-  const DashboardScreen({super.key, required this.userName});
+  final String userId;
+  
+  const DashboardScreen({
+    super.key, 
+    required this.userName,
+    required this.userId,
+  });
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  List<dynamic> artisans = [];
+  List<dynamic> contributors = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+  try {
+    print('🚀 Starting to load dashboard data...');
+    
+    final [artisansData, contributorsData] = await Future.wait([
+      UserService.getArtisans(),
+      UserService.getContributors(),
+    ]);
+
+    print('📊 Artisans data received: ${artisansData.length} items');
+    print('📊 Contributors data received: ${contributorsData.length} items');
+    
+    if (artisansData.isNotEmpty) {
+      print('👨‍🎨 First artisan: ${artisansData[0]}');
+    }
+    
+    if (contributorsData.isNotEmpty) {
+      print('👥 First contributor: ${contributorsData[0]}');
+    }
+
+    setState(() {
+      artisans = artisansData;
+      contributors = contributorsData;
+      isLoading = false;
+    });
+    
+    print('✅ Dashboard data loaded successfully');
+    
+  } catch (e) {
+    print('❌ Error loading dashboard data: $e');
+    setState(() {
+      isLoading = false;
+    });
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +124,7 @@ class DashboardScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'Welcome, $userName!',
+                'Welcome, ${widget.userName}!',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -323,9 +381,15 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // Artisan Carousel with Profile Pictures
+  // Artisan Carousel with Real Data
   Widget _buildArtisanCarousel() {
-    final items = _artisanHighlights();
+    if (isLoading) {
+      return _buildLoadingCarousel("Artisan Highlights");
+    }
+
+    if (artisans.isEmpty) {
+      return _buildEmptyCarousel("Artisan Highlights", "No artisans yet");
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,7 +404,7 @@ class DashboardScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         cs.CarouselSlider(
-          items: items,
+          items: artisans.map((artisan) => _buildUserCard(artisan, true)).toList(),
           options: cs.CarouselOptions(
             height: 200,
             autoPlay: true,
@@ -354,9 +418,15 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // Contributors Carousel with Profile Pictures
+  // Contributors Carousel with Real Data
   Widget _buildContributorCarousel() {
-    final items = _frequentContributors();
+    if (isLoading) {
+      return _buildLoadingCarousel("Frequent Contributors");
+    }
+
+    if (contributors.isEmpty) {
+      return _buildEmptyCarousel("Frequent Contributors", "No contributors yet");
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,7 +441,7 @@ class DashboardScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         cs.CarouselSlider(
-          items: items,
+          items: contributors.map((contributor) => _buildUserCard(contributor, false)).toList(),
           options: cs.CarouselOptions(
             height: 200,
             autoPlay: true,
@@ -385,195 +455,182 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // Artisan Highlights with Profile Pictures
-  List<Widget> _artisanHighlights() {
-    final artisans = [
-      {'name': 'Limakatso L.', 'specialty': 'Jewellery', 'image': 'assets/images/artisan1.jpg'},
-      {'name': 'Nthati R.', 'specialty': 'Home Decor', 'image': 'assets/images/artisan2.jpg'},
-      {'name': 'Bonn F.', 'specialty': 'Fashion', 'image': 'assets/images/artisan3.jpg'},
-      {'name': 'Meredith G.', 'specialty': 'Furniture', 'image': 'assets/images/artisan4.jpg'},
-      {'name': 'Miranda B.', 'specialty': 'Art & Crafts', 'image': 'assets/images/artisan5.jpg'},
-      {'name': 'Cristina Y.', 'specialty': 'Home Decor', 'image': 'assets/images/artisan6.jpg'},
-    ];
+  // Build user card for both artisans and contributors
+  Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
+  final name = user['name'] ?? 'Unknown User';
+  final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
+  final profileImage = user['profile_image_url'];
+  final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
+  final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
 
-    return artisans.map((a) {
-      return Container(
-        width: 140,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+  return Container(
+    width: 140,
+    height: 180, 
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 16),
-            // Profile Picture with fallback
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(
-                  color: const Color(0xFFBEC092),
-                  width: 2,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(35),
-                child: Image.asset(
-                  a['image']!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: const Color(0xFFE4E5C2),
-                      child: const Icon(
-                        Icons.person,
-                        size: 30,
-                        color: Color(0xFF88844D),
-                      ),
-                    );
-                  },
-                ),
-              ),
+      ],
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const SizedBox(height: 12), 
+        // Profile Picture - use real image if available
+        Container(
+          width: 60, 
+          height: 60, 
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(
+              color: const Color(0xFFBEC092),
+              width: 2,
             ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                a['name']!,
-                style: const TextStyle(
-                  fontSize: 16, 
-                  fontWeight: FontWeight.w600, 
-                  color: Color(0xFF88844D)
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (a['specialty']!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  a['specialty']!,
-                  style: TextStyle(
-                    fontSize: 14, 
-                    color: Colors.black.withOpacity(0.6),
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            const SizedBox(height: 16),
-          ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: profileImage != null 
+                ? Image.network(
+                    profileImage,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildProfilePlaceholder();
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return _buildProfilePlaceholder();
+                    },
+                  )
+                : _buildProfilePlaceholder(),
+          ),
         ),
-      );
-    }).toList();
+        const SizedBox(height: 8), 
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            _getDisplayName(name),
+            style: const TextStyle(
+              fontSize: 14, 
+              fontWeight: FontWeight.w600, 
+              color: Color(0xFF88844D)
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            specialty,
+            style: TextStyle(
+              fontSize: 12, 
+              color: Colors.black.withOpacity(0.6),
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (donationCount > 0 || materialCount > 0) ...[
+          const SizedBox(height: 2),
+          Text(
+            isArtisan 
+                ? '$donationCount donations'
+                : '$materialCount materials',
+            style: const TextStyle(
+              fontSize: 10, 
+              color: Color(0xFF88844D),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12), 
+      ],
+    ),
+  );
+}
+
+  Widget _buildProfilePlaceholder() {
+    return Container(
+      color: const Color(0xFFE4E5C2),
+      child: const Icon(
+        Icons.person,
+        size: 24,
+        color: Color(0xFF88844D),
+      ),
+    );
   }
 
-  // Frequent Contributors with Profile Pictures
-  List<Widget> _frequentContributors() {
-    final contributors = [
-      {'name': 'Richard W.', 'contribution': 'Fabric & Wood', 'image': 'assets/images/contributor1.jpg'},
-      {'name': 'Mahloli M.', 'contribution': 'Plastic bottles', 'image': 'assets/images/contributor2.jpg'},
-      {'name': 'Alex T.', 'contribution': 'Cables', 'image': 'assets/images/contributor3.jpg'},
-      {'name': 'Liteboho N.', 'contribution': 'Wood', 'image': 'assets/images/contributor4.jpg'},
-      {'name': 'Philippa G.', 'contribution': 'Cardboard', 'image': 'assets/images/contributor5.jpg'},
-      {'name': 'Jackson A.', 'contribution': 'Old CDs', 'image': 'assets/images/contributor6.jpg'},
-    ];
+  String _getDisplayName(String fullName) {
+    final parts = fullName.split(' ');
+    if (parts.length > 1) {
+      return '${parts[0]} ${parts[1][0]}.';
+    }
+    return fullName;
+  }
 
-    return contributors.map((c) {
-      return Container(
-        width: 140,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+  Widget _buildLoadingCarousel(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Color(0xFF88844D)
+          ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 16),
-            // Profile Picture with fallback
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(
-                  color: const Color(0xFFBEC092),
-                  width: 2,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(35),
-                child: Image.asset(
-                  c['image']!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: const Color(0xFFE4E5C2),
-                      child: const Icon(
-                        Icons.person,
-                        size: 30,
-                        color: Color(0xFF88844D),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                c['name']!,
-                style: const TextStyle(
-                  fontSize: 16, 
-                  fontWeight: FontWeight.w600, 
-                  color: Color(0xFF88844D)
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                c['contribution']!,
-                style: TextStyle(
-                  fontSize: 14, 
-                  color: Colors.black.withOpacity(0.6),
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+        const SizedBox(height: 12),
+        Container(
+          height: 200,
+          child: const Center(
+            child: CircularProgressIndicator(color: Color(0xFF88844D)),
+          ),
         ),
-      );
-    }).toList();
+      ],
+    );
+  }
+
+  Widget _buildEmptyCarousel(String title, String message) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Color(0xFF88844D)
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 200,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: Colors.black.withOpacity(0.5),
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   // Bottom Nav Bar
@@ -605,7 +662,7 @@ class DashboardScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => MarketplaceScreen(userName: userName), // FIXED: Use dynamic userName
+                builder: (context) => MarketplaceScreen(userName: widget.userName),
               ),
             );
           }),

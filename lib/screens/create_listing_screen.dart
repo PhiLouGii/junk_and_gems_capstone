@@ -354,11 +354,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           });
 
         } catch (e) {
-          print('Error creating material: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating listing: $e')),
-          );
-        }
+    print('Detailed error: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        duration: Duration(seconds: 5),
+      ),
+    );
+  }
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF88844D),
