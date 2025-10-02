@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
@@ -16,7 +19,6 @@ class _NotificationsMessagesScreenState
     extends State<NotificationsMessagesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
 
   @override
   void initState() {
@@ -233,145 +235,134 @@ class _NotificationsMessagesScreenState
   /// Messages Tab
   /// =========================
   Widget _buildMessagesTab() {
-    final List<Map<String, dynamic>> conversations = [
-      {
-        'name': 'Nthati R.',
-        'message': "I'm interested in the old...",
-        'time': '2m ago',
-        'isUnread': true,
-      },
-      {
-        'name': 'Mahloil M.',
-        'message': 'Can I pick up the fabric...',
-        'time': '5m ago',
-        'isUnread': true,
-      },
-      {
-        'name': 'Limakatso L.',
-        'message': 'The upcycled bags are...',
-        'time': '1h ago',
-        'isUnread': false,
-      },
-      {
-        'name': 'Liteboho N.',
-        'message': 'Do you still have the...',
-        'time': '2h ago',
-        'isUnread': false,
-      },
-      {
-        'name': 'Louise G.',
-        'message': 'Are the glass jars still...',
-        'time': '3h ago',
-        'isUnread': false,
-      },
-    ];
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadConversations(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          // Search Bar
-          Container(
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBEC092), width: 1),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final conversations = snapshot.data ?? [];
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              // Search Bar
+              Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBEC092), width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search,
+                          color: const Color(0xFF88844D).withOpacity(0.6)),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search Messages...',
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Chips
+              Row(
                 children: [
-                  Icon(Icons.search,
-                      color: const Color(0xFF88844D).withOpacity(0.6)),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFBEC092),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Unread',
+                      style: TextStyle(
+                        color: Color(0xFF88844D),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  const Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search Messages...',
-                        border: InputBorder.none,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFBEC092), width: 1),
+                    ),
+                    child: const Text(
+                      'Archived',
+                      style: TextStyle(
+                        color: Color(0xFF88844D),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-          // Chips
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Unread',
-                  style: TextStyle(
-                      color: Color(0xFF88844D),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFBEC092), width: 1),
-                ),
-                child: const Text(
-                  'Archived',
-                  style: TextStyle(
-                      color: Color(0xFF88844D),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14),
-                ),
+              // Conversations List
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: conversations.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final conversation = conversations[index];
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatScreen(
+                            userName: conversation['other_user_name'],
+                            otherUserId: conversation['other_user_id'],
+                            currentUserId: '1', // Get from your auth system
+                            conversationId: conversation['conversation_id'],
+                          ),
+                        ),
+                      );
+                    },
+                    child: _buildConversationCard(
+                      name: conversation['other_user_name'],
+                      message: conversation['last_message'] ?? 'Start a conversation',
+                      time: _formatLastMessageTime(conversation['last_message_time']),
+                      isUnread: (conversation['unread_count'] ?? 0) > 0,
+                    ),
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 20),
+        );
+      },
+    );
+  }
 
-          // Conversations List
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: conversations.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final conversation = conversations[index];
-            return GestureDetector(
-              onTap: () {
-                // Navigate to chat screen with the selected user
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ChatScreen(
-                      userName: conversation['name'] as String,
-                    ),
-                  ),
-                );
-              },
-              child: _buildConversationCard(
-                name: conversation['name'] as String,
-                message: conversation['message'] as String,
-                time: conversation['time'] as String,
-                isUnread: conversation['isUnread'] as bool,
-              ),
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
+  /// =========================
+  /// Conversation Card Widget
+  /// =========================
   Widget _buildConversationCard({
     required String name,
     required String message,
@@ -384,9 +375,10 @@ class _NotificationsMessagesScreenState
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2))
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
         border: isUnread
             ? Border.all(color: const Color(0xFFBEC092), width: 2)
@@ -401,8 +393,9 @@ class _NotificationsMessagesScreenState
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092),
-                  borderRadius: BorderRadius.circular(25)),
+                color: const Color(0xFFBEC092),
+                borderRadius: BorderRadius.circular(25),
+              ),
               child: const Icon(Icons.person, color: Color(0xFF88844D)),
             ),
             const SizedBox(width: 16),
@@ -412,35 +405,88 @@ class _NotificationsMessagesScreenState
                 children: [
                   Row(
                     children: [
-                      Text(name,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF88844D))),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF88844D),
+                        ),
+                      ),
                       const Spacer(),
-                      Text(time,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black.withOpacity(0.5))),
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black.withOpacity(0.5),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(message,
-                      style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.black.withOpacity(0.7),
-                          fontWeight: isUnread
-                              ? FontWeight.w600
-                              : FontWeight.normal),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black.withOpacity(0.7),
+                      fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
+            // Unread indicator
+            if (isUnread) ...[
+              const SizedBox(width: 8),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF88844D),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadConversations() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:3003/api/users/1/conversations'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (error) {
+      print('Error loading conversations: $error');
+      return [];
+    }
+  }
+
+  String _formatLastMessageTime(String? timestamp) {
+    if (timestamp == null) return '';
+    
+    try {
+      final dateTime = DateTime.parse(timestamp).toLocal();
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 1) return 'Now';
+      if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+      if (difference.inHours < 24) return '${difference.inHours}h ago';
+      return '${difference.inDays}d ago';
+    } catch (e) {
+      return '';
+    }
   }
 
   // Bottom Nav Bar

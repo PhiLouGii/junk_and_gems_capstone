@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
+  final String otherUserId;
+  final String currentUserId;
+  final String conversationId;
 
-  const ChatScreen({super.key, required this.userName});
+  const ChatScreen({
+    super.key,
+    required this.userName,
+    required this.otherUserId,
+    required this.currentUserId,
+    required this.conversationId,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -11,28 +22,92 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text: "Hi! I'm interested in the plastic bottles you listed.",
-      isSent: false,
-      time: '10:30 AM',
-    ),
-    ChatMessage(
-      text: "Yes we still have them. When can you come pick them up?",
-      isSent: true,
-      time: '10:31 AM',
-    ),
-    ChatMessage(
-      text: "I can come by this afternoon around 3 PM. What's the exact address?",
-      isSent: false,
-      time: '10:32 AM',
-    ),
-    ChatMessage(
-      text: "You see where the big tree ends next to Machabeng, yes look for the black gate.",
-      isSent: true,
-      time: '10:33 AM',
-    ),
-  ];
+  final List<ChatMessage> _messages = [];
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+    // Start polling for new messages (in real app, use WebSockets)
+    _startMessagePolling();
+  }
+
+  void _loadMessages() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:3003/api/conversations/${widget.conversationId}/messages'),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> messagesData = json.decode(response.body);
+        setState(() {
+          _messages.clear();
+          _messages.addAll(messagesData.map((data) => ChatMessage(
+            id: data['id'].toString(),
+            text: data['message_text'],
+            isSent: data['sender_id'].toString() == widget.currentUserId,
+            time: _formatTime(data['sent_at']),
+            senderName: data['sender_name'],
+          )).toList());
+        });
+        
+        // Scroll to bottom
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        });
+      }
+    } catch (error) {
+      print('Error loading messages: $error');
+    }
+  }
+
+  void _startMessagePolling() {
+    // Poll for new messages every 3 seconds
+    // In production, use WebSockets for real-time updates
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        _loadMessages();
+        _startMessagePolling();
+      }
+    });
+  }
+
+  String _formatTime(String timestamp) {
+    try {
+      final dateTime = DateTime.parse(timestamp).toLocal();
+      return '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return 'Now';
+    }
+  }
+
+  void _sendMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:3003/api/conversations/${widget.conversationId}/messages'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'senderId': widget.currentUserId,
+          'messageText': text,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        _messageController.clear();
+        _loadMessages(); // Reload messages to include the new one
+      }
+    } catch (error) {
+      print('Error sending message: $error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,17 +117,11 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: const Color(0xFFF7F2E4),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: const Color(0xFF88844D),
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Row(
           children: [
-            // User Avatar
             Container(
               width: 40,
               height: 40,
@@ -60,10 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                Icons.person,
-                color: const Color(0xFF88844D),
-              ),
+              child: const Icon(Icons.person, color: Color(0xFF88844D)),
             ),
             const SizedBox(width: 12),
             Column(
@@ -71,17 +137,17 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Text(
                   widget.userName,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF88844D),
+                    color: Color(0xFF88844D),
                   ),
                 ),
-                Text(
+                const Text(
                   'Online',
                   style: TextStyle(
                     fontSize: 12,
-                    color: const Color(0xFF88844D).withOpacity(0.7),
+                    color: Color(0xFF88844D),
                   ),
                 ),
               ],
@@ -90,23 +156,17 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(
-              Icons.more_vert,
-              color: const Color(0xFF88844D),
-            ),
-            onPressed: () {
-              // Handle more options
-            },
+            icon: const Icon(Icons.more_vert, color: Color(0xFF88844D)),
+            onPressed: () {},
           ),
         ],
       ),
       body: Column(
         children: [
-          // Messages List
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(16.0),
-              reverse: false,
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
@@ -114,8 +174,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          
-          // Message Input Section
           _buildMessageInput(),
         ],
       ),
@@ -129,7 +187,6 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: message.isSent ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!message.isSent) ...[
-            // Receiver's avatar (only for received messages)
             Container(
               width: 32,
               height: 32,
@@ -137,11 +194,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(
-                Icons.person,
-                size: 18,
-                color: const Color(0xFF88844D),
-              ),
+              child: const Icon(Icons.person, size: 18, color: Color(0xFF88844D)),
             ),
             const SizedBox(width: 8),
           ],
@@ -150,23 +203,14 @@ class _ChatScreenState extends State<ChatScreen> {
               crossAxisAlignment: message.isSent ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: message.isSent
-                        ? const Color(0xFF88844D)
-                        : Colors.white,
+                    color: message.isSent ? const Color(0xFF88844D) : Colors.white,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
-                      bottomLeft: message.isSent
-                          ? const Radius.circular(16)
-                          : const Radius.circular(4),
-                      bottomRight: message.isSent
-                          ? const Radius.circular(4)
-                          : const Radius.circular(16),
+                      bottomLeft: message.isSent ? const Radius.circular(16) : const Radius.circular(4),
+                      bottomRight: message.isSent ? const Radius.circular(4) : const Radius.circular(16),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -179,9 +223,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Text(
                     message.text,
                     style: TextStyle(
-                      color: message.isSent
-                          ? const Color(0xFFF7F2E4)
-                          : const Color(0xFF88844D),
+                      color: message.isSent ? const Color(0xFFF7F2E4) : const Color(0xFF88844D),
                       fontSize: 14,
                     ),
                   ),
@@ -199,7 +241,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           if (message.isSent) ...[
             const SizedBox(width: 8),
-            // Sender's avatar (only for sent messages)
             Container(
               width: 32,
               height: 32,
@@ -207,11 +248,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(
-                Icons.person,
-                size: 18,
-                color: const Color(0xFF88844D),
-              ),
+              child: const Icon(Icons.person, size: 18, color: Color(0xFF88844D)),
             ),
           ],
         ],
@@ -224,38 +261,21 @@ class _ChatScreenState extends State<ChatScreen> {
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, -2))],
       ),
       child: Row(
         children: [
-          // Attachment Button
           IconButton(
-            icon: Icon(
-              Icons.attach_file,
-              color: const Color(0xFF88844D),
-            ),
-            onPressed: () {
-              // Handle attachment
-            },
+            icon: const Icon(Icons.attach_file, color: Color(0xFF88844D)),
+            onPressed: () {},
           ),
           const SizedBox(width: 8),
-          
-          // Message Input Field
           Expanded(
             child: Container(
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F2E4),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: const Color(0xFFBEC092),
-                  width: 1,
-                ),
+                border: Border.all(color: const Color(0xFFBEC092), width: 1),
               ),
               child: Row(
                 children: [
@@ -265,30 +285,21 @@ class _ChatScreenState extends State<ChatScreen> {
                       controller: _messageController,
                       decoration: InputDecoration(
                         hintText: 'Write a message...',
-                        hintStyle: TextStyle(
-                          color: const Color(0xFF88844D).withOpacity(0.6),
-                        ),
+                        hintStyle: TextStyle(color: const Color(0xFF88844D).withOpacity(0.6)),
                         border: InputBorder.none,
                       ),
                       maxLines: null,
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
-                      Icons.emoji_emotions_outlined,
-                      color: const Color(0xFF88844D).withOpacity(0.6),
-                    ),
-                    onPressed: () {
-                      // Handle emoji
-                    },
+                    icon: Icon(Icons.emoji_emotions_outlined, color: const Color(0xFF88844D).withOpacity(0.6)),
+                    onPressed: () {},
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(width: 8),
-          
-          // Send Button
           Container(
             width: 48,
             height: 48,
@@ -297,14 +308,8 @@ class _ChatScreenState extends State<ChatScreen> {
               borderRadius: BorderRadius.circular(24),
             ),
             child: IconButton(
-              icon: Icon(
-                Icons.send,
-                color: const Color(0xFFF7F2E4),
-                size: 20,
-              ),
-              onPressed: () {
-                _sendMessage();
-              },
+              icon: const Icon(Icons.send, color: Color(0xFFF7F2E4), size: 20),
+              onPressed: _sendMessage,
             ),
           ),
         ],
@@ -312,55 +317,25 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _sendMessage() {
-    final text = _messageController.text.trim();
-    if (text.isNotEmpty) {
-      setState(() {
-        _messages.add(ChatMessage(
-          text: text,
-          isSent: true,
-          time: _getCurrentTime(),
-        ));
-        _messageController.clear();
-      });
-      
-      // Auto-reply after 1 second (simulate response)
-      Future.delayed(const Duration(seconds: 1), () {
-        setState(() {
-          _messages.add(ChatMessage(
-            text: "Okay I will come. 👍🏽👍🏽",
-            isSent: false,
-            time: _getCurrentTime(),
-          ));
-        });
-      });
-      
-      Future.delayed(const Duration(seconds: 3), () {
-        setState(() {
-          _messages.add(ChatMessage(
-            text: "See you soon. 😃",
-            isSent: false,
-            time: _getCurrentTime(),
-          ));
-        });
-      });
-    }
-  }
-
-  String _getCurrentTime() {
-    final now = DateTime.now();
-    return '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }
 
 class ChatMessage {
+  final String id;
   final String text;
   final bool isSent;
   final String time;
+  final String senderName;
 
   ChatMessage({
+    required this.id,
     required this.text,
     required this.isSent,
     required this.time,
+    required this.senderName,
   });
 }

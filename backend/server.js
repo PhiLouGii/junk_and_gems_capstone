@@ -407,6 +407,172 @@ app.post("/api/users/:id/profile-picture", upload.single('profile_picture'), asy
   }
 });
 
+// Get or create conversation between two users
+app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, res) => {
+  const { userId1, userId2 } = req.params;
+  
+  try {
+    // Check if conversation already exists
+    const existingConv = await pool.query(`
+      SELECT c.* 
+      FROM conversations c
+      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
+      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
+      WHERE cp1.user_id = $1 AND cp2.user_id = $2
+    `, [userId1, userId2]);
+
+    if (existingConv.rows.length > 0) {
+      return res.json(existingConv.rows[0]);
+    }
+
+    // Create new conversation
+    const newConv = await pool.query(
+      'INSERT INTO conversations DEFAULT VALUES RETURNING *'
+    );
+    
+    const convId = newConv.rows[0].id;
+
+    // Add both users as participants
+    await pool.query(
+      'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)',
+      [convId, userId1, userId2]
+    );
+
+    res.json(newConv.rows[0]);
+  } catch (err) {
+    console.error("Get conversation error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user's conversations
+app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    const result = await pool.query(`
+      SELECT 
+        c.id as conversation_id,
+        c.updated_at,
+        u.id as other_user_id,
+        u.name as other_user_name,
+        u.profile_image_url,
+        last_msg.message_text as last_message,
+        last_msg.sent_at as last_message_time,
+        (SELECT COUNT(*) FROM messages m 
+         WHERE m.conversation_id = c.id 
+         AND m.sender_id != $1 
+         AND m.read_at IS NULL) as unread_count
+      FROM conversations c
+      JOIN conversation_participants cp ON c.id = cp.conversation_id
+      JOIN users u ON u.id = cp.user_id AND u.id != $1
+      LEFT JOIN LATERAL (
+        SELECT message_text, sent_at
+        FROM messages 
+        WHERE conversation_id = c.id 
+        ORDER BY sent_at DESC 
+        LIMIT 1
+      ) last_msg ON true
+      WHERE cp.user_id = $1
+      ORDER BY last_msg.sent_at DESC NULLS LAST
+    `, [userId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get conversations error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get messages for a conversation
+app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
+  const { conversationId } = req.params;
+  
+  try {
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as sender_name,
+        u.profile_image_url as sender_avatar
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = $1
+      ORDER BY m.sent_at ASC
+    `, [conversationId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get messages error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Send a message
+app.post("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
+  const { conversationId } = req.params;
+  const { senderId, messageText } = req.body;
+  
+  try {
+    const result = await pool.query(`
+      INSERT INTO messages (conversation_id, sender_id, message_text)
+      VALUES ($1, $2, $3)
+      RETURNING *,
+        (SELECT name FROM users WHERE id = $2) as sender_name,
+        (SELECT profile_image_url FROM users WHERE id = $2) as sender_avatar
+    `, [conversationId, senderId, messageText]);
+
+    // Update conversation updated_at
+    await pool.query(
+      'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+      [conversationId]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Send message error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Mark messages as read
+app.put("/api/conversations/:conversationId/read", authenticateToken, async (req, res) => {
+  const { conversationId } = req.params;
+  const { userId } = req.body;
+  
+  try {
+    await pool.query(`
+      UPDATE messages 
+      SET read_at = NOW() 
+      WHERE conversation_id = $1 
+      AND sender_id != $2 
+      AND read_at IS NULL
+    `, [conversationId, userId]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Mark as read error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
+
+  jwt.verify(token, "your_jwt_secret", (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
+    req.user = user;
+    next();
+  });
+}
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
   console.log(`📡 Available test routes:`);
