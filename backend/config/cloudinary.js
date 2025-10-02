@@ -1,6 +1,6 @@
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const { Readable } = require('stream');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -9,19 +9,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Configure storage engine for Multer
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'junk_and_gems',
-    format: async (req, file) => 'png',
-    public_id: (req, file) => {
-      return `material_${Date.now()}`;
-    },
-  },
-});
-
-// Create multer instance with storage engine
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
   limits: {
@@ -36,4 +25,30 @@ const upload = multer({
   },
 });
 
-module.exports = { cloudinary, upload };
+// Function to upload buffer to Cloudinary
+const uploadToCloudinary = (buffer) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'junk_and_gems',
+        format: 'jpg',
+        quality: 'auto',
+      },
+      (error, result) => {
+        if (result) {
+          resolve(result);
+        } else {
+          reject(error);
+        }
+      }
+    );
+    
+    // Create a readable stream from buffer and pipe to Cloudinary
+    const readableStream = new Readable();
+    readableStream.push(buffer);
+    readableStream.push(null);
+    readableStream.pipe(uploadStream);
+  });
+};
+
+module.exports = { cloudinary, upload, uploadToCloudinary };

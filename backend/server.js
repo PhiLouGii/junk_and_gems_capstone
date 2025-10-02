@@ -3,7 +3,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { upload } = require('./config/cloudinary');
+const { upload, uploadToCloudinary } = require('./config/cloudinary');
 
 const app = express();
 const port = 3000;
@@ -18,6 +18,22 @@ const pool = new Pool({
   database: "junk_and_gems",
   password: "philippa",
   port: 5433, 
+});
+
+// Test route - FIXED (this was missing from your code)
+app.get('/api/test-cloudinary', async (req, res) => {
+  try {
+    res.json({ 
+      success: true, 
+      message: 'Cloudinary is configured correctly',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Cloudinary configuration error: ' + error.message 
+    });
+  }
 });
 
 // --- ROUTES ---
@@ -48,7 +64,6 @@ app.post("/signup", async (req, res) => {
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
     
-    // Return the same structure as login
     res.json({ 
       message: "User created successfully", 
       token: token,
@@ -65,8 +80,6 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-
-
 // Login
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
@@ -82,10 +95,8 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Incorrect password" });
     }
 
-    // Generate JWT token
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
     
-    // Return the exact structure we're expecting in Flutter
     res.json({ 
       message: "Login successful", 
       token: token, 
@@ -93,29 +104,12 @@ app.post("/login", async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        username: user.username || user.email.split('@')[0] // Fallback to email prefix if username is null
+        username: user.username || user.email.split('@')[0]
       }
     });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
-  }
-});
-
-
-// Get user info (example: dashboard)
-app.get("/user/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    const result = await pool.query(
-      "SELECT id, name, email, username FROM users WHERE id = $1", 
-      [id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: "User not found" });
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -129,11 +123,11 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
       });
     }
 
-    const imageUrl = req.file.path;
-
+    const result = await uploadToCloudinary(req.file.buffer);
+    
     res.json({
       success: true,
-      imageUrl: imageUrl,
+      imageUrl: result.secure_url,
       message: 'Image uploaded successfully'
     });
 
@@ -141,7 +135,7 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     console.error('Upload error:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Image upload failed' 
+      error: 'Image upload failed: ' + error.message 
     });
   }
 });
@@ -156,7 +150,12 @@ app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
       });
     }
 
-    const imageUrls = req.files.map(file => file.path);
+    const uploadPromises = req.files.map(file => 
+      uploadToCloudinary(file.buffer)
+    );
+
+    const results = await Promise.all(uploadPromises);
+    const imageUrls = results.map(result => result.secure_url);
 
     res.json({
       success: true,
@@ -168,7 +167,7 @@ app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
     console.error('Upload error:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Image upload failed' 
+      error: 'Image upload failed: ' + error.message 
     });
   }
 });

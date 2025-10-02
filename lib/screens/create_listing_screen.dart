@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:junk_and_gems/services/material_service.dart';
 import 'browse_materials_screen.dart';
 
 class CreateListingScreen extends StatefulWidget {
@@ -286,25 +287,51 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () {
-          final newListing = {
+  return SizedBox(
+    width: double.infinity,
+    height: 56,
+    child: ElevatedButton(
+      onPressed: () async {
+        // Validate required fields
+        if (_titleController.text.isEmpty || 
+            _descriptionController.text.isEmpty || 
+            _selectedCategory == null || 
+            _locationController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please fill in all required fields')),
+          );
+          return;
+        }
+
+        try {
+          // Convert XFile to File and upload images
+          List<String> imageUrls = [];
+          if (_images.isNotEmpty) {
+            // Convert XFile to File
+            List<File> imageFiles = _images.map((xFile) => File(xFile.path)).toList();
+            imageUrls = await MaterialService.uploadMultipleImages(imageFiles);
+          }
+
+          // Prepare the material data
+          final materialData = {
             'title': _titleController.text,
             'description': _descriptionController.text,
-            'category': _selectedCategory ?? '',
+            'category': _selectedCategory!,
             'quantity': _quantityController.text,
             'location': _locationController.text,
-            'delivery': _selectedDeliveryOption ?? '',
-            'availableFrom': _availableFrom,
-            'availableUntil': _availableUntil,
-            'fragile': _isFragile,
-            'contactPrefs': Map.from(_contactPreferences),
-            'images': _images.map((x) => x.path).toList(),
+            'delivery_option': _selectedDeliveryOption ?? '',
+            'available_from': _availableFrom?.toIso8601String(),
+            'available_until': _availableUntil?.toIso8601String(),
+            'is_fragile': _isFragile,
+            'contact_preferences': _contactPreferences,
+            'image_urls': imageUrls,
+            'uploader_id': 1, // Replace with actual user ID from auth
           };
 
+          // Create the material
+          await MaterialService.createMaterial(materialData);
+
+          // Show success dialog
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
@@ -323,19 +350,26 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
               content: const Text('Your waste will soon find a new purpose!', style: TextStyle(color: Color(0xFF88844D))),
             ),
           ).then((_) {
-            Navigator.pop(context, newListing);
+            Navigator.pop(context, true); // Return true to indicate success
           });
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF88844D),
-          foregroundColor: const Color(0xFFF7F2E4),
-          elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: const Text('Submit Listing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+
+        } catch (e) {
+          print('Error creating material: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error creating listing: $e')),
+          );
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF88844D),
+        foregroundColor: const Color(0xFFF7F2E4),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-    );
-  }
+      child: const Text('Submit Listing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+    ),
+  );
+}
 
   Future<void> _selectDate(BuildContext context, bool isFromDate) async {
     final DateTime? picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2100));
@@ -393,24 +427,31 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
   List<XFile> _images = [];
 
   Future<void> _pickImages() async {
-  final result = await FilePicker.platform.pickFiles(
-    allowMultiple: true,
-    type: FileType.image,
-  );
+  try {
+    final List<XFile>? pickedImages = await _picker.pickMultiImage(
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 80,
+    );
 
-  if (result != null && result.files.isNotEmpty) {
-    List<XFile> pickedImages = result.files.map((f) => XFile(f.path!)).toList();
-    
-    setState(() {
-      if (_images.length + pickedImages.length > 5) {
-        int availableSlots = 5 - _images.length;
-        _images.addAll(pickedImages.take(availableSlots));
-      } else {
-        _images.addAll(pickedImages);
-      }
-    });
+    if (pickedImages != null) {
+      setState(() {
+        if (_images.length + pickedImages.length > 5) {
+          int availableSlots = 5 - _images.length;
+          _images.addAll(pickedImages.take(availableSlots));
+        } else {
+          _images.addAll(pickedImages);
+        }
+      });
 
-    widget.onImagesChanged(_images);
+      widget.onImagesChanged(_images);
+    }
+  } catch (e) {
+    print("Image picker error: $e");
+    // Show error to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to pick images: $e')),
+    );
   }
 }
 

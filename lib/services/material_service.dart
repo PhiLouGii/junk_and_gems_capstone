@@ -97,7 +97,7 @@ class MaterialService {
       }
       
       // Add uploader_id to material data
-      materialData['uploader_id'] = userId;
+      materialData['uploader_id'] = int.parse(userId);
       
       final response = await http.post(
         Uri.parse('$baseUrl/materials'),
