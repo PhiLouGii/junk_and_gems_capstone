@@ -2,6 +2,8 @@ const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const { Readable } = require('stream');
 
+console.log('🔧 Loading Cloudinary config...');
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -14,7 +16,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024, 
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {

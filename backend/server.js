@@ -25,7 +25,7 @@ const pool = new Pool({
   port: 5433, 
 });
 
-// Test route - FIXED (this was missing from your code)
+// Test route
 app.get('/api/test-cloudinary', async (req, res) => {
   try {
     res.json({ 
@@ -37,6 +37,24 @@ app.get('/api/test-cloudinary', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: 'Cloudinary configuration error: ' + error.message 
+    });
+  }
+});
+
+// Test Cloudinary configuration
+app.get('/api/test-cloudinary-config', async (req, res) => {
+  try {
+    res.json({ 
+      success: true, 
+      message: 'Cloudinary configuration test',
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Missing',
+      apiKey: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Missing',
+      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Cloudinary test failed: ' + error.message
     });
   }
 });
@@ -121,14 +139,25 @@ app.post("/login", async (req, res) => {
 // Image upload endpoint
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   try {
+    console.log('📸 Upload endpoint called');
+    
     if (!req.file) {
+      console.log('❌ No file provided');
       return res.status(400).json({ 
         success: false, 
         error: 'No image file provided' 
       });
     }
 
+    console.log('✅ File received:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+
+    console.log('☁️ Uploading to Cloudinary...');
     const result = await uploadToCloudinary(req.file.buffer);
+    console.log('✅ Upload successful:', result.secure_url);
     
     res.json({
       success: true,
@@ -137,7 +166,7 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('❌ Upload error:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Image upload failed: ' + error.message 
@@ -148,13 +177,19 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 // Multiple images upload endpoint
 app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
   try {
+    console.log('📸 Multiple upload endpoint called');
+    
     if (!req.files || req.files.length === 0) {
+      console.log('❌ No files provided');
       return res.status(400).json({ 
         success: false, 
         error: 'No image files provided' 
       });
     }
 
+    console.log(`✅ ${req.files.length} files received`);
+
+    console.log('☁️ Uploading to Cloudinary...');
     const uploadPromises = req.files.map(file => 
       uploadToCloudinary(file.buffer)
     );
@@ -162,6 +197,8 @@ app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
     const results = await Promise.all(uploadPromises);
     const imageUrls = results.map(result => result.secure_url);
 
+    console.log(`✅ All uploads successful: ${imageUrls.length} images`);
+    
     res.json({
       success: true,
       imageUrls: imageUrls,
@@ -169,7 +206,7 @@ app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('❌ Upload error:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Image upload failed: ' + error.message 
@@ -370,23 +407,12 @@ app.post("/api/users/:id/profile-picture", upload.single('profile_picture'), asy
   }
 });
 
-app.get('/api/test-cloudinary-config', async (req, res) => {
-  try {
-    res.json({ 
-      success: true, 
-      message: 'Cloudinary configuration test',
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Missing',
-      apiKey: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Missing',
-      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Cloudinary test failed: ' + error.message
-    });
-  }
-});
-
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log(`📡 Available test routes:`);
+  console.log(`   GET  /api/test-cloudinary`);
+  console.log(`   GET  /api/test-cloudinary-config`);
+  console.log(`   GET  /api/test-users`);
+  console.log(`   GET  /api/artisans`);
+  console.log(`   GET  /api/contributors`);
 });

@@ -40,12 +40,16 @@ class MaterialService {
   // Upload multiple images
   static Future<List<String>> uploadMultipleImages(List<File> imageFiles) async {
     try {
+      print('🚀 Starting upload of ${imageFiles.length} images');
+      
       var request = http.MultipartRequest(
         'POST', 
         Uri.parse('$baseUrl/api/upload-images')
       );
       
+      // Add all images to the request
       for (var imageFile in imageFiles) {
+        print('📸 Adding image: ${imageFile.path}');
         request.files.add(
           await http.MultipartFile.fromPath(
             'images', 
@@ -54,17 +58,25 @@ class MaterialService {
         );
       }
 
+      print('📡 Sending upload request...');
       final response = await request.send();
       final responseData = await response.stream.bytesToString();
+      
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: $responseData');
+      
       final jsonResponse = jsonDecode(responseData);
       
       if (response.statusCode == 200 && jsonResponse['success']) {
+        print('✅ Upload successful, got ${jsonResponse['imageUrls'].length} URLs');
         return List<String>.from(jsonResponse['imageUrls']);
       } else {
-        throw Exception(jsonResponse['error'] ?? 'Upload failed');
+        final errorMsg = jsonResponse['error'] ?? 'Upload failed';
+        print('❌ Upload failed: $errorMsg');
+        throw Exception(errorMsg);
       }
     } catch (e) {
-      print('Error uploading images: $e');
+      print('❌ Error uploading images: $e');
       throw Exception('Image upload failed: $e');
     }
   }
@@ -96,8 +108,10 @@ class MaterialService {
         throw Exception('User not authenticated');
       }
       
-      // Add uploader_id to material data
+      // Use the actual logged-in user ID
       materialData['uploader_id'] = int.parse(userId);
+      
+      print('🚀 Creating material: ${materialData['title']}');
       
       final response = await http.post(
         Uri.parse('$baseUrl/materials'),
@@ -108,6 +122,9 @@ class MaterialService {
         body: jsonEncode(materialData),
       );
       
+      print('📡 Create material response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+      
       if (response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
@@ -115,7 +132,7 @@ class MaterialService {
         throw Exception(error['error'] ?? 'Failed to create material');
       }
     } catch (e) {
-      print('Error creating material: $e');
+      print('❌ Error creating material: $e');
       throw Exception('Failed to create material: $e');
     }
   }
