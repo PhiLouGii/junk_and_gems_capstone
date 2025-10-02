@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
+import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/settings_screen.dart';
-
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -14,9 +15,53 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String bioText = "";
+  Map<String, String> userData = {};
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        userData = {
+          'name': prefs.getString('userName') ?? 'User',
+          'email': prefs.getString('userEmail') ?? '',
+          'username': prefs.getString('username') ?? '',
+        };
+      });
+    } catch (e) {
+      print('Error loading user data: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF7F2E4),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: const Color(0xFF88844D),
+          ),
+        ),
+      );
+    }
+
+    final userName = userData['name'] ?? 'User';
+    final userEmail = userData['email'] ?? '';
+    final username = userData['username']?.isNotEmpty == true 
+        ? userData['username'] 
+        : (userEmail.split('@').first);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F2E4),
       appBar: AppBar(
@@ -24,7 +69,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
-          onPressed: () => Navigator.pushReplacementNamed(context, 'DashboardScreen'),
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName)),
+          ),
         ),
         centerTitle: true,
         title: Row(
@@ -49,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _buildProfileHeader(),
+              _buildProfileHeader(userName, username),
               const SizedBox(height: 32),
               _buildBioSection(),
               const SizedBox(height: 32),
@@ -58,18 +106,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 thickness: 1,
               ),
               const SizedBox(height: 32),
-              _buildContactInformation(),
+              _buildContactInformation(userEmail),
               const SizedBox(height: 32),
               _buildMyAccount(),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(context),
+      bottomNavigationBar: _buildBottomNavBar(context, userName),
     );
   }
 
-  Widget _buildProfileHeader() {
+  Widget _buildProfileHeader(String userName, String username) {
     return Column(
       children: [
         Stack(
@@ -88,7 +136,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Color(0xFF88844D),
               ),
             ),
-            // Edit button for profile picture
             Positioned(
               bottom: 0,
               right: 0,
@@ -109,9 +156,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Deborah Pholo',
-          style: TextStyle(
+        Text(
+          userName,
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: Color(0xFF88844D),
@@ -119,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          '@debblepholo',
+          '@$username',
           style: TextStyle(
             fontSize: 16,
             color: const Color(0xFF88844D).withOpacity(0.8),
@@ -184,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFFBEC092)),
                 ),
-                counterText: "", // Hide default counter
+                counterText: "",
               ),
             ),
             Positioned(
@@ -198,7 +245,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            // Edit button for bio
             Positioned(
               top: 8,
               right: 8,
@@ -215,7 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildContactInformation() {
+  Widget _buildContactInformation(String userEmail) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -231,7 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _buildContactItem(
           icon: Icons.email_outlined,
           label: 'Email',
-          value: 'debble.pholo@example.com',
+          value: userEmail,
         ),
         const SizedBox(height: 20),
         _buildContactItem(
@@ -343,56 +389,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-
-
-
-  /// =========================
-  /// Bottom Navigation Bar
-  /// =========================
-   Widget _buildBottomNavBar(BuildContext context) {
+  Widget _buildBottomNavBar(BuildContext context, String userName) {
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFFBEC092),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(Icons.home, false, onTap: () => Navigator.pop(context)),
-          _navItem(Icons.inventory_2_outlined, false, onTap: () {
-            Navigator.push(
+          _navItem(Icons.home_filled, false, 'Home', onTap: () {
+            Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+              MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName)),
+              (route) => false,
             );
           }),
-          _navItem(Icons.shopping_bag_outlined, false),
-          _navItem(Icons.notifications_active_outlined, false, onTap: () {
+          _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => BrowseMaterialsScreen(userName: userName)),
+            );
+          }),
+          _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MarketplaceScreen(userName: userName),
+              ),
+            );
+          }),
+          _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_2_outlined, true, onTap: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
-            );
+          _navItem(Icons.person_outline, true, 'Profile', onTap: () {
+            // Already on profile screen
           }),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, bool isSelected, {VoidCallback? onTap}) {
+  Widget _navItem(IconData icon, bool isSelected, String label, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: isSelected
-            ? const BoxDecoration(color: Color(0xFFF7F2E4), shape: BoxShape.circle)
-            : null,
-        padding: const EdgeInsets.all(12),
-        child: Icon(icon, color: const Color(0xFF88844D), size: 28),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+              size: 24,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

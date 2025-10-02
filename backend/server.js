@@ -28,17 +28,37 @@ app.post("/signup", async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({ error: "Missing fields" });
     }
+    
+    // Generate username from email
+    const username = email.split('@')[0];
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      "INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *",
-      [name, email, hashedPassword]
+      "INSERT INTO users (name, email, password, username) VALUES ($1, $2, $3, $4) RETURNING *",
+      [name, email, hashedPassword, username]
     );
-    res.json({ message: "User created", user: result.rows[0] });
+
+    // Return the same structure as login
+    const user = result.rows[0];
+    const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
+
+
+    res.json({ 
+      message: "User created", 
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        username: user.username
+      }
+    });
   } catch (err) {
     console.error("Signup error:", err); 
     res.status(400).json({ error: err.message });
   }
 });
+
 
 
 // Login
@@ -54,18 +74,33 @@ app.post("/login", async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
-    res.json({ message: "Login successful", token, name: user.name });
+    
+    // Return complete user data
+    res.json({ 
+      message: "Login successful", 
+      token, 
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        username: user.username 
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
 // Get user info (example: dashboard)
 app.get("/user/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query("SELECT id, name, email FROM users WHERE id = $1", [id]);
+    const result = await pool.query(
+      "SELECT id, name, email, username FROM users WHERE id = $1", 
+      [id]
+    );
     if (result.rows.length === 0) return res.status(404).json({ error: "User not found" });
     res.json(result.rows[0]);
   } catch (err) {

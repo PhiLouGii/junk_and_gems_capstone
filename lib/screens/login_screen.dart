@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
 
@@ -15,6 +16,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool isLoading = false;
+
+   Future<void> _saveUserData(String token, Map<String, dynamic> user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('token', token);
+    await prefs.setString('userId', user['id'].toString());
+    await prefs.setString('userName', user['name']);
+    await prefs.setString('userEmail', user['email']);
+    await prefs.setString('username', user['username'] ?? '');
+  }
 
   Future<void> loginUser() async {
     setState(() => isLoading = true);
@@ -33,11 +43,14 @@ class _LoginScreenState extends State<LoginScreen> {
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        // Save user data to shared preferences
+        await _saveUserData(data['token'], data['user']);
+
         // Navigate to Dashboard and pass the user's name
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => DashboardScreen(userName: data['name']),
+            builder: (_) => DashboardScreen(userName: data['user']['name']),
           ),
         );
       } else {

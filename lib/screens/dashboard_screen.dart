@@ -3,6 +3,7 @@ import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
+import 'package:junk_and_gems/utils/session_manager.dart';
 import 'browse_materials_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
