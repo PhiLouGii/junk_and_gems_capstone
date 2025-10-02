@@ -29,6 +29,12 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ error: "Missing fields" });
     }
     
+    // Check if user already exists
+    const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: "User already exists with this email" });
+    }
+    
     // Generate username from email
     const username = email.split('@')[0];
     
@@ -37,15 +43,14 @@ app.post("/signup", async (req, res) => {
       "INSERT INTO users (name, email, password, username) VALUES ($1, $2, $3, $4) RETURNING *",
       [name, email, hashedPassword, username]
     );
-
-    // Return the same structure as login
+    
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
-
-
+    
+    // Return the same structure as login
     res.json({ 
-      message: "User created", 
-      token,
+      message: "User created successfully", 
+      token: token,
       user: {
         id: user.id,
         name: user.name,
@@ -55,7 +60,7 @@ app.post("/signup", async (req, res) => {
     });
   } catch (err) {
     console.error("Signup error:", err); 
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
@@ -66,29 +71,33 @@ app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-    if (result.rows.length === 0) return res.status(400).json({ error: "User not found" });
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "User not found" });
+    }
 
     const user = result.rows[0];
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ error: "Incorrect password" });
+    if (!match) {
+      return res.status(400).json({ error: "Incorrect password" });
+    }
 
     // Generate JWT token
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
     
-    // Return complete user data
+    // Return the exact structure we're expecting in Flutter
     res.json({ 
       message: "Login successful", 
-      token, 
+      token: token, 
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        username: user.username 
+        username: user.username || user.email.split('@')[0] // Fallback to email prefix if username is null
       }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 

@@ -17,7 +17,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   bool isLoading = false;
 
-   Future<void> _saveUserData(String token, Map<String, dynamic> user) async {
+  // Save user data to shared preferences
+  Future<void> _saveUserData(String token, Map<String, dynamic> user) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('token', token);
     await prefs.setString('userId', user['id'].toString());
@@ -40,25 +41,37 @@ class _LoginScreenState extends State<LoginScreen> {
         }),
       );
 
-      final data = jsonDecode(response.body);
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        // Save user data to shared preferences
-        await _saveUserData(data['token'], data['user']);
-
-        // Navigate to Dashboard and pass the user's name
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DashboardScreen(userName: data['user']['name']),
-          ),
-        );
+        final data = jsonDecode(response.body);
+        
+        // Check if data has the expected structure
+        if (data != null && data['token'] != null && data['user'] != null) {
+          // Save user data to shared preferences
+          await _saveUserData(data['token'], data['user']);
+          
+          // Navigate to Dashboard and pass the user's name
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DashboardScreen(userName: data['user']['name']),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error: Invalid response format from server")),
+          );
+        }
       } else {
+        final data = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${data['error']}")),
+          SnackBar(content: Text("Error: ${data['error'] ?? 'Unknown error'}")),
         );
       }
     } catch (e) {
+      print('Full error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Network error: $e")),
       );

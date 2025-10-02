@@ -58,8 +58,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final userName = userData['name'] ?? 'User';
     final userEmail = userData['email'] ?? '';
+    // Fix: Handle nullable username properly
     final username = userData['username']?.isNotEmpty == true 
-        ? userData['username'] 
+        ? userData['username']! // Add ! to assert non-null
         : (userEmail.split('@').first);
 
     return Scaffold(
@@ -415,8 +416,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }),
           _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => BrowseMaterialsScreen(userName: userName)),
+ context,
+ MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
             );
           }),
           _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
