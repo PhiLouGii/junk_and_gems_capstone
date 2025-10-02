@@ -3,6 +3,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { upload } = require('./config/cloudinary');
 
 const app = express();
 const port = 3000;
@@ -114,6 +115,134 @@ app.get("/user/:id", async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Image upload endpoint
+app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No image file provided' 
+      });
+    }
+
+    const imageUrl = req.file.path;
+
+    res.json({
+      success: true,
+      imageUrl: imageUrl,
+      message: 'Image uploaded successfully'
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Image upload failed' 
+    });
+  }
+});
+
+// Multiple images upload endpoint
+app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No image files provided' 
+      });
+    }
+
+    const imageUrls = req.files.map(file => file.path);
+
+    res.json({
+      success: true,
+      imageUrls: imageUrls,
+      message: `${req.files.length} images uploaded successfully`
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Image upload failed' 
+    });
+  }
+});
+
+// Get all materials
+app.get("/materials", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name,
+        u.email as uploader_email
+      FROM materials m
+      JOIN users u ON m.uploader_id = u.id
+      ORDER BY m.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Create new material/donation
+app.post("/materials", async (req, res) => {
+  const { 
+    title, 
+    description, 
+    category, 
+    quantity, 
+    location, 
+    delivery_option, 
+    available_from, 
+    available_until, 
+    is_fragile, 
+    contact_preferences,
+    image_urls,
+    uploader_id 
+  } = req.body;
+
+  try {
+    if (!title || !description || !category || !uploader_id) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO materials 
+       (title, description, category, quantity, location, delivery_option, 
+        available_from, available_until, is_fragile, contact_preferences, 
+        image_urls, uploader_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+       RETURNING *`,
+      [
+        title, description, category, quantity, location, delivery_option,
+        available_from, available_until, is_fragile, 
+        JSON.stringify(contact_preferences), 
+        JSON.stringify(image_urls), uploader_id
+      ]
+    );
+
+    // Get the created material with uploader info
+    const materialWithUploader = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name,
+        u.email as uploader_email
+      FROM materials m
+      JOIN users u ON m.uploader_id = u.id
+      WHERE m.id = $1
+    `, [result.rows[0].id]);
+
+    res.status(201).json(materialWithUploader.rows[0]);
+  } catch (err) {
+    console.error("Create material error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
