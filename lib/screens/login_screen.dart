@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => isLoading = true);
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/login');
+      final url = Uri.parse('http://10.0.2.2:3003/login');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -54,10 +54,10 @@ class _LoginScreenState extends State<LoginScreen> {
           
           // Navigate to Dashboard and pass the user's name
           // After login, navigate like this:
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) => DashboardScreen( // Use data['user'] instead of userData
+       Navigator.pushReplacement(
+       context,
+     MaterialPageRoute(
+    builder: (context) => DashboardScreen(
       userName: data['user']['name'],
       userId: data['user']['id'].toString(),
     ),

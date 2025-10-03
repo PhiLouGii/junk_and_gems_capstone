@@ -1,8 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
+import 'package:junk_and_gems/screens/chat_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, String> product;
+  
 
   const ProductDetailScreen({super.key, required this.product});
 
@@ -14,19 +19,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   final PageController _carouselController = PageController(viewportFraction: 0.8);
   int _currentCarouselIndex = 0;
+  String? _currentUserId;
 
   // More by Nthati R. products
   final List<Map<String, String>> _moreByArtisan = [
-    {'title': 'Pilants', 'price': 'M250', 'image': 'assets/images/featured1.jpg'},
-    {'title': 'Cassette Lamp', 'price': 'M450', 'image': 'assets/images/featured2.jpg'},
-    {'title': 'Patchwork', 'price': 'M450', 'image': 'assets/images/featured3.jpg'},
-    {'title': 'M250', 'price': 'M250', 'image': 'assets/images/featured4.jpg'},
-    {'title': 'M450', 'price': 'M450', 'image': 'assets/images/featured5.jpg'},
+    {'title': 'Patchwork blouse', 'price': 'M250', 'image': 'assets/images/featured1.jpg'},
+    {'title': 'Plastic bottle light', 'price': 'M450', 'image': 'assets/images/featured2.jpg'},
+    {
+      'title': 'Bleach bottle lamp',
+      'price': 'M450',
+      'image': 'assets/images/featured3.jpg',
+      'artisan': 'Nthati Radiapole',
+    },
+    {'title': 'CD lights', 'price': 'M250', 'image': 'assets/images/featured4.jpg'},
+    {'title': 'Cassette Lamp', 'price': 'M450', 'image': 'assets/images/featured5.jpg'},
   ];
 
   // Related products
   final List<Map<String, String>> _relatedProducts = [
-    {'title': 'F99 Tay Light', 'price': 'M300', 'image': 'assets/images/related1.jpg'},
+    {'title': 'Egg Tray Light', 'price': 'M300', 'image': 'assets/images/related1.jpg'},
     {'title': 'Can Lamp', 'price': 'M500', 'image': 'assets/images/related2.jpg'},
     {'title': 'Umeason-L', 'price': 'M450', 'image': 'assets/images/related3.jpg'},
   ];
@@ -34,7 +45,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Auto-scroll carousel
+    _loadCurrentUserId();
     _startCarouselAutoScroll();
   }
 
@@ -42,6 +53,88 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void dispose() {
     _carouselController.dispose();
     super.dispose();
+  }
+  
+  Future<void> _loadCurrentUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentUserId = prefs.getString('userId');
+    });
+  }
+
+
+   void _messageArtisan(BuildContext context) async {
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Starting conversation...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      if (_currentUserId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to message artisans.')),
+        );
+        return;
+      }
+
+      final String artisanId = widget.product['artisan_id'] ?? '2'; 
+      final String productId = widget.product['id'] ?? '1';
+
+      print('Attempting to start conversation with artisan: $artisanId, product: $productId');
+
+    // Start conversation with artisan
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'currentUserId': _currentUserId,
+          'otherUserId': artisanId,
+          'productId': productId,
+          'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final conversation = json.decode(response.body);
+        
+        // Navigate to chat screen.
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              userName: widget.product['artisan'] ?? 'Artisan',
+              otherUserId: artisanId,
+              currentUserId: _currentUserId!,
+              conversationId: conversation['id'].toString(),
+              product: widget.product,
+
+            ),
+          ),
+        );
+      } else {
+        final errorResponse = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start conversation: ${errorResponse['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (error) {
+      print('Message artisan error: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error starting conversation'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _startCarouselAutoScroll() {
@@ -148,9 +241,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             
-            // Product Info - Final adjustment
+            // Product Info 
             Container(
-              height: 42, // Final reduction from 45 to 42
+              height: 42, 
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), // Reduced vertical padding
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,23 +757,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(width: 16),
 
             // Message Artisan Button
-            Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F2E4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBEC092)),
-              ),
-              child: const Center(
-                child: Text(
-                  'Message\nArtisan',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+            GestureDetector(
+              onTap: () => _messageArtisan(context),
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F2E4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBEC092)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Message\nArtisan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF88844D),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ),
             ),

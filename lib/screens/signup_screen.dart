@@ -30,7 +30,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3000/signup');
+      final url = Uri.parse('http://10.0.2.2:3003/signup');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
