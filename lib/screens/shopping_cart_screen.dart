@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/checkout_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class ShoppingCartScreen extends StatefulWidget {
   const ShoppingCartScreen({super.key});
@@ -55,26 +57,28 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).iconTheme.color,
           ),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
+        title: Text(
           'Shopping Cart',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         centerTitle: true,
@@ -130,8 +134,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               },
             ),
             if (index < _cartItems.length - 1) 
-              const Divider(
-                color: Color(0xFFBEC092),
+              Divider(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
                 thickness: 1,
                 height: 32,
               ),
@@ -167,10 +171,10 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   color: const Color(0xFFE4E5C2),
-                  child: const Icon(
+                  child: Icon(
                     Icons.shopping_bag,
                     size: 30,
-                    color: Color(0xFF88844D),
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 );
               },
@@ -186,19 +190,19 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF88844D),
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'M$price',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF88844D),
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               const SizedBox(height: 8),
@@ -207,7 +211,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               Container(
                 width: 120,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F2E4),
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFBEC092)),
                 ),
@@ -215,7 +219,11 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove, size: 18),
+                      icon: Icon(
+                        Icons.remove, 
+                        size: 18,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
                       onPressed: () {
                         if (quantity > 1) {
                           onQuantityChanged(quantity - 1);
@@ -229,14 +237,18 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                     ),
                     Text(
                       quantity.toString(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF88844D),
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: Icon(
+                        Icons.add, 
+                        size: 18,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
                       onPressed: () {
                         onQuantityChanged(quantity + 1);
                       },
@@ -260,7 +272,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -273,12 +285,12 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Apply Gems',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF88844D),
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
@@ -286,15 +298,15 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
             text: TextSpan(
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.black.withOpacity(0.7),
+                color: Theme.of(context).textTheme.bodyMedium?.color,
               ),
               children: [
                 const TextSpan(text: 'You have '),
                 TextSpan(
                   text: '$_availableGems Gems',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 ),
                 const TextSpan(text: ' available\n'),
@@ -311,7 +323,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                 child: Container(
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF7F2E4),
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFBEC092)),
                   ),
@@ -319,8 +331,12 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TextField(
                       controller: _gemsController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                      decoration: InputDecoration(
                         hintText: 'Enter amount of Gems',
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                        ),
                         border: InputBorder.none,
                       ),
                       keyboardType: TextInputType.number,
@@ -354,10 +370,10 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                       _gemsController.text = _appliedGems.toString();
                     });
                   },
-                  child: const Text(
+                  child: Text(
                     'Apply',
                     style: TextStyle(
-                      color: Color(0xFF88844D),
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -375,7 +391,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -415,7 +431,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 16,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: const Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         Text(
@@ -423,7 +439,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 16,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: const Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ],
@@ -434,7 +450,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -453,18 +469,19 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                 Navigator.pop(context); // Go back to marketplace
               },
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF88844D),
-                side: const BorderSide(color: Color(0xFFBEC092)),
+                foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+                side: BorderSide(color: const Color(0xFFBEC092)),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Add more items',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
             ),
@@ -473,43 +490,43 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           
           // Checkout Button
           Expanded(
-  child: Container(
-    decoration: BoxDecoration(
-      color: const Color(0xFFBEC092),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: TextButton(
-      onPressed: () {
-        // Navigate to checkout
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CheckoutScreen(
-              cartItems: _cartItems,
-              subtotal: _subtotal,
-              gemsDiscount: _appliedGems.toDouble(),
-              total: _total,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextButton(
+                onPressed: () {
+                  // Navigate to checkout
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CheckoutScreen(
+                        cartItems: _cartItems,
+                        subtotal: _subtotal,
+                        gemsDiscount: _appliedGems.toDouble(),
+                        total: _total,
+                      ),
+                    ),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Checkout',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
           ),
-        );
-      },
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: const Text(
-        'Checkout',
-        style: TextStyle(
-          color: Color(0xFF88844D),
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    ),
-  ),
-),
         ],
       ),
     );

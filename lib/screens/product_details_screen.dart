@@ -4,10 +4,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, String> product;
-  
 
   const ProductDetailScreen({super.key, required this.product});
 
@@ -64,20 +65,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
-
-   void _messageArtisan(BuildContext context) async {
+  void _messageArtisan(BuildContext context) async {
     try {
       // Show loading
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Starting conversation...'),
           duration: Duration(seconds: 2),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
 
       if (_currentUserId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please log in to message artisans.')),
+          SnackBar(
+            content: Text('Please log in to message artisans.'),
+            backgroundColor: Colors.red,
+          ),
         );
         return;
       }
@@ -87,7 +91,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       print('Attempting to start conversation with artisan: $artisanId, product: $productId');
 
-    // Start conversation with artisan
+      // Start conversation with artisan
       final response = await http.post(
         Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
         headers: {'Content-Type': 'application/json'},
@@ -105,7 +109,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (response.statusCode == 200) {
         final conversation = json.decode(response.body);
         
-        // Navigate to chat screen.
+        // Navigate to chat screen
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -115,7 +119,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               currentUserId: _currentUserId!,
               conversationId: conversation['id'].toString(),
               product: widget.product,
-
             ),
           ),
         );
@@ -131,7 +134,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } catch (error) {
       print('Message artisan error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Error starting conversation'),
           backgroundColor: Colors.red,
         ),
@@ -191,7 +194,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       SnackBar(
         content: Text('${widget.product['title']} added to cart!'),
         duration: const Duration(seconds: 2),
-        backgroundColor: const Color(0xFFBEC092),
+        backgroundColor: Theme.of(context).colorScheme.secondary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -200,7 +203,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildCarouselItem(Map<String, String> product, int index) {
+  Widget _buildCarouselItem(Map<String, String> product, int index, ThemeProvider themeProvider) {
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return GestureDetector(
       onTap: () {
         // Navigate to product detail when tapped
@@ -208,7 +213,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -227,16 +232,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Image.asset(
                 product['image']!,
                 fit: BoxFit.cover,
-                height: 92, // Final reduction from 95 to 92
+                height: 92,
                 width: double.infinity,
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
                     height: 92,
-                    color: const Color(0xFFE4E5C2),
-                    child: const Icon(
+                    color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+                    child: Icon(
                       Icons.recycling,
                       size: 40,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                     ),
                   );
                 },
@@ -245,18 +250,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             
             // Product Info 
             Container(
-              height: 42, 
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), // Reduced vertical padding
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     product['title']!,
-                    style: const TextStyle(
-                      fontSize: 12, // Slightly smaller font
+                    style: TextStyle(
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -264,10 +269,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 1),
                   Text(
                     product['price']!,
-                    style: const TextStyle(
-                      fontSize: 10, // Slightly smaller font
+                    style: TextStyle(
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                     ),
                   ),
                 ],
@@ -279,12 +284,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildRelatedProduct(Map<String, String> product) {
+  Widget _buildRelatedProduct(Map<String, String> product, ThemeProvider themeProvider) {
+    final isDarkMode = themeProvider.isDarkMode;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -301,7 +308,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: const Color(0xFFE4E5C2),
+              color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ClipRRect(
@@ -310,9 +317,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 product['image']!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
+                  return Icon(
                     Icons.recycling,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                   );
                 },
               ),
@@ -328,18 +335,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: [
                 Text(
                   product['title']!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   product['price']!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                   ),
                 ),
               ],
@@ -350,15 +357,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFBEC092),
+              color: Theme.of(context).colorScheme.secondary,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Text(
+            child: Text(
               'View',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF88844D),
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
               ),
             ),
           ),
@@ -369,34 +376,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
           ),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
+        title: Text(
           'Product Details',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.favorite_border,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
             onPressed: () {
               // Add to favorites
@@ -412,9 +422,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             Container(
               height: 300,
               width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE4E5C2),
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
                 ),
@@ -435,11 +445,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         height: double.infinity,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            color: const Color(0xFFE4E5C2),
-                            child: const Icon(
+                            color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+                            child: Icon(
                               Icons.recycling,
                               size: 80,
-                              color: Color(0xFF88844D),
+                              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                             ),
                           );
                         },
@@ -457,13 +467,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFBEC092),
+                        color: Theme.of(context).colorScheme.secondary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
+                      child: Text(
                         '20% OFF',
                         style: TextStyle(
-                          color: Color(0xFF88844D),
+                          color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -487,19 +497,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Expanded(
                         child: Text(
                           widget.product['title'] ?? 'Sta-Soft Lamp',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF88844D),
+                            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                           ),
                         ),
                       ),
                       Text(
                         widget.product['price'] ?? 'M400',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF88844D),
+                          color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                         ),
                       ),
                     ],
@@ -510,9 +520,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Artisan Name and Rating
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.person_outline,
-                        color: Color(0xFF88844D),
+                        color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                         size: 16,
                       ),
                       const SizedBox(width: 4),
@@ -520,7 +530,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         'By ${widget.product['artisan'] ?? 'Nthati Radiapole'}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black.withOpacity(0.6),
+                          color: isDarkMode ? Colors.white70 : Colors.black.withOpacity(0.6),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -530,11 +540,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         size: 16,
                       ),
                       const SizedBox(width: 4),
-                      const Text(
+                      Text(
                         '4.6 (110 Reviews)',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.black,
+                          color: isDarkMode ? Colors.white : Colors.black,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -547,6 +557,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   _buildSection(
                     title: 'About the Product',
                     content: 'Eco-friendly elegance: a uniquely crafted upcycled lamp made from a detergent container, casting beautiful leaf-pattern shadows.',
+                    isDarkMode: isDarkMode,
                   ),
                   
                   const SizedBox(height: 20),
@@ -555,6 +566,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   _buildSection(
                     title: 'Original Material',
                     content: 'Cleaning detergent bottle',
+                    isDarkMode: isDarkMode,
                   ),
                   
                   const SizedBox(height: 20),
@@ -563,6 +575,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   _buildSection(
                     title: 'Specifications',
                     content: '• Height: 12 inches\n• Base diameter: 6 inches\n• Bulb: LED E27 (included)\n• Power cord: 6 feet',
+                    isDarkMode: isDarkMode,
                   ),
                   
                   const SizedBox(height: 20),
@@ -571,27 +584,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   _buildSection(
                     title: 'Pickup & Drop-off',
                     content: 'Contact the Artisan to arrange pickup or delivery within your area.',
+                    isDarkMode: isDarkMode,
                   ),
 
                   const SizedBox(height: 30),
                   
                   // More by Nthati R. Section
-                  const Text(
+                  Text(
                     'More by Nthati R.',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                     ),
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  // Carousel Slider - Final adjustment with ClipRRect to prevent overflow
+                  // Carousel Slider
                   SizedBox(
-                    height: 145, // Final reduction from 150 to 145
+                    height: 145,
                     child: ClipRRect(
-                      // This will clip any overflow
                       child: PageView.builder(
                         controller: _carouselController,
                         itemCount: _moreByArtisan.length,
@@ -601,7 +614,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           });
                         },
                         itemBuilder: (context, index) {
-                          return _buildCarouselItem(_moreByArtisan[index], index);
+                          return _buildCarouselItem(_moreByArtisan[index], index, themeProvider);
                         },
                       ),
                     ),
@@ -621,8 +634,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: _currentCarouselIndex == index
-                              ? const Color(0xFF88844D)
-                              : const Color(0xFFBEC092).withOpacity(0.5),
+                              ? (isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D))
+                              : (isDarkMode ? const Color(0xFFBEC092).withOpacity(0.5) : const Color(0xFFBEC092).withOpacity(0.5)),
                         ),
                       ),
                     ),
@@ -631,12 +644,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 30),
                   
                   // Related Products Section
-                  const Text(
+                  Text(
                     'Related Products',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                     ),
                   ),
                   
@@ -644,7 +657,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   
                   // Related Products List
                   Column(
-                    children: _relatedProducts.map((product) => _buildRelatedProduct(product)).toList(),
+                    children: _relatedProducts.map((product) => _buildRelatedProduct(product, themeProvider)).toList(),
                   ),
 
                   const SizedBox(height: 20),
@@ -654,15 +667,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE4E5C2),
+                      color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
+                    child: Text(
                       'A unique piece made with love and recycled goods.',
                       style: TextStyle(
                         fontSize: 14,
                         fontStyle: FontStyle.italic,
-                        color: Color(0xFF88844D),
+                        color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -679,7 +692,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         height: 90,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           boxShadow: [
             BoxShadow(
@@ -694,14 +707,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             // Quantity Selector
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F2E4),
+                color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBEC092)),
+                border: Border.all(color: Theme.of(context).colorScheme.secondary),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove, color: Color(0xFF88844D)),
+                    icon: Icon(Icons.remove, color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D)),
                     onPressed: () {
                       setState(() {
                         if (_quantity > 1) {
@@ -712,14 +725,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   Text(
                     '$_quantity',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add, color: Color(0xFF88844D)),
+                    icon: Icon(Icons.add, color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D)),
                     onPressed: () {
                       setState(() {
                         _quantity++;
@@ -739,16 +752,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Container(
                   height: 50,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFBEC092),
+                    color: Theme.of(context).colorScheme.secondary,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: Text(
                       'Add to Cart',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF88844D),
+                        color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                       ),
                     ),
                   ),
@@ -765,17 +778,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 height: 50,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF7F2E4),
+                  color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBEC092)),
+                  border: Border.all(color: Theme.of(context).colorScheme.secondary),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'Message\nArtisan',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF88844D),
+                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -788,16 +801,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildSection({required String title, required String content}) {
+  Widget _buildSection({required String title, required String content, required bool isDarkMode}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
           ),
         ),
         const SizedBox(height: 8),
@@ -805,13 +818,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           content,
           style: TextStyle(
             fontSize: 14,
-            color: Colors.black.withOpacity(0.7),
+            color: isDarkMode ? Colors.white70 : Colors.black.withOpacity(0.7),
             height: 1.5,
           ),
         ),
         const SizedBox(height: 8),
-        const Divider(
-          color: Color(0xFFBEC092),
+        Divider(
+          color: Theme.of(context).colorScheme.secondary,
           thickness: 1,
         ),
       ],

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
@@ -108,7 +110,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _loadMessages(); 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Failed to send message'),
             backgroundColor: Colors.red,
           ),
@@ -117,7 +119,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (error) {
       print('Send message error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Error sending message'),
           backgroundColor: Colors.red,
         ),
@@ -125,14 +127,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Widget _buildProductInfo() {
+  Widget _buildProductInfo(bool isDarkMode) {
     if (widget.product == null) return const SizedBox();
 
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFE4E5C2),
+        color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -142,7 +144,7 @@ class _ChatScreenState extends State<ChatScreen> {
             height: 60,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
+              color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -159,16 +161,16 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Text(
                   widget.product!['title'] ?? 'Product',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   widget.product!['price'] ?? 'M400',
-                  style: const TextStyle(
-                    color: Color(0xFF88844D),
+                  style: TextStyle(
+                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                   ),
                 ),
               ],
@@ -181,13 +183,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF88844D)),
+          icon: Icon(Icons.arrow_back_ios, color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -195,10 +200,10 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Text(
               widget.userName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF88844D),
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
               ),
             ),
             const Text(
@@ -212,14 +217,14 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert, color: Color(0xFF88844D)),
+            icon: Icon(Icons.more_vert, color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D)),
             onPressed: () {},
           ),
         ],
       ),
       body: Column(
         children: [
-          _buildProductInfo(),
+          _buildProductInfo(isDarkMode),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -234,11 +239,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   isMe: isMe,
                   time: _formatTime(message['sent_at']),
                   senderName: isMe ? 'You' : message['sender_name'] ?? 'User',
+                  isDarkMode: isDarkMode,
                 );
               },
             ),
           ),
-          _buildMessageInput(),
+          _buildMessageInput(isDarkMode),
         ],
       ),
     );
@@ -249,6 +255,7 @@ class _ChatScreenState extends State<ChatScreen> {
     required bool isMe,
     required String time,
     required String senderName,
+    required bool isDarkMode,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -257,10 +264,10 @@ class _ChatScreenState extends State<ChatScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
-            const CircleAvatar(
+            CircleAvatar(
               radius: 16,
-              backgroundColor: Color(0xFFBEC092),
-              child: Icon(Icons.person, size: 16, color: Color(0xFF88844D)),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              child: Icon(Icons.person, size: 16, color: isDarkMode ? Colors.white : const Color(0xFF88844D)),
             ),
             const SizedBox(width: 8),
           ],
@@ -273,17 +280,18 @@ class _ChatScreenState extends State<ChatScreen> {
                     padding: const EdgeInsets.only(left: 8.0, bottom: 4),
                     child: Text(
                       senderName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF88844D),
+                        color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                       ),
                     ),
                   ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isMe ? const Color(0xFFBEC092) : Colors.white,
+                    color: isMe ? Theme.of(context).colorScheme.secondary : 
+                           isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
@@ -296,7 +304,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Text(
                     message,
                     style: TextStyle(
-                      color: isMe ? const Color(0xFF88844D) : Colors.black87,
+                      color: isMe ? (isDarkMode ? Colors.white : const Color(0xFF88844D)) : 
+                             (isDarkMode ? Colors.white : Colors.black87),
                       fontSize: 16,
                     ),
                   ),
@@ -307,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     time,
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.grey[600],
+                      color: isDarkMode ? Colors.white70 : Colors.grey[600],
                     ),
                   ),
                 ),
@@ -316,10 +325,10 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           if (isMe) ...[
             const SizedBox(width: 8),
-            const CircleAvatar(
+            CircleAvatar(
               radius: 16,
-              backgroundColor: Color(0xFFBEC092),
-              child: Icon(Icons.person, size: 16, color: Color(0xFF88844D)),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              child: Icon(Icons.person, size: 16, color: isDarkMode ? Colors.white : const Color(0xFF88844D)),
             ),
           ],
         ],
@@ -327,11 +336,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageInput() {
+  Widget _buildMessageInput(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -346,15 +355,20 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F2E4),
+                color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
                 borderRadius: BorderRadius.circular(25),
               ),
               child: TextField(
                 controller: _messageController,
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                ),
+                decoration: InputDecoration(
                   hintText: 'Type a message...',
+                  hintStyle: TextStyle(
+                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
+                  ),
                   border: InputBorder.none,
-                  hintStyle: TextStyle(color: Color(0xFF88844D)),
                 ),
                 onSubmitted: (_) => _sendMessage(),
               ),
@@ -366,13 +380,13 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               width: 50,
               height: 50,
-              decoration: const BoxDecoration(
-                color: Color(0xFFBEC092),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.send,
-                color: Color(0xFF88844D),
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
               ),
             ),
           ),

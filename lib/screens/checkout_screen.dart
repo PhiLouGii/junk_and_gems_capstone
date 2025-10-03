@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -44,26 +46,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
           ),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
+        title: Text(
           'Checkout',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
           ),
         ),
         centerTitle: true,
@@ -74,24 +79,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Order Summary Section
-            _buildOrderSummary(),
+            _buildOrderSummary(isDarkMode),
             const SizedBox(height: 32),
             
             // Payment Options Section
-            _buildPaymentOptions(),
+            _buildPaymentOptions(isDarkMode),
             const SizedBox(height: 32),
             
             // Card Payment Form (only visible when card is selected)
             if (_selectedPaymentMethod == 'Card (Credit/Debit)')
-              _buildCardPaymentForm(),
+              _buildCardPaymentForm(isDarkMode),
             
             // EcoCash Payment Form (only visible when EcoCash is selected)
             if (_selectedPaymentMethod == 'EcoCash')
-              _buildEcoCashPaymentForm(),
+              _buildEcoCashPaymentForm(isDarkMode),
             
             // M-Pesa Payment Form (only visible when M-Pesa is selected)
             if (_selectedPaymentMethod == 'M-Pesa')
-              _buildMPesaPaymentForm(),
+              _buildMPesaPaymentForm(isDarkMode),
           ],
         ),
       ),
@@ -101,7 +106,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         height: 90,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           boxShadow: [
             BoxShadow(
@@ -113,7 +118,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFBEC092),
+            color: Theme.of(context).colorScheme.secondary,
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextButton(
@@ -126,10 +131,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text(
+            child: Text(
               'Confirm Payment',
               style: TextStyle(
-                color: Color(0xFF88844D),
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -140,11 +145,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildOrderSummary() {
+  Widget _buildOrderSummary(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -157,12 +162,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Order Summary',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
           ),
           const SizedBox(height: 16),
@@ -178,18 +183,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     Expanded(
                       child: Text(
                         '${item['title']} x${item['quantity']}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Color(0xFF88844D),
+                          color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                         ),
                       ),
                     ),
                     Text(
                       'M${(item['price'] * item['quantity']).toStringAsFixed(2)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF88844D),
+                        color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                       ),
                     ),
                   ],
@@ -198,21 +203,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }).toList(),
           ),
           
-          const Divider(
-            color: Color(0xFFBEC092),
+          Divider(
+            color: Theme.of(context).colorScheme.secondary,
             thickness: 1,
             height: 24,
           ),
           
           // Subtotal
-          _buildSummaryRow('Subtotal', 'M${widget.subtotal.toStringAsFixed(2)}'),
+          _buildSummaryRow('Subtotal', 'M${widget.subtotal.toStringAsFixed(2)}', isDarkMode),
           const SizedBox(height: 8),
           
           // Gems Discount
           if (widget.gemsDiscount > 0)
             Column(
               children: [
-                _buildSummaryRow('Gems Discount', '-M${widget.gemsDiscount.toStringAsFixed(2)}'),
+                _buildSummaryRow('Gems Discount', '-M${widget.gemsDiscount.toStringAsFixed(2)}', isDarkMode),
                 const SizedBox(height: 8),
               ],
             ),
@@ -221,6 +226,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _buildSummaryRow(
             'Total',
             'M${widget.total.toStringAsFixed(2)}',
+            isDarkMode,
             isTotal: true,
           ),
         ],
@@ -228,7 +234,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, String value, bool isDarkMode, {bool isTotal = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -237,7 +243,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 16,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: const Color(0xFF88844D),
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
           ),
         ),
         Text(
@@ -245,18 +251,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           style: TextStyle(
             fontSize: isTotal ? 18 : 16,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: const Color(0xFF88844D),
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPaymentOptions() {
+  Widget _buildPaymentOptions(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -269,12 +275,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Payment Options',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
           ),
           const SizedBox(height: 16),
@@ -289,6 +295,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               });
             },
             icon: Icons.credit_card,
+            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
@@ -302,6 +309,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               });
             },
             icon: Icons.phone_android,
+            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
@@ -315,6 +323,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               });
             },
             icon: Icons.mobile_friendly,
+            isDarkMode: isDarkMode,
           ),
         ],
       ),
@@ -326,16 +335,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required bool isSelected,
     required VoidCallback onTap,
     required IconData icon,
+    required bool isDarkMode,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFBEC092).withOpacity(0.3) : Colors.white,
+          color: isSelected ? Theme.of(context).colorScheme.secondary.withOpacity(0.3) : 
+                 isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFFBEC092) : const Color(0xFFBEC092).withOpacity(0.5),
+            color: isSelected ? Theme.of(context).colorScheme.secondary : 
+                   Theme.of(context).colorScheme.secondary.withOpacity(0.5),
             width: 2,
           ),
         ),
@@ -343,7 +355,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Icon(
               icon,
-              color: const Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
               size: 24,
             ),
             const SizedBox(width: 12),
@@ -352,14 +364,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: const Color(0xFF88844D),
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
               ),
             ),
             const Spacer(),
             if (isSelected)
-              const Icon(
+              Icon(
                 Icons.check_circle,
-                color: Color(0xFF88844D),
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
               ),
           ],
         ),
@@ -367,11 +379,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildCardPaymentForm() {
+  Widget _buildCardPaymentForm(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -384,12 +396,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Card Details',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
           ),
           const SizedBox(height: 16),
@@ -400,6 +412,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             controller: _cardNumberController,
             hintText: '1234 5678 9012 3456',
             keyboardType: TextInputType.number,
+            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 16),
           
@@ -411,6 +424,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   label: 'MM/YY',
                   controller: _expiryController,
                   hintText: 'MM/YY',
+                  isDarkMode: isDarkMode,
                 ),
               ),
               const SizedBox(width: 16),
@@ -420,6 +434,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   controller: _cvcController,
                   hintText: '123',
                   keyboardType: TextInputType.number,
+                  isDarkMode: isDarkMode,
                 ),
               ),
             ],
@@ -431,28 +446,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             label: 'Name on Card',
             controller: _nameController,
             hintText: 'Mahloli Makhetha',
+            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 16),
           
           // Accepted Cards
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'We Accept:',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF88844D),
+                  color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  // Visa logo (using text as placeholder)
-                  _PaymentLogo(text: 'VISA'),
-                  SizedBox(width: 12),
-                  // Mastercard logo (using text as placeholder)
-                  _PaymentLogo(text: 'Mastercard'),
+                  _PaymentLogo(text: 'VISA', isDarkMode: isDarkMode),
+                  const SizedBox(width: 12),
+                  _PaymentLogo(text: 'Mastercard', isDarkMode: isDarkMode),
                 ],
               ),
             ],
@@ -462,11 +476,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildEcoCashPaymentForm() {
+  Widget _buildEcoCashPaymentForm(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -479,12 +493,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'EcoCash Payment',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
           ),
           const SizedBox(height: 16),
@@ -496,6 +510,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             hintText: 'xxxx xxxx',
             keyboardType: TextInputType.phone,
             prefixText: '+266 ',
+            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
@@ -503,11 +518,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F2E4),
+              color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBEC092)),
+              border: Border.all(color: Theme.of(context).colorScheme.secondary),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -515,15 +530,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   '1. Enter your EcoCash registered phone number\n2. Confirm payment to receive a prompt\n3. Enter your EcoCash PIN to complete payment',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                   ),
                 ),
               ],
@@ -534,11 +549,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildMPesaPaymentForm() {
+  Widget _buildMPesaPaymentForm(bool isDarkMode) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -551,12 +566,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'M-Pesa Payment',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
           ),
           const SizedBox(height: 16),
@@ -568,6 +583,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             hintText: 'xxxx xxxx',
             keyboardType: TextInputType.phone,
             prefixText: '+266 ',
+            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
@@ -575,11 +591,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F2E4),
+              color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBEC092)),
+              border: Border.all(color: Theme.of(context).colorScheme.secondary),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -587,15 +603,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   '1. Enter your M-Pesa registered phone number\n2. Confirm payment to receive a prompt\n3. Enter your M-Pesa PIN to complete payment',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF88844D),
+                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                   ),
                 ),
               ],
@@ -611,32 +627,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required TextEditingController controller,
     required String hintText,
     TextInputType keyboardType = TextInputType.text,
+    required bool isDarkMode,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F2E4),
+            color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFBEC092)),
+            border: Border.all(color: Theme.of(context).colorScheme.secondary),
           ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
+            style: TextStyle(
+              color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            ),
             decoration: InputDecoration(
               hintText: hintText,
               hintStyle: TextStyle(
-                color: const Color(0xFF88844D).withOpacity(0.6),
+                color: isDarkMode ? Colors.white70 : const Color(0xFF88844D).withOpacity(0.6),
               ),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -653,24 +673,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required String hintText,
     required TextInputType keyboardType,
     required String prefixText,
+    required bool isDarkMode,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF88844D),
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF7F2E4),
+            color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFBEC092)),
+            border: Border.all(color: Theme.of(context).colorScheme.secondary),
           ),
           child: Row(
             children: [
@@ -678,8 +699,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 padding: const EdgeInsets.only(left: 16),
                 child: Text(
                   prefixText,
-                  style: const TextStyle(
-                    color: Color(0xFF88844D),
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -688,10 +709,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: TextField(
                   controller: controller,
                   keyboardType: keyboardType,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                  ),
                   decoration: InputDecoration(
                     hintText: hintText,
                     hintStyle: TextStyle(
-                      color: const Color(0xFF88844D).withOpacity(0.6),
+                      color: isDarkMode ? Colors.white70 : const Color(0xFF88844D).withOpacity(0.6),
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -743,78 +767,88 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       Navigator.pop(context); // Remove loading dialog
       
       // Show success dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFFF7F2E4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.check_circle,
-                color: Color(0xFF88844D),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Payment Successful!',
-                style: TextStyle(
-                  color: Color(0xFF88844D),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          content: const Text(
-            'Your order has been confirmed and will be delivered soon.',
-            style: TextStyle(
-              color: Color(0xFF88844D),
+      _showSuccessDialog(context);
+    });
+  }
+
+  void _showSuccessDialog(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // Navigate back to marketplace and clear the cart
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/marketplace',
-                  (route) => false,
-                );
-              },
-              child: const Text(
-                'Continue Shopping',
-                style: TextStyle(
-                  color: Color(0xFF88844D),
-                  fontWeight: FontWeight.bold,
-                ),
+            const SizedBox(width: 8),
+            Text(
+              'Payment Successful!',
+              style: TextStyle(
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-      );
-    });
+        content: Text(
+          'Your order has been confirmed and will be delivered soon.',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              // Navigate back to marketplace and clear the cart
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/marketplace',
+                (route) => false,
+              );
+            },
+            child: Text(
+              'Continue Shopping',
+              style: TextStyle(
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showErrorDialog(BuildContext context, String message) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(
               Icons.error,
-              color: Color(0xFF88844D),
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Text(
               'Error',
               style: TextStyle(
-                color: Color(0xFF88844D),
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -822,8 +856,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         content: Text(
           message,
-          style: const TextStyle(
-            color: Color(0xFF88844D),
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
           ),
         ),
         actions: [
@@ -831,10 +865,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text(
+            child: Text(
               'OK',
               style: TextStyle(
-                color: Color(0xFF88844D),
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -845,27 +879,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 }
 
-// Widget for payment logos (using text as placeholder - replace with actual images if available)
+// Widget for payment logos
 class _PaymentLogo extends StatelessWidget {
   final String text;
+  final bool isDarkMode;
 
-  const _PaymentLogo({required this.text});
+  const _PaymentLogo({required this.text, required this.isDarkMode});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F2E4),
+        color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFBEC092)),
+        border: Border.all(color: Theme.of(context).colorScheme.secondary),
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF88844D),
+          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
         ),
       ),
     );
