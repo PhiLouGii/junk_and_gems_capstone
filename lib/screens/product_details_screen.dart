@@ -30,6 +30,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       'price': 'M450',
       'image': 'assets/images/featured3.jpg',
       'artisan': 'Nthati Radiapole',
+      'artisan_id': '10',
+      'id': '1',
     },
     {'title': 'CD lights', 'price': 'M250', 'image': 'assets/images/featured4.jpg'},
     {'title': 'Cassette Lamp', 'price': 'M450', 'image': 'assets/images/featured5.jpg'},

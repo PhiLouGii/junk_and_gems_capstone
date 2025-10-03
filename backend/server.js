@@ -776,6 +776,18 @@ function formatTimeAgo(date) {
   return new Date(date).toLocaleDateString();
 }
 
+app.get("/api/debug/all-users", async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email FROM users ORDER BY id');
+    res.json({
+      total_users: result.rows.length,
+      users: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
 });
