@@ -8,6 +8,7 @@ import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/settings_screen.dart';
+import 'package:junk_and_gems/screens/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,11 +24,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isSavingBio = false;
   bool isSavingProfilePicture = false;
   final ImagePicker _imagePicker = ImagePicker();
+  final TextEditingController _bioController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  Future<String?> _getAuthToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      if (token == null || token.isEmpty) {
+        print('❌ No auth token found in SharedPreferences');
+        return null;
+      }
+      
+      print('✅ Auth token found, length: ${token.length}');
+      return token;
+    } catch (e) {
+      print('❌ Error getting auth token: $e');
+      return null;
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -43,6 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'profilePicture': prefs.getString('profilePicture') ?? '',
         };
         bioText = userData['bio'] ?? '';
+        _bioController.text = bioText;
       });
     } catch (e) {
       print('Error loading user data: $e');
@@ -57,15 +84,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 80,
+        maxWidth: 512, // Reduced size to prevent issues
+        maxHeight: 512,
+        imageQuality: 75, // Reduced quality
       );
 
       if (image != null) {
         setState(() {
           isSavingProfilePicture = true;
         });
+
+        // Get auth token first
+        final token = await _getAuthToken();
+        if (token == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please log in again to update your profile picture.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          setState(() {
+            isSavingProfilePicture = false;
+          });
+          return;
+        }
 
         // Read image as bytes and convert to base64
         final bytes = await image.readAsBytes();
@@ -77,14 +119,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
           throw Exception('User ID not found');
         }
 
-        // Call API to update profile picture
+        print('🖼️ Sending profile picture update for user: $userId');
+        print('📸 Base64 image length: ${base64Image.length}');
+        print('📸 Image size: ${bytes.length} bytes');
+
+        // FIX: Try different base64 formats that might work with your backend
+        final Map<String, dynamic> payload = {
+          'image_data_base64': base64Image,
+          // Alternative: try with data URL format
+          // 'image_data_base64': 'data:image/jpeg;base64,$base64Image',
+        };
+
+        print('📦 Payload keys: ${payload.keys}');
+        print('📦 Payload image_data_base64 type: ${payload['image_data_base64'].runtimeType}');
+
+        // Call API to update profile picture with authentication
         final response = await http.post(
           Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile-picture'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'image_data_base64': base64Image,
-          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: json.encode(payload),
         );
+
+        print('📡 Response status: ${response.statusCode}');
+        print('📡 Response headers: ${response.headers}');
+        print('📡 Response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final responseData = json.decode(response.body);
@@ -104,12 +165,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: Colors.green,
             ),
           );
+        } else if (response.statusCode == 401) {
+          throw Exception('Authentication failed. Please log in again.');
+        } else if (response.statusCode == 500) {
+          // More detailed error for 500
+          final errorBody = json.decode(response.body);
+          throw Exception('Server error: ${errorBody['error'] ?? 'Unknown server error'}');
         } else {
-          throw Exception('Failed to update profile picture');
+          throw Exception('Failed to update profile picture: ${response.statusCode} - ${response.body}');
         }
       }
     } catch (e) {
-      print('Error updating profile picture: $e');
+      print('❌ Error updating profile picture: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error updating profile picture: $e'),
@@ -129,6 +196,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isSavingBio = true;
       });
 
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception('Authentication required. Please log in again.');
+      }
+
       final userId = userData['id'];
       if (userId == null || userId.isEmpty) {
         throw Exception('User ID not found');
@@ -137,12 +209,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Call API to update profile
       final response = await http.put(
         Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: json.encode({
           'name': userData['name'],
-          'specialty': '', // Add if you have this field
+          'specialty': '',
           'bio': bioText,
-          'user_type': 'user', // Adjust as needed
+          'user_type': 'user',
         }),
       );
 
@@ -158,7 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       } else {
-        throw Exception('Failed to update bio');
+        throw Exception('Failed to update bio: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('Error updating bio: $e');
@@ -172,6 +247,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         isSavingBio = false;
       });
+    }
+  }
+
+  // Test the profile picture endpoint specifically
+  Future<void> _testProfilePictureEndpoint() async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) {
+        print('❌ No token for endpoint test');
+        return;
+      }
+
+      final userId = userData['id'];
+      print('🔍 Testing profile picture endpoint for user: $userId');
+      
+      // Test with a small payload
+      final testPayload = {
+        'image_data_base64': 'test_base64_string'
+      };
+
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile-picture'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(testPayload),
+      );
+
+      print('🔍 Test response status: ${response.statusCode}');
+      print('🔍 Test response body: ${response.body}');
+    } catch (e) {
+      print('❌ Endpoint test failed: $e');
     }
   }
 
@@ -205,6 +313,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             context, MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName, userId: userData['userId'] ?? '')),
           ),
         ),
+        actions: [
+          // Test profile picture endpoint
+          IconButton(
+            icon: const Icon(Icons.photo_library, color: Color(0xFF88844D)),
+            onPressed: _testProfilePictureEndpoint,
+          ),
+          // Logout button
+          IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFF88844D)),
+            onPressed: _handleLogout,
+          ),
+        ],
         centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -382,10 +502,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextField(
               maxLength: 120,
               maxLines: 3,
-              textDirection: TextDirection.ltr,
-              textAlign: TextAlign.left,
-              controller: TextEditingController(text: bioText),
-              onChanged: (value) => setState(() => bioText = value),
+              controller: _bioController,
+              onChanged: (value) {
+                setState(() {
+                  bioText = value;
+                });
+              },
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.all(20),
                 filled: true,
@@ -656,5 +778,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performLogout();
+              },
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performLogout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('userId');
+      await prefs.remove('userName');
+      await prefs.remove('userEmail');
+      await prefs.remove('username');
+      await prefs.remove('userBio');
+      await prefs.remove('profilePicture');
+      
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      print('❌ Error during logout: $e');
+    }
   }
 }

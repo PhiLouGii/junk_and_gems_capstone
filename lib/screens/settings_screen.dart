@@ -412,7 +412,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             const SizedBox(height: 12),
             Text(
               languageProvider.isSesotho
-                  ? 'Ho lokile, kea utloa hantle!'
+                  ? 'Ena ke tsela eo mongolo oa hau o tla sheba boholo bo khethiloeng.'
                   : 'This is how your text will look with the selected font size.',
               style: TextStyle(
                 fontSize: 14 * _fontSize,
@@ -450,7 +450,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              languageProvider.isSesotho ? 'Pono ea App' : 'App Preview',
+              languageProvider.isSesotho ? 'Ponelopele ea app' : 'App Preview',
               style: TextStyle(
                 fontSize: 18 * _fontSize,
                 fontWeight: FontWeight.bold,
@@ -461,7 +461,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             Text(
               languageProvider.isSesotho
                   ? 'Sena ke mohlala o hlahisang hore sebatli se tla shebahala joang app ena.'
-                  : 'This is a sample preview showing how the app interface will look.',
+                  : 'Ona ke mohlala o bontšang hore na sebopeho sa app se tla shebahala joang.',
               style: TextStyle(
                 fontSize: 14 * _fontSize,
                 color: const Color(0xFF88844D).withOpacity(0.8),
