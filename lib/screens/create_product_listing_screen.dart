@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class CreateProductListingScreen extends StatefulWidget {
   const CreateProductListingScreen({super.key});
@@ -35,21 +37,23 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Sell Your Creation',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         centerTitle: true,
@@ -74,12 +78,20 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'List Your Upcycled Product',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          ),
         ),
         const SizedBox(height: 24),
-        _buildTextField(label: 'Product Name', controller: _titleController, hintText: 'e.g., Bottle Cap Coaster Set'),
+        _buildTextField(
+          label: 'Product Name', 
+          controller: _titleController, 
+          hintText: 'e.g., Bottle Cap Coaster Set'
+        ),
         const SizedBox(height: 20),
         _buildTextField(
           label: 'Product Description',
@@ -120,7 +132,11 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         const SizedBox(height: 20),
         _buildPriceField(),
         const SizedBox(height: 20),
-        _buildTextField(label: 'Location', controller: _locationController, hintText: 'Enter your location'),
+        _buildTextField(
+          label: 'Location', 
+          controller: _locationController, 
+          hintText: 'Enter your location'
+        ),
       ],
     );
   }
@@ -129,16 +145,28 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor, 
+            borderRadius: BorderRadius.circular(12), 
+            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+          ),
           child: TextField(
             controller: controller,
             maxLines: maxLines,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(color: const Color(0xFF88844D).withOpacity(0.6)),
+              hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -160,18 +188,39 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor, 
+            borderRadius: BorderRadius.circular(12), 
+            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: DropdownButton<String>(
               value: value,
-              hint: Text(hintText, style: TextStyle(color: const Color(0xFF88844D).withOpacity(0.6))),
+              hint: Text(
+                hintText, 
+                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6))
+              ),
               isExpanded: true,
               underline: const SizedBox(),
-              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, style: const TextStyle(color: Color(0xFF88844D))))).toList(),
+              dropdownColor: Theme.of(context).cardColor,
+              items: items.map((item) => DropdownMenuItem(
+                value: item, 
+                child: Text(
+                  item, 
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                )
+              )).toList(),
               onChanged: onChanged,
             ),
           ),
@@ -184,19 +233,38 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Price', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          'Price', 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor, 
+            borderRadius: BorderRadius.circular(12), 
+            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
-                const Text('M', style: TextStyle(fontSize: 16, color: Color(0xFF88844D), fontWeight: FontWeight.bold)),
+                Text(
+                  'M', 
+                  style: TextStyle(
+                    fontSize: 16, 
+                    color: Theme.of(context).textTheme.bodyLarge?.color, 
+                    fontWeight: FontWeight.bold
+                  )
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     keyboardType: TextInputType.number,
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                     onChanged: (value) {
                       setState(() {
                         _price = double.tryParse(value) ?? 0.0;
@@ -204,7 +272,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
                     },
                     decoration: InputDecoration(
                       hintText: '0.00',
-                      hintStyle: TextStyle(color: const Color(0xFF88844D).withOpacity(0.6)),
+                      hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
                       border: InputBorder.none,
                     ),
                   ),
@@ -223,24 +291,35 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       height: 56,
       child: ElevatedButton(
         onPressed: () {
-          // For now, just show a success message and go back
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
-              backgroundColor: const Color(0xFFF7F2E4),
+              backgroundColor: Theme.of(context).cardColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Row(
+              title: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Color(0xFF88844D)),
-                  SizedBox(width: 8),
-                  Text('Success!', style: TextStyle(color: Color(0xFF88844D))),
+                  Icon(
+                    Icons.check_circle, 
+                    color: Theme.of(context).textTheme.bodyLarge?.color
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Success!', 
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                  ),
                 ],
               ),
-              content: const Text('Your upcycled product has been listed successfully!', style: TextStyle(color: Color(0xFF88844D))),
+              content: Text(
+                'Your upcycled product has been listed successfully!', 
+                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('OK', style: TextStyle(color: Color(0xFF88844D))),
+                  child: Text(
+                    'OK', 
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                  ),
                 ),
               ],
             ),
@@ -260,7 +339,6 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 }
 
-// Image Upload Widget (same as before)
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
   const ImageUploadWidget({super.key, required this.onImagesChanged});
@@ -300,24 +378,42 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Upload product images (up to 5)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          ),
         ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: _pickImages,
           child: Container(
             height: 120,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor, 
+              borderRadius: BorderRadius.circular(12), 
+              border: Border.all(color: const Color(0xFFBEC092), width: 1)
+            ),
             child: _images.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFF88844D)),
-                        SizedBox(height: 8),
-                        Text('Tap to upload product images', style: TextStyle(color: Color(0xFF88844D), fontSize: 14)),
+                      children: [
+                        Icon(
+                          Icons.cloud_upload_outlined, 
+                          size: 40, 
+                          color: Theme.of(context).textTheme.bodyLarge?.color
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to upload product images', 
+                          style: TextStyle(
+                            color: Theme.of(context).textTheme.bodyLarge?.color, 
+                            fontSize: 14
+                          )
+                        ),
                       ],
                     ),
                   )
@@ -350,7 +446,10 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                                 });
                               },
                               child: Container(
-                                decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54, 
+                                  shape: BoxShape.circle
+                                ),
                                 child: const Icon(Icons.close, size: 20, color: Colors.white),
                               ),
                             ),

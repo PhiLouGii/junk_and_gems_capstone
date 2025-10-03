@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'create_listing_screen.dart';
 
 class BrowseMaterialsScreen extends StatefulWidget {
@@ -90,8 +92,10 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
         child: Column(
@@ -113,7 +117,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+            icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
             onPressed: () => Navigator.pop(context),
           ),
           Expanded(
@@ -122,12 +126,12 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
               children: [
                 Image.asset('assets/images/logo.png', width: 100, height: 100),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Materials',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
                 ),
               ],
@@ -145,7 +149,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFBEC092), width: 1),
         ),
@@ -153,12 +157,14 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Row(
             children: [
-              Icon(Icons.search, color: const Color(0xFF88844D).withOpacity(0.6)),
+              Icon(Icons.search, color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6)),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: TextField(
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                   decoration: InputDecoration(
                     hintText: 'Search for plastics, cans, fabrics...',
+                    hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
                     border: InputBorder.none,
                   ),
                 ),
@@ -197,15 +203,15 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
 
   Widget _buildMaterialsList(BuildContext context) {
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
+            CircularProgressIndicator(color: Theme.of(context).textTheme.bodyLarge?.color),
+            const SizedBox(height: 16),
             Text(
               'Loading materials...',
-              style: TextStyle(fontSize: 16, color: Color(0xFF88844D)),
+              style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
           ],
         ),
@@ -217,16 +223,16 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Color(0xFF88844D)),
+            Icon(Icons.error_outline, size: 64, color: Theme.of(context).textTheme.bodyLarge?.color),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Failed to load materials',
-              style: TextStyle(fontSize: 18, color: Color(0xFF88844D)),
+              style: TextStyle(fontSize: 18, color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Please check your connection and try again',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -248,16 +254,16 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory_2_outlined, size: 64, color: Color(0xFF88844D)),
+            Icon(Icons.inventory_2_outlined, size: 64, color: Theme.of(context).textTheme.bodyLarge?.color),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No materials available yet',
-              style: TextStyle(fontSize: 18, color: Color(0xFF88844D)),
+              style: TextStyle(fontSize: 18, color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Be the first to donate materials!',
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -305,7 +311,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
       ),
@@ -332,28 +338,28 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
               children: [
                 Text(
                   material['title'] ?? 'No Title',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   material['description'] ?? 'No description',
-                  style: TextStyle(fontSize: 16, color: Colors.black.withOpacity(0.8)),
+                  style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.location_on, size: 16, color: Color(0xFF88844D)),
+                    Icon(Icons.location_on, size: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
                     const SizedBox(width: 4),
                     Text(
                       material['location'] ?? 'Unknown location',
-                      style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)),
+                      style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
                     ),
                     const Spacer(),
-                    const Icon(Icons.access_time, size: 16, color: Color(0xFF88844D)),
+                    Icon(Icons.access_time, size: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
                     const SizedBox(width: 4),
                     Text(
                       material['time'] ?? 'Recently',
-                      style: TextStyle(fontSize: 14, color: Colors.black.withOpacity(0.6)),
+                      style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
                     ),
                   ],
                 ),
@@ -381,8 +387,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                         child: Container(
                           height: 36,
                           decoration: BoxDecoration(border: Border.all(color: const Color(0xFFBEC092), width: 2), borderRadius: BorderRadius.circular(8)),
-                          child: const Center(
-                            child: Text('Details', style: TextStyle(color: Color(0xFF88844D), fontWeight: FontWeight.w600, fontSize: 14)),
+                          child: Center(
+                            child: Text('Details', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontWeight: FontWeight.w600, fontSize: 14)),
                           ),
                         ),
                       ),
@@ -503,6 +509,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     showDialog(
       context: context,
       builder: (_) => Dialog(
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
@@ -529,32 +536,32 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                   const SizedBox(height: 12),
                   Text(
                     material['title'] ?? 'No Title',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     material['description'] ?? 'No description',
-                    style: const TextStyle(fontSize: 16, color: Colors.black87),
+                    style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     "Uploaded by: ${material['uploader'] ?? 'Unknown'}",
-                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "Amount: ${material['quantity'] ?? 'Not specified'}",
-                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "Location: ${material['location'] ?? 'Unknown location'}",
-                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "Uploaded: ${material['time'] ?? 'Recently'}",
-                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -584,8 +591,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                           },
                           style: ElevatedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFFBEC092), width: 2),
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF88844D),
+                            backgroundColor: Theme.of(context).cardColor,
+                            foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           child: const Text("Message"),
@@ -629,7 +636,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -665,8 +672,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           }),
           _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+ context,
+ MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')),
             );
           }),
         ],

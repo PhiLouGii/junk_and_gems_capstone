@@ -6,6 +6,8 @@ import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class NotificationsMessagesScreen extends StatefulWidget {
   const NotificationsMessagesScreen({super.key});
@@ -34,24 +36,26 @@ class _NotificationsMessagesScreenState
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF88844D),
           labelColor: const Color(0xFF88844D),
-          unselectedLabelColor: const Color(0xFF88844D).withOpacity(0.6),
+          unselectedLabelColor: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
           labelStyle: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 16,
@@ -136,7 +140,7 @@ class _NotificationsMessagesScreenState
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -176,10 +180,10 @@ class _NotificationsMessagesScreenState
                       children: [
                         Text(
                           notification['title'] as String,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF88844D),
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -187,7 +191,7 @@ class _NotificationsMessagesScreenState
                           notification['subtitle'] as String,
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.black.withOpacity(0.7),
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -197,7 +201,7 @@ class _NotificationsMessagesScreenState
                               notification['time'] as String,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black.withOpacity(0.5),
+                                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                               ),
                             ),
                             const Spacer(),
@@ -239,11 +243,20 @@ class _NotificationsMessagesScreenState
       future: _loadConversations(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          );
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            ),
+          );
         }
 
         final conversations = snapshot.data ?? [];
@@ -256,7 +269,7 @@ class _NotificationsMessagesScreenState
               Container(
                 height: 50,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFBEC092), width: 1),
                 ),
@@ -264,13 +277,19 @@ class _NotificationsMessagesScreenState
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      Icon(Icons.search,
-                          color: const Color(0xFF88844D).withOpacity(0.6)),
+                      Icon(
+                        Icons.search,
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)
+                      ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: TextField(
+                          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                           decoration: InputDecoration(
                             hintText: 'Search Messages...',
+                            hintStyle: TextStyle(
+                              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)
+                            ),
                             border: InputBorder.none,
                           ),
                         ),
@@ -305,14 +324,14 @@ class _NotificationsMessagesScreenState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: const Color(0xFFBEC092), width: 1),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Archived',
                       style: TextStyle(
-                        color: Color(0xFF88844D),
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
                       ),
@@ -371,7 +390,7 @@ class _NotificationsMessagesScreenState
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -396,7 +415,10 @@ class _NotificationsMessagesScreenState
                 color: const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(25),
               ),
-              child: const Icon(Icons.person, color: Color(0xFF88844D)),
+              child: Icon(
+                Icons.person, 
+                color: Theme.of(context).textTheme.bodyLarge?.color
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -407,10 +429,10 @@ class _NotificationsMessagesScreenState
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF88844D),
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                       const Spacer(),
@@ -418,7 +440,7 @@ class _NotificationsMessagesScreenState
                         time,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black.withOpacity(0.5),
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                         ),
                       ),
                     ],
@@ -428,7 +450,7 @@ class _NotificationsMessagesScreenState
                     message,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.black.withOpacity(0.7),
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
                     ),
                     maxLines: 1,
@@ -494,7 +516,7 @@ class _NotificationsMessagesScreenState
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -531,7 +553,7 @@ class _NotificationsMessagesScreenState
           _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')),
             );
           }),
         ],
@@ -549,7 +571,7 @@ class _NotificationsMessagesScreenState
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+              color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -557,7 +579,7 @@ class _NotificationsMessagesScreenState
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+                color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),

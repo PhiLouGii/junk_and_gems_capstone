@@ -9,9 +9,18 @@ import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/settings_screen.dart';
 import 'package:junk_and_gems/screens/login_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String userName;
+  final String userId;
+  
+  const ProfileScreen({
+    super.key, 
+    required this.userName,
+    required this.userId,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -285,12 +294,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     if (isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
           child: CircularProgressIndicator(
-            color: const Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       );
@@ -303,25 +314,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : (userEmail.split('@').first);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName, userId: userData['userId'] ?? '')),
+            context, 
+            MaterialPageRoute(
+              builder: (context) => DashboardScreen(
+                userName: userName, 
+                userId: userData['userId'] ?? ''
+              ),
+            ),
           ),
         ),
         actions: [
           // Test profile picture endpoint
           IconButton(
-            icon: const Icon(Icons.photo_library, color: Color(0xFF88844D)),
+            icon: Icon(Icons.photo_library, color: Theme.of(context).iconTheme.color),
             onPressed: _testProfilePictureEndpoint,
           ),
           // Logout button
           IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF88844D)),
+            icon: Icon(Icons.logout, color: Theme.of(context).iconTheme.color),
             onPressed: _handleLogout,
           ),
         ],
@@ -331,10 +348,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Image.asset("assets/images/logo.png", height: 64), 
             const SizedBox(width: 8),
-            const Text(
+            Text(
               "Profile",
               style: TextStyle(
-                color: Color(0xFF88844D),
+                color: Theme.of(context).textTheme.bodyLarge?.color,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -353,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildBioSection(),
               const SizedBox(height: 32),
               Divider(
-                color: const Color(0xFF88844D).withOpacity(0.3),
+                color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.3),
                 thickness: 1,
               ),
               const SizedBox(height: 32),
@@ -392,18 +409,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: 120,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return const Icon(
+                          return Icon(
                             Icons.person,
                             size: 60,
-                            color: Color(0xFF88844D),
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           );
                         },
                       ),
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.person,
                       size: 60,
-                      color: Color(0xFF88844D),
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
             ),
             Positioned(
@@ -414,7 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.2),
@@ -430,10 +447,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: const Color(0xFF88844D),
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         )
-                      : const Icon(Icons.edit, size: 18, color: Color(0xFF88844D)),
+                      : Icon(
+                          Icons.edit, 
+                          size: 18, 
+                          color: Theme.of(context).textTheme.bodyLarge?.color
+                        ),
                 ),
               ),
             ),
@@ -442,10 +463,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         Text(
           userName,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 4),
@@ -453,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           '@$username',
           style: TextStyle(
             fontSize: 16,
-            color: const Color(0xFF88844D).withOpacity(0.8),
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -467,9 +488,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Icon(Icons.star, color: Colors.green, size: 18),
-              SizedBox(width: 4),
+              const SizedBox(width: 4),
               Text(
                 "1250 Gems",
                 style: TextStyle(
@@ -488,12 +509,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Bio',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 16),
@@ -508,18 +529,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   bioText = value;
                 });
               },
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.all(20),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: Theme.of(context).cardColor,
                 hintText: "Add a little something about yourself...",
                 hintStyle: TextStyle(
-                  color: const Color(0xFF88844D).withOpacity(0.6),
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                   fontStyle: FontStyle.italic,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFBEC092)),
+                  borderSide: BorderSide(color: const Color(0xFFBEC092)),
                 ),
                 counterText: "",
               ),
@@ -531,7 +553,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 "${bioText.length}/120",
                 style: TextStyle(
                   fontSize: 12,
-                  color: const Color(0xFF88844D).withOpacity(0.6),
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 ),
               ),
             ),
@@ -543,7 +565,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(6),
                     boxShadow: [
                       BoxShadow(
@@ -559,10 +581,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 16,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: const Color(0xFF88844D),
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         )
-                      : const Icon(Icons.save, size: 16, color: Color(0xFF88844D)),
+                      : Icon(
+                          Icons.save, 
+                          size: 16, 
+                          color: Theme.of(context).textTheme.bodyLarge?.color
+                        ),
                 ),
               ),
             ),
@@ -576,12 +602,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Contact Information',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 20),
@@ -603,10 +629,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildContactItem({required IconData icon, required String label, required String value}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05), 
+            blurRadius: 4, 
+            offset: const Offset(0, 2)
+          ),
         ],
       ),
       child: Padding(
@@ -620,18 +650,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: const Color(0xFF88844D), size: 20),
+              child: Icon(
+                icon, 
+                color: const Color(0xFF88844D), 
+                size: 20
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label,
-                      style: TextStyle(fontSize: 14, color: const Color(0xFF88844D).withOpacity(0.7))),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14, 
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7)
+                    )
+                  ),
                   const SizedBox(height: 4),
-                  Text(value,
-                      style: const TextStyle(fontSize: 16, color: Color(0xFF88844D), fontWeight: FontWeight.w600)),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16, 
+                      color: Theme.of(context).textTheme.bodyLarge?.color, 
+                      fontWeight: FontWeight.w600
+                    )
+                  ),
                 ],
               ),
             ),
@@ -645,23 +690,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'My Account',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 20),
-        _buildAccountItem(icon: Icons.shopping_bag_outlined, label: 'My Purchases', onTap: () {}),
+        _buildAccountItem(
+          icon: Icons.shopping_bag_outlined, 
+          label: 'My Purchases', 
+          onTap: () {}
+        ),
         const SizedBox(height: 12),
-        _buildAccountItem(icon: Icons.settings_outlined, label: 'Settings', onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SettingsScreen()),
-          );
-        }),
+        _buildAccountItem(
+          icon: Icons.settings_outlined, 
+          label: 'Settings', 
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );
+          }
+        ),
       ],
     );
   }
@@ -669,10 +722,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildAccountItem({required IconData icon, required String label, VoidCallback? onTap}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05), 
+            blurRadius: 4, 
+            offset: const Offset(0, 2)
+          ),
         ],
       ),
       child: ListTile(
@@ -684,15 +741,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: const Color(0xFFBEC092),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: const Color(0xFF88844D), size: 20),
+          child: Icon(
+            icon, 
+            color: const Color(0xFF88844D), 
+            size: 20
+          ),
         ),
         title: Text(
           label,
-          style: const TextStyle(fontSize: 16, color: Color(0xFF88844D), fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: 16, 
+            color: Theme.of(context).textTheme.bodyLarge?.color, 
+            fontWeight: FontWeight.w600
+          ),
         ),
         trailing: Icon(
           Icons.arrow_forward_ios,
-          color: const Color(0xFF88844D).withOpacity(0.6),
+          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
           size: 16,
         ),
         onTap: onTap,
@@ -704,7 +769,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -720,21 +785,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _navItem(Icons.home_filled, false, 'Home', onTap: () {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => DashboardScreen(userName: userName, userId: userData['userId'] ?? '')),
+              MaterialPageRoute(
+                builder: (context) => DashboardScreen(
+                  userName: userName, 
+                  userId: userData['userId'] ?? ''
+                ),
+              ),
               (route) => false,
             );
           }),
           _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+              MaterialPageRoute(
+                builder: (context) => const BrowseMaterialsScreen(),
+              ),
             );
           }),
           _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => MarketplaceScreen(userName: userName, userId: userData['userId'] ?? ''),
+                builder: (context) => MarketplaceScreen(
+                  userName: userName, 
+                  userId: userData['userId'] ?? ''
+                ),
               ),
             );
           }),
@@ -762,7 +837,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+              color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -770,7 +845,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+                color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -785,19 +860,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Logout',
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+          content: Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+              ),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 _performLogout();
               },
-              child: const Text('Logout'),
+              child: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red),
+              ),
             ),
           ],
         );

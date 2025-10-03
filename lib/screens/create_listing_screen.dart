@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:junk_and_gems/services/material_service.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'browse_materials_screen.dart';
 
 class CreateListingScreen extends StatefulWidget {
@@ -42,8 +44,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -69,17 +73,17 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Row(
       children: [
         IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
         Image.asset('assets/images/logo.png', width: 60, height: 60),
         const SizedBox(width: 12),
-        const Text(
+        Text(
           'Share the Goods',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ],
@@ -90,12 +94,20 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Create Listing',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          ),
         ),
         const SizedBox(height: 24),
-        _buildTextField(label: 'Waste Title/Name', controller: _titleController, hintText: 'e.g., slabs of wood'),
+        _buildTextField(
+          label: 'Waste Title/Name', 
+          controller: _titleController, 
+          hintText: 'e.g., slabs of wood'
+        ),
         const SizedBox(height: 20),
         _buildTextField(
           label: 'Description',
@@ -114,9 +126,17 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           onChanged: (value) => setState(() => _selectedCategory = value),
         ),
         const SizedBox(height: 20),
-        _buildTextField(label: 'Quantity/Weight', controller: _quantityController, hintText: 'e.g., 5 items or 1kg'),
+        _buildTextField(
+          label: 'Quantity/Weight', 
+          controller: _quantityController, 
+          hintText: 'e.g., 5 items or 1kg'
+        ),
         const SizedBox(height: 20),
-        _buildTextField(label: 'Location', controller: _locationController, hintText: 'Western West, Lesotho'),
+        _buildTextField(
+          label: 'Location', 
+          controller: _locationController, 
+          hintText: 'Western West, Lesotho'
+        ),
       ],
     );
   }
@@ -125,7 +145,14 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Pickup/Drop-off Option', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          'Pickup/Drop-off Option', 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -158,25 +185,52 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         ),
         const SizedBox(height: 20),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor, 
+            borderRadius: BorderRadius.circular(12), 
+            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+          ),
           child: CheckboxListTile(
-            title: const Text('Fragile', style: TextStyle(fontWeight: FontWeight.w500)),
+            title: Text(
+              'Fragile', 
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              )
+            ),
             value: _isFragile,
             onChanged: (value) => setState(() => _isFragile = value ?? false),
             controlAffinity: ListTileControlAffinity.leading,
           ),
         ),
         const SizedBox(height: 20),
-        const Text('Contact Preferences', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          'Contact Preferences', 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 12),
         Column(
           children: _contactPreferences.keys.map((preference) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Container(
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor, 
+                  borderRadius: BorderRadius.circular(12), 
+                  border: Border.all(color: const Color(0xFFBEC092), width: 1)
+                ),
                 child: CheckboxListTile(
-                  title: Text(preference, style: const TextStyle(fontWeight: FontWeight.w500)),
+                  title: Text(
+                    preference, 
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    )
+                  ),
                   value: _contactPreferences[preference],
                   onChanged: (value) => setState(() => _contactPreferences[preference] = value ?? false),
                   controlAffinity: ListTileControlAffinity.leading,
@@ -193,16 +247,28 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor, 
+            borderRadius: BorderRadius.circular(12), 
+            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+          ),
           child: TextField(
             controller: controller,
             maxLines: maxLines,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(color: const Color(0xFF88844D).withOpacity(0.6)),
+              hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -224,18 +290,39 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 8),
         Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor, 
+            borderRadius: BorderRadius.circular(12), 
+            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: DropdownButton<String>(
               value: value,
-              hint: Text(hintText, style: TextStyle(color: const Color(0xFF88844D).withOpacity(0.6))),
+              hint: Text(
+                hintText, 
+                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6))
+              ),
               isExpanded: true,
               underline: const SizedBox(),
-              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, style: const TextStyle(color: Color(0xFF88844D))))).toList(),
+              dropdownColor: Theme.of(context).cardColor,
+              items: items.map((item) => DropdownMenuItem(
+                value: item, 
+                child: Text(
+                  item, 
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                )
+              )).toList(),
               onChanged: onChanged,
             ),
           ),
@@ -250,11 +337,19 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       child: Container(
         height: 50,
         decoration: BoxDecoration(
-          color: _selectedDeliveryOption == value ? const Color(0xFFBEC092) : Colors.white,
+          color: _selectedDeliveryOption == value ? const Color(0xFFBEC092) : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFBEC092), width: 2),
         ),
-        child: Center(child: Text(label, style: const TextStyle(color: Color(0xFF88844D), fontWeight: FontWeight.w600))),
+        child: Center(
+          child: Text(
+            label, 
+            style: TextStyle(
+              color: _selectedDeliveryOption == value ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color,
+              fontWeight: FontWeight.w600
+            )
+          ),
+        ),
       ),
     );
   }
@@ -263,20 +358,42 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D))),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          )
+        ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: onTap,
           child: Container(
             height: 50,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor, 
+              borderRadius: BorderRadius.circular(12), 
+              border: Border.all(color: const Color(0xFFBEC092), width: 1)
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
                 children: [
-                  Text(date != null ? '${date.day}/${date.month}/${date.year}' : hintText, style: TextStyle(color: date != null ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6))),
+                  Text(
+                    date != null ? '${date.day}/${date.month}/${date.year}' : hintText, 
+                    style: TextStyle(
+                      color: date != null 
+                        ? Theme.of(context).textTheme.bodyLarge?.color 
+                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)
+                    )
+                  ),
                   const Spacer(),
-                  Icon(Icons.calendar_today, size: 20, color: const Color(0xFF88844D).withOpacity(0.6)),
+                  Icon(
+                    Icons.calendar_today, 
+                    size: 20, 
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)
+                  ),
                 ],
               ),
             ),
@@ -357,26 +474,38 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            backgroundColor: const Color(0xFFF7F2E4),
+            backgroundColor: Theme.of(context).cardColor,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Good work!', style: TextStyle(color: Color(0xFF88844D))),
+                Text(
+                  'Good work!', 
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                ),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close, color: Color(0xFF88844D)),
+                  child: Icon(
+                    Icons.close, 
+                    color: Theme.of(context).textTheme.bodyLarge?.color
+                  ),
                 ),
               ],
             ),
-            content: const Text('Your waste will soon find a new purpose!', style: TextStyle(color: Color(0xFF88844D))),
+            content: Text(
+              'Your waste will soon find a new purpose!', 
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
+            ),
             actions: [
               TextButton(
                 onPressed: () {
                   Navigator.pop(context); // Close dialog
                   Navigator.pop(context, true); // Return to previous screen
                 },
-                child: const Text('OK', style: TextStyle(color: Color(0xFF88844D))),
+                child: Text(
+                  'OK', 
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                ),
               ),
             ],
           ),
@@ -419,9 +548,16 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
       height: 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFFBEC092),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -440,15 +576,28 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: isSelected ? const BoxDecoration(color: Color(0xFFF7F2E4), shape: BoxShape.circle) : null,
+        decoration: isSelected 
+            ? BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? const Color(0xFF2A2A2A) 
+                    : const Color(0xFFF7F2E4), 
+                shape: BoxShape.circle
+              ) 
+            : null,
         padding: const EdgeInsets.all(12),
-        child: Icon(icon, color: const Color(0xFF88844D), size: 28),
+        child: Icon(
+          icon, 
+          color: isSelected 
+              ? const Color(0xFF88844D) 
+              : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6), 
+          size: 28
+        ),
       ),
     );
   }
 }
 
-// Image Upload Widget
+// Image Upload Widget with Dark Mode
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
   const ImageUploadWidget({super.key, required this.onImagesChanged});
@@ -494,9 +643,13 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Upload images (up to 5)',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF88844D)),
+          style: TextStyle(
+            fontSize: 16, 
+            fontWeight: FontWeight.w600, 
+            color: Theme.of(context).textTheme.bodyLarge?.color
+          ),
         ),
         const SizedBox(height: 8),
         GestureDetector(
@@ -504,18 +657,28 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
           child: Container(
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white, 
+              color: Theme.of(context).cardColor, 
               borderRadius: BorderRadius.circular(12), 
               border: Border.all(color: const Color(0xFFBEC092), width: 1)
             ),
             child: _images.isEmpty
-                ? const Center(
+                ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFF88844D)),
-                        SizedBox(height: 8),
-                        Text('Tap to upload images', style: TextStyle(color: Color(0xFF88844D), fontSize: 14)),
+                        Icon(
+                          Icons.cloud_upload_outlined, 
+                          size: 40, 
+                          color: Theme.of(context).textTheme.bodyLarge?.color
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to upload images', 
+                          style: TextStyle(
+                            color: Theme.of(context).textTheme.bodyLarge?.color, 
+                            fontSize: 14
+                          )
+                        ),
                       ],
                     ),
                   )
@@ -548,7 +711,10 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                                 });
                               },
                               child: Container(
-                                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54, 
+                                  shape: BoxShape.circle
+                                ),
                                 child: const Icon(Icons.close, size: 20, color: Colors.white),
                               ),
                             ),

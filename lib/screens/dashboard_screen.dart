@@ -5,6 +5,8 @@ import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/utils/session_manager.dart';
 import 'package:junk_and_gems/services/user_service.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'browse_materials_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -70,8 +72,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
         child: Padding(
@@ -115,7 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildWelcomeCard() {
     return Center(
       child: Card(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
@@ -125,10 +129,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 'Welcome, ${widget.userName}!',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF88844D),
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               const SizedBox(height: 8),
@@ -136,7 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 'What will you do today?',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.black.withOpacity(0.7),
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -152,12 +156,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Quick Actions',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 16),
@@ -189,7 +193,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFE4E5C2),
+          color: Theme.of(context).brightness == Brightness.dark 
+              ? const Color(0xFF2A2A2A) 
+              : const Color(0xFFE4E5C2),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -207,7 +213,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092),
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF3A3A3A) 
+                      : const Color(0xFFBEC092),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, size: 24, color: const Color(0xFF88844D)),
@@ -216,10 +224,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF88844D),
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ],
@@ -322,18 +330,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Impact',
           style: TextStyle(
             fontSize: 20, 
             fontWeight: FontWeight.bold, 
-            color: Color(0xFF88844D)
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -362,10 +370,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 4),
@@ -373,7 +381,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           label,
           style: TextStyle(
             fontSize: 12, 
-            color: Colors.black.withOpacity(0.7),
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -394,12 +402,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Artisan Highlights",
           style: TextStyle(
             fontSize: 20, 
             fontWeight: FontWeight.bold, 
-            color: Color(0xFF88844D)
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 12),
@@ -431,12 +439,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Frequent Contributors",
           style: TextStyle(
             fontSize: 20, 
             fontWeight: FontWeight.bold, 
-            color: Color(0xFF88844D)
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 12),
@@ -467,7 +475,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     width: 140,
     height: 180, 
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(16),
       boxShadow: [
         BoxShadow(
@@ -515,10 +523,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Text(
             _getDisplayName(name),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14, 
               fontWeight: FontWeight.w600, 
-              color: Color(0xFF88844D)
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
             textAlign: TextAlign.center,
             maxLines: 1,
@@ -531,7 +539,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             specialty,
             style: TextStyle(
               fontSize: 12, 
-              color: Colors.black.withOpacity(0.6),
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
@@ -545,9 +553,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             isArtisan 
                 ? '$donationCount donations'
                 : '$materialCount materials',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10, 
-              color: Color(0xFF88844D),
+              color: Theme.of(context).textTheme.bodyLarge?.color,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -560,11 +568,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildProfilePlaceholder() {
     return Container(
-      color: const Color(0xFFE4E5C2),
-      child: const Icon(
+      color: Theme.of(context).brightness == Brightness.dark 
+          ? const Color(0xFF3A3A3A) 
+          : const Color(0xFFE4E5C2),
+      child: Icon(
         Icons.person,
         size: 24,
-        color: Color(0xFF88844D),
+        color: const Color(0xFF88844D),
       ),
     );
   }
@@ -583,10 +593,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20, 
             fontWeight: FontWeight.bold, 
-            color: Color(0xFF88844D)
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 12),
@@ -606,24 +616,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20, 
             fontWeight: FontWeight.bold, 
-            color: Color(0xFF88844D)
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 12),
         Container(
           height: 200,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(
             child: Text(
               message,
               style: TextStyle(
-                color: Colors.black.withOpacity(0.5),
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                 fontSize: 16,
               ),
             ),
@@ -638,7 +648,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -675,7 +685,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              MaterialPageRoute(builder: (context) => ProfileScreen(userName: widget.userName, userId: widget.userId)),
             );
           }),
         ],

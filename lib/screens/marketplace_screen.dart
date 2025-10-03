@@ -7,11 +7,13 @@ import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/screens/product_details_screen.dart'; 
 import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
-import 'package:junk_and_gems/screens/create_product_listing_screen.dart'; // Add this import
+import 'package:junk_and_gems/screens/create_product_listing_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   final String userName;
-  final String? userId; // Make userId nullable
+  final String? userId;
 
   const MarketplaceScreen({super.key, required this.userName, this.userId});
 
@@ -104,7 +106,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   void initState() {
     super.initState();
     
-    // Initialize animation for blinking cart bubble
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -114,7 +115,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
-    // Start auto-scroll after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startAutoScroll();
     });
@@ -157,17 +157,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       _userData = {
         'name': prefs.getString('userName') ?? 'User',
         'userId': prefs.getString('userId') ?? '',
-        // Add other user data if needed
       };
     });
   }
 
-
-
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       bottomNavigationBar: _buildBottomNavBar(context),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -182,36 +181,35 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Marketplace',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         centerTitle: true,
         actions: [
-          // Shopping Cart Icon with Blinking Bubble
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Stack(
               children: [
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.shopping_cart_outlined,
-                    color: Color(0xFF88844D),
+                    color: Theme.of(context).iconTheme.color,
                     size: 28,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ShoppingCartScreen()),
+                    );
+                  },
                 ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ShoppingCartScreen()),
-             );
-           },
-     ),
                 if (_cartItemCount > 0)
                   Positioned(
                     right: 8,
@@ -255,19 +253,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Search Bar
             _buildSearchBar(),
             const SizedBox(height: 24),
-            
-            // Featured Products with smooth horizontal scroll
             _buildFeaturedProducts(),
             const SizedBox(height: 32),
-            
-            // Categories
             _buildCategories(),
             const SizedBox(height: 32),
-            
-            // Products Grid
             _buildProductsGrid(),
           ],
         ),
@@ -279,7 +270,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     return Container(
       height: 50,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: const Color(0xFFBEC092),
@@ -292,15 +283,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           children: [
             Icon(
               Icons.search,
-              color: const Color(0xFF88844D).withOpacity(0.6),
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                 decoration: InputDecoration(
                   hintText: 'Search products, artisans...',
                   hintStyle: TextStyle(
-                    color: const Color(0xFF88844D).withOpacity(0.6),
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                   ),
                   border: InputBorder.none,
                 ),
@@ -316,12 +308,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Featured Products',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 16),
@@ -331,7 +323,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             onNotification: (scrollNotification) {
               if (scrollNotification is UserScrollNotification &&
                   scrollNotification.direction != ScrollDirection.idle) {
-                // You could pause auto-scroll here and restart after manual scroll stops
               }
               return false;
             },
@@ -357,7 +348,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                     width: 160,
                     margin: const EdgeInsets.only(right: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -370,7 +361,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Product Image
                         Container(
                           height: 120,
                           width: double.infinity,
@@ -390,10 +380,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
                                   color: const Color(0xFFE4E5C2),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.recycling,
                                     size: 40,
-                                    color: Color(0xFF88844D),
+                                    color: Theme.of(context).textTheme.bodyLarge?.color,
                                   ),
                                 );
                               },
@@ -401,8 +391,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           ),
                         ),
                         const SizedBox(height: 8),
-                        
-                        // Product Details
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Column(
@@ -410,10 +398,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                             children: [
                               Text(
                                 product['title']!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF88844D),
+                                  color: Theme.of(context).textTheme.bodyLarge?.color,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -423,7 +411,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                 'By ${product['artisan']!}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.black.withOpacity(0.6),
+                                  color: Theme.of(context).textTheme.bodyMedium?.color,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -432,10 +420,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                 children: [
                                   Text(
                                     product['price']!,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF88844D),
+                                      color: Theme.of(context).textTheme.bodyLarge?.color,
                                     ),
                                   ),
                                   Container(
@@ -447,10 +435,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                       color: const Color(0xFFBEC092),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.shopping_bag_outlined,
                                       size: 16,
-                                      color: Color(0xFF88844D),
+                                      color: Theme.of(context).textTheme.bodyLarge?.color,
                                     ),
                                   ),
                                 ],
@@ -474,12 +462,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Categories',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 16),
@@ -509,7 +497,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                   borderRadius: BorderRadius.circular(12),
                   child: Stack(
                     children: [
-                      // Category Image
                       Image.asset(
                         category['image']!,
                         width: double.infinity,
@@ -521,7 +508,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           );
                         },
                       ),
-                      // Gradient Overlay
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -534,7 +520,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           ),
                         ),
                       ),
-                      // Category Name
                       Align(
                         alignment: Alignment.bottomLeft,
                         child: Padding(
@@ -564,12 +549,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Popular Items',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 16),
@@ -596,7 +581,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -609,7 +594,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Product Image
                     Container(
                       height: 120,
                       width: double.infinity,
@@ -629,10 +613,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
                               color: const Color(0xFFE4E5C2),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.recycling,
                                 size: 40,
-                                color: Color(0xFF88844D),
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
                               ),
                             );
                           },
@@ -640,8 +624,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    // Product Details
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Column(
@@ -649,10 +631,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                         children: [
                           Text(
                             product['title']!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF88844D),
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -662,7 +644,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                             'By ${product['artisan']!}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black.withOpacity(0.6),
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -671,10 +653,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                             children: [
                               Text(
                                 product['price']!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF88844D),
+                                  color: Theme.of(context).textTheme.bodyLarge?.color,
                                 ),
                               ),
                               Container(
@@ -686,10 +668,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                   color: const Color(0xFFBEC092),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.shopping_bag_outlined,
                                   size: 16,
-                                  color: Color(0xFF88844D),
+                                  color: Theme.of(context).textTheme.bodyLarge?.color,
                                 ),
                               ),
                             ],
@@ -707,12 +689,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  // Bottom Nav Bar matching the dashboard style
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -726,26 +707,26 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _navItem(Icons.home_filled, false, 'Home', onTap: () {
-            // Navigate to DashboardScreen and clear the entire navigation stack
-            // After login, navigate like this:
-Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) => DashboardScreen(
-      userName: _userData['name']!,
-      userId: _userData['userId'] ?? '', // Use _userData and handle null
-    ),
-  ),
-);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DashboardScreen(
+                  userName: _userData['name']!,
+                  userId: _userData['userId'] ?? '',
+                ),
+              ),
+            );
           }),
           _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+              MaterialPageRoute(
+                builder: (context) => const BrowseMaterialsScreen(),
+              ),
             );
           }),
           _navItem(Icons.shopping_bag_outlined, true, 'Shop', onTap: () {
-            // Already on marketplace, do nothing or refresh
+            // Already on marketplace
           }),
           _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
             Navigator.push(
@@ -756,7 +737,12 @@ Navigator.pushReplacement(
           _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              MaterialPageRoute(
+                builder: (context) => ProfileScreen(
+                  userName: _userData['name']!, 
+                  userId: _userData['userId'] ?? ''
+                ),
+              ),
             );
           }),
         ],
@@ -774,7 +760,7 @@ Navigator.pushReplacement(
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+              color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -782,7 +768,7 @@ Navigator.pushReplacement(
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.6),
+                color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
