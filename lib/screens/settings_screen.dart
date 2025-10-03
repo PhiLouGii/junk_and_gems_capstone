@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/providers/language_provider.dart';
+import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/screens/legal_webview_screen.dart';
 import 'package:junk_and_gems/utils/legal_content.dart';
 import 'package:provider/provider.dart';
@@ -9,21 +10,23 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Settings',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ),
@@ -35,7 +38,20 @@ class SettingsScreen extends StatelessWidget {
             _buildSectionHeader('QUICK SETTINGS'),
             const SizedBox(height: 16),
             _buildSettingItem(context, Icons.notifications_outlined, 'Notifications'),
-            _buildSettingItem(context, Icons.dark_mode_outlined, 'Dark Mode', hasToggle: true),
+            Consumer<ThemeProvider>(
+              builder: (context, themeProvider, child) {
+                return _buildSettingItem(
+                  context, 
+                  Icons.dark_mode_outlined, 
+                  'Dark Mode', 
+                  hasToggle: true,
+                  switchValue: themeProvider.isDarkMode,
+                  onSwitchChanged: (value) {
+                    themeProvider.toggleTheme(value);
+                  },
+                );
+              },
+            ),
             const SizedBox(height: 32),
             _buildSectionHeader('PREFERENCES'),
             const SizedBox(height: 16),
@@ -63,23 +79,27 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Text(
+    return Builder(builder: (context) => Text(
       title,
       style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: const Color(0xFF88844D).withOpacity(0.8),
+        color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
         letterSpacing: 1.2,
       ),
-    );
+    ));
   }
 
   Widget _buildSettingItem(BuildContext context, IconData icon, String title,
-      {bool hasToggle = false, bool isDestructive = false, VoidCallback? onTap}) {
+      {bool hasToggle = false, 
+       bool isDestructive = false, 
+       VoidCallback? onTap,
+       bool? switchValue,
+       Function(bool)? onSwitchChanged}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -104,17 +124,17 @@ class SettingsScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: isDestructive ? Colors.red : const Color(0xFF88844D),
+            color: isDestructive ? Colors.red : Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         trailing: hasToggle
             ? Switch(
-                value: false,
-                onChanged: (_) {},
+                value: switchValue ?? false,
+                onChanged: onSwitchChanged,
                 activeColor: const Color(0xFF88844D),
               )
             : Icon(Icons.arrow_forward_ios,
-                color: isDestructive ? Colors.red.withOpacity(0.6) : const Color(0xFF88844D).withOpacity(0.6),
+                color: isDestructive ? Colors.red.withOpacity(0.6) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 size: 16),
         onTap: onTap ?? () {
           if (title == 'Sign Out') {
@@ -133,12 +153,18 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFF7F2E4),
-        title: const Text('Sign Out', style: TextStyle(color: Color(0xFF88844D), fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to sign out?', style: TextStyle(color: Color(0xFF88844D))),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text('Sign Out', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to sign out?', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel', style: TextStyle(color: Color(0xFF88844D)))),
-          TextButton(onPressed: () {}, child: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
+          ),
+          TextButton(
+            onPressed: () {}, 
+            child: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+          ),
         ],
       ),
     );
@@ -148,12 +174,18 @@ class SettingsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).cardColor,
         title: const Text('Delete Account', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: const Text('This action cannot be undone. All your data will be permanently deleted.', style: TextStyle(color: Color(0xFF88844D))),
+        content: Text('This action cannot be undone. All your data will be permanently deleted.', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel', style: TextStyle(color: Color(0xFF88844D)))),
-          TextButton(onPressed: () {}, child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: Text('Cancel', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
+          ),
+          TextButton(
+            onPressed: () {}, 
+            child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+          ),
         ],
       ),
     );
@@ -180,8 +212,7 @@ class AppPreferencesScreen extends StatefulWidget {
 }
 
 class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
-  bool _isSesotho = false;
-  double _fontSize = 1.0; // 1.0 = 100%, range from 0.8 to 1.5
+  double _fontSize = 1.0;
 
   final List<double> _fontSizeOptions = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
   final Map<double, String> _fontSizeLabels = {
@@ -198,20 +229,20 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F2E4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF7F2E4),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF88844D)),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'App Preferences',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ),
@@ -245,71 +276,70 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
       style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w700,
-        color: const Color(0xFF88844D).withOpacity(0.8),
+        color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
         letterSpacing: 1.2,
       ),
     );
   }
 
   Widget _buildLanguageToggle() {
-  return Consumer<LanguageProvider>(
-    builder: (context, languageProvider, child) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFBEC092),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.language, color: Color(0xFF88844D), size: 20),
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, child) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          title: Text(
-            'App Language',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF88844D),
+          child: ListTile(
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.language, color: Color(0xFF88844D), size: 20),
+            ),
+            title: Text(
+              'App Language',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            subtitle: Text(
+              languageProvider.isSesotho ? 'Sesotho' : 'English',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
+              ),
+            ),
+            trailing: Switch(
+              value: languageProvider.isSesotho,
+              onChanged: (value) {
+                languageProvider.toggleLanguage(value);
+              },
+              activeColor: const Color(0xFF88844D),
             ),
           ),
-          subtitle: Text(
-            languageProvider.isSesotho ? 'Sesotho' : 'English',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF88844D).withOpacity(0.7),
-            ),
-          ),
-          trailing: Switch(
-            value: languageProvider.isSesotho,
-            onChanged: (value) {
-              languageProvider.toggleLanguage(value);
-            },
-            activeColor: const Color(0xFF88844D),
-          ),
-        ),
-      );
-    },
-  );
-}
-
+        );
+      },
+    );
+  }
 
   Widget _buildFontSizeSlider() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -330,14 +360,14 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF88844D),
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
               Text(
                 _fontSizeLabels[_fontSize] ?? 'Medium',
                 style: TextStyle(
                   fontSize: 14,
-                  color: const Color(0xFF88844D).withOpacity(0.7),
+                  color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -348,7 +378,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             value: _fontSize,
             min: 0.8,
             max: 1.5,
-            divisions: 7, // 8 options total
+            divisions: 7,
             onChanged: (value) {
               setState(() {
                 _fontSize = value;
@@ -365,14 +395,14 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                 'Small',
                 style: TextStyle(
                   fontSize: 12,
-                  color: const Color(0xFF88844D).withOpacity(0.6),
+                  color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 ),
               ),
               Text(
                 'Large',
                 style: TextStyle(
                   fontSize: 12,
-                  color: const Color(0xFF88844D).withOpacity(0.6),
+                  color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 ),
               ),
             ],
@@ -383,121 +413,120 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   }
 
   Widget _buildFontSizePreview() {
-  return Consumer<LanguageProvider>(
-    builder: (context, languageProvider, child) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Preview',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF88844D),
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, child) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              languageProvider.isSesotho
-                  ? 'Ena ke tsela eo mongolo oa hau o tla sheba boholo bo khethiloeng.'
-                  : 'This is how your text will look with the selected font size.',
-              style: TextStyle(
-                fontSize: 14 * _fontSize,
-                color: const Color(0xFF88844D),
-                height: 1.4,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Preview',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
+              const SizedBox(height: 12),
+              Text(
+                languageProvider.isSesotho
+                    ? 'Ena ke tsela eo mongolo oa hau o tla sheba boholo bo khethiloeng.'
+                    : 'This is how your text will look with the selected font size.',
+                style: TextStyle(
+                  fontSize: 14 * _fontSize,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildPreviewCard() {
-  return Consumer<LanguageProvider>(
-    builder: (context, languageProvider, child) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              languageProvider.isSesotho ? 'Ponelopele ea app' : 'App Preview',
-              style: TextStyle(
-                fontSize: 18 * _fontSize,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF88844D),
+    return Consumer<LanguageProvider>(
+      builder: (context, languageProvider, child) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              languageProvider.isSesotho
-                  ? 'Sena ke mohlala o hlahisang hore sebatli se tla shebahala joang app ena.'
-                  : 'Ona ke mohlala o bontšang hore na sebopeho sa app se tla shebahala joang.',
-              style: TextStyle(
-                fontSize: 14 * _fontSize,
-                color: const Color(0xFF88844D).withOpacity(0.8),
-                height: 1.4,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                languageProvider.isSesotho ? 'Ponelopele ea app' : 'App Preview',
+                style: TextStyle(
+                  fontSize: 18 * _fontSize,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE4E5C2),
-                borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 8),
+              Text(
+                languageProvider.isSesotho
+                    ? 'Ona ke mohlala o bontšang hore na sebopeho sa app se tla shebahala joang.'
+                    : 'This is an example showing what the app interface will look like.',
+                style: TextStyle(
+                  fontSize: 14 * _fontSize,
+                  color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
+                  height: 1.4,
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.recycling,
-                      color: const Color(0xFF88844D),
-                      size: 20 * _fontSize),
-                  const SizedBox(width: 8),
-                  Text(
-                    languageProvider.isSesotho
-                        ? 'Ho fana ka Thepa'
-                        : 'Donate Materials',
-                    style: TextStyle(
-                      fontSize: 14 * _fontSize,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF88844D),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE4E5C2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.recycling,
+                        color: const Color(0xFF88844D),
+                        size: 20 * _fontSize),
+                    const SizedBox(width: 8),
+                    Text(
+                      languageProvider.isSesotho
+                          ? 'Ho fana ka Thepa'
+                          : 'Donate Materials',
+                      style: TextStyle(
+                        fontSize: 14 * _fontSize,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF88844D),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
