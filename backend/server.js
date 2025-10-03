@@ -5,16 +5,16 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { upload, uploadToCloudinary } = require('./config/cloudinary');
 
 const app = express();
 const port = 3003;
 
 app.use(cors({
-  origin: ['http://localhost:3003', 'http://10.0.2.2:3003', 'http://127.0.0.1:3003'],
+  origin: ['http://localhost:3003', 'http://10.0.2.2:3003', 'http://127.0.0.1:3003', 'http://localhost:3003'],
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // PostgreSQL connection
 const pool = new Pool({
@@ -25,39 +25,23 @@ const pool = new Pool({
   port: 5433, 
 });
 
-// Test route
-app.get('/api/test-cloudinary', async (req, res) => {
-  try {
-    res.json({ 
-      success: true, 
-      message: 'Cloudinary is configured correctly',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Cloudinary configuration error: ' + error.message 
-    });
-  }
-});
+// --- AUTHENTICATION MIDDLEWARE ---
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-// Test Cloudinary configuration
-app.get('/api/test-cloudinary-config', async (req, res) => {
-  try {
-    res.json({ 
-      success: true, 
-      message: 'Cloudinary configuration test',
-      cloudName: process.env.CLOUDINARY_CLOUD_NAME ? 'Set' : 'Missing',
-      apiKey: process.env.CLOUDINARY_API_KEY ? 'Set' : 'Missing',
-      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Cloudinary test failed: ' + error.message
-    });
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
   }
-});
+
+  jwt.verify(token, "your_jwt_secret", (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Invalid token" });
+    }
+    req.user = user;
+    next();
+  });
+}
 
 // --- ROUTES ---
 
@@ -136,104 +120,49 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Image upload endpoint
-app.post('/api/upload-image', upload.single('image'), async (req, res) => {
-  try {
-    console.log('📸 Upload endpoint called');
-    
-    if (!req.file) {
-      console.log('❌ No file provided');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No image file provided' 
-      });
-    }
-
-    console.log('✅ File received:', {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size
-    });
-
-    console.log('☁️ Uploading to Cloudinary...');
-    const result = await uploadToCloudinary(req.file.buffer);
-    console.log('✅ Upload successful:', result.secure_url);
-    
-    res.json({
-      success: true,
-      imageUrl: result.secure_url,
-      message: 'Image uploaded successfully'
-    });
-
-  } catch (error) {
-    console.error('❌ Upload error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Image upload failed: ' + error.message 
-    });
-  }
-});
-
-// Multiple images upload endpoint
-app.post('/api/upload-images', upload.array('images', 5), async (req, res) => {
-  try {
-    console.log('📸 Multiple upload endpoint called');
-    
-    if (!req.files || req.files.length === 0) {
-      console.log('❌ No files provided');
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No image files provided' 
-      });
-    }
-
-    console.log(`✅ ${req.files.length} files received`);
-
-    console.log('☁️ Uploading to Cloudinary...');
-    const uploadPromises = req.files.map(file => 
-      uploadToCloudinary(file.buffer)
-    );
-
-    const results = await Promise.all(uploadPromises);
-    const imageUrls = results.map(result => result.secure_url);
-
-    console.log(`✅ All uploads successful: ${imageUrls.length} images`);
-    
-    res.json({
-      success: true,
-      imageUrls: imageUrls,
-      message: `${req.files.length} images uploaded successfully`
-    });
-
-  } catch (error) {
-    console.error('❌ Upload error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Image upload failed: ' + error.message 
-    });
-  }
-});
-
-// Get all materials
+// Get all materials with real data
 app.get("/materials", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
         m.*,
         u.name as uploader_name,
-        u.email as uploader_email
+        u.email as uploader_email,
+        u.profile_image_url as uploader_avatar
       FROM materials m
       JOIN users u ON m.uploader_id = u.id
+      WHERE m.is_claimed = false
       ORDER BY m.created_at DESC
     `);
-    res.json(result.rows);
+    
+    // Convert database results to frontend format
+    const materials = result.rows.map(material => ({
+      id: material.id,
+      title: material.title,
+      description: material.description,
+      category: material.category,
+      quantity: material.quantity,
+      location: material.location,
+      delivery_option: material.delivery_option,
+      available_from: material.available_from,
+      available_until: material.available_until,
+      is_fragile: material.is_fragile,
+      contact_preferences: material.contact_preferences,
+      image_urls: material.image_data_base64 ? material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
+      uploader: material.uploader_name,
+      amount: material.quantity,
+      created_at: material.created_at,
+      time: formatTimeAgo(material.created_at)
+    }));
+
+    res.json(materials);
   } catch (err) {
-    console.error(err);
+    console.error("Get materials error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// Create new material/donation
+// Create new material/donation with base64 images
 app.post("/materials", async (req, res) => {
   const { 
     title, 
@@ -246,7 +175,7 @@ app.post("/materials", async (req, res) => {
     available_until, 
     is_fragile, 
     contact_preferences,
-    image_urls,
+    image_data_base64, // Array of base64 strings
     uploader_id 
   } = req.body;
 
@@ -255,18 +184,24 @@ app.post("/materials", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Process base64 images - extract just the data part
+    const processedImages = image_data_base64 ? image_data_base64.map(img => {
+      // Remove data:image/xxx;base64, prefix if present
+      return img.includes('base64,') ? img.split('base64,')[1] : img;
+    }) : [];
+
     const result = await pool.query(
       `INSERT INTO materials 
        (title, description, category, quantity, location, delivery_option, 
         available_from, available_until, is_fragile, contact_preferences, 
-        image_urls, uploader_id) 
+        image_data_base64, uploader_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
       [
         title, description, category, quantity, location, delivery_option,
         available_from, available_until, is_fragile, 
         JSON.stringify(contact_preferences), 
-        JSON.stringify(image_urls), uploader_id
+        processedImages, uploader_id
       ]
     );
 
@@ -275,15 +210,86 @@ app.post("/materials", async (req, res) => {
       SELECT 
         m.*,
         u.name as uploader_name,
-        u.email as uploader_email
+        u.email as uploader_email,
+        u.profile_image_url as uploader_avatar
       FROM materials m
       JOIN users u ON m.uploader_id = u.id
       WHERE m.id = $1
     `, [result.rows[0].id]);
 
-    res.status(201).json(materialWithUploader.rows[0]);
+    const material = materialWithUploader.rows[0];
+    
+    // Format response for frontend
+    const formattedMaterial = {
+      ...material,
+      image_urls: material.image_data_base64 ? material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
+      uploader: material.uploader_name,
+      amount: material.quantity,
+      time: formatTimeAgo(material.created_at)
+    };
+
+    res.status(201).json(formattedMaterial);
   } catch (err) {
     console.error("Create material error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Claim a material
+app.put("/materials/:id/claim", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { claimed_by } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE materials 
+       SET is_claimed = true, claimed_by = $1, claimed_at = NOW() 
+       WHERE id = $2 
+       RETURNING *`,
+      [claimed_by, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Material not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Material claimed successfully",
+      material: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Claim material error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user's posted materials
+app.get("/users/:userId/materials", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name
+      FROM materials m
+      JOIN users u ON m.uploader_id = u.id
+      WHERE m.uploader_id = $1
+      ORDER BY m.created_at DESC
+    `, [userId]);
+
+    const materials = result.rows.map(material => ({
+      ...material,
+      image_urls: material.image_data_base64 ? material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
+      uploader: material.uploader_name,
+      amount: material.quantity,
+      time: formatTimeAgo(material.created_at)
+    }));
+
+    res.json(materials);
+  } catch (err) {
+    console.error("Get user materials error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -331,29 +337,8 @@ app.get("/api/contributors", async (req, res) => {
   }
 });
 
-// Test route to check all users
-app.get("/api/test-users", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT id, name, user_type, specialty, donation_count 
-      FROM users 
-      ORDER BY name
-    `);
-    
-    res.json({
-      success: true,
-      count: result.rows.length,
-      users: result.rows
-    });
-    
-  } catch (err) {
-    console.error("Test users error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 // Update user profile
-app.put("/api/users/:id/profile", async (req, res) => {
+app.put("/api/users/:id/profile", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { name, specialty, bio, user_type } = req.body;
 
@@ -377,27 +362,30 @@ app.put("/api/users/:id/profile", async (req, res) => {
   }
 });
 
-// Upload profile picture
-app.post("/api/users/:id/profile-picture", upload.single('profile_picture'), async (req, res) => {
+// Upload profile picture as base64
+app.post("/api/users/:id/profile-picture", authenticateToken, async (req, res) => {
   const { id } = req.params;
+  const { image_data_base64 } = req.body;
 
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No image file provided" });
+    if (!image_data_base64) {
+      return res.status(400).json({ error: "No image data provided" });
     }
 
-    const result = await uploadToCloudinary(req.file.buffer);
-    const imageUrl = result.secure_url;
+    // Process base64 image
+    const processedImage = image_data_base64.includes('base64,') 
+      ? image_data_base64.split('base64,')[1] 
+      : image_data_base64;
 
     // Update user's profile picture
     await pool.query(
       "UPDATE users SET profile_image_url = $1 WHERE id = $2",
-      [imageUrl, id]
+      [`data:image/jpeg;base64,${processedImage}`, id]
     );
 
     res.json({
       success: true,
-      profile_image_url: imageUrl,
+      profile_image_url: `data:image/jpeg;base64,${processedImage}`,
       message: "Profile picture updated successfully"
     });
 
@@ -407,7 +395,7 @@ app.post("/api/users/:id/profile-picture", upload.single('profile_picture'), asy
   }
 });
 
-// Get or create conversation between two users
+// --- CHAT ENDPOINTS (keep existing) ---
 app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, res) => {
   const { userId1, userId2 } = req.params;
   
@@ -445,7 +433,6 @@ app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, r
   }
 });
 
-// Get user's conversations
 app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) => {
   const { userId } = req.params;
   
@@ -484,7 +471,6 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
   }
 });
 
-// Get messages for a conversation
 app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   
@@ -507,7 +493,6 @@ app.get("/api/conversations/:conversationId/messages", authenticateToken, async 
   }
 });
 
-// Send a message
 app.post("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   const { senderId, messageText } = req.body;
@@ -534,51 +519,21 @@ app.post("/api/conversations/:conversationId/messages", authenticateToken, async
   }
 });
 
-// Mark messages as read
-app.put("/api/conversations/:conversationId/read", authenticateToken, async (req, res) => {
-  const { conversationId } = req.params;
-  const { userId } = req.body;
-  
-  try {
-    await pool.query(`
-      UPDATE messages 
-      SET read_at = NOW() 
-      WHERE conversation_id = $1 
-      AND sender_id != $2 
-      AND read_at IS NULL
-    `, [conversationId, userId]);
+// Helper function to format time ago
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - new Date(date);
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error("Mark as read error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Authentication middleware
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Access token required" });
-  }
-
-  jwt.verify(token, "your_jwt_secret", (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: "Invalid token" });
-    }
-    req.user = user;
-    next();
-  });
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} mins ago`;
+  if (diffHours < 24) return `${diffHours} hrs ago`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return new Date(date).toLocaleDateString();
 }
 
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
-  console.log(`📡 Available test routes:`);
-  console.log(`   GET  /api/test-cloudinary`);
-  console.log(`   GET  /api/test-cloudinary-config`);
-  console.log(`   GET  /api/test-users`);
-  console.log(`   GET  /api/artisans`);
-  console.log(`   GET  /api/contributors`);
 });

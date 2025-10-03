@@ -95,6 +95,15 @@ flutter:
     - assets/images/crafts.jpg
     - assets/images/fashion.jpg
     - assets/images/jewelry.jpg
+    - assets/images/plastic_placeholder.jpg
+    - assets/images/fabric_placeholder.jpg
+    - assets/images/glass_placeholder.jpg
+    - assets/images/metal_placeholder.jpg
+    - assets/images/wood_placeholder.jpg
+    - assets/images/electronics_placeholder.jpg
+    - assets/images/cans_placeholder.jpg
+    - assets/images/cables_placeholder.jpg
+    - assets/images/general_placeholder.jpg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

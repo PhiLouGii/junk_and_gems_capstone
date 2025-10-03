@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:junk_and_gems/services/material_service.dart';
 import 'browse_materials_screen.dart';
 
@@ -30,6 +29,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   final _quantityController = TextEditingController();
   final _locationController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -287,99 +287,131 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   Widget _buildSubmitButton() {
-  return SizedBox(
-    width: double.infinity,
-    height: 56,
-    child: ElevatedButton(
-      onPressed: () async {
-        // Validate required fields
-        if (_titleController.text.isEmpty || 
-            _descriptionController.text.isEmpty || 
-            _selectedCategory == null || 
-            _locationController.text.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please fill in all required fields')),
-          );
-          return;
-        }
-
-        try {
-          // Convert XFile to File and upload images
-          List<String> imageUrls = [];
-          if (_images.isNotEmpty) {
-            // Convert XFile to File
-            List<File> imageFiles = _images.map((xFile) => File(xFile.path)).toList();
-            imageUrls = await MaterialService.uploadMultipleImages(imageFiles);
-          }
-
-          // Prepare the material data
-          final materialData = {
-            'title': _titleController.text,
-            'description': _descriptionController.text,
-            'category': _selectedCategory!,
-            'quantity': _quantityController.text,
-            'location': _locationController.text,
-            'delivery_option': _selectedDeliveryOption ?? '',
-            'available_from': _availableFrom?.toIso8601String(),
-            'available_until': _availableUntil?.toIso8601String(),
-            'is_fragile': _isFragile,
-            'contact_preferences': _contactPreferences,
-            'image_urls': imageUrls,
-            'uploader_id': 1, // Replace with actual user ID from auth
-          };
-
-          // Create the material
-          await MaterialService.createMaterial(materialData);
-
-          // Show success dialog
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              backgroundColor: const Color(0xFFF7F2E4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Good work!', style: TextStyle(color: Color(0xFF88844D))),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, color: Color(0xFF88844D)),
-                  ),
-                ],
-              ),
-              content: const Text('Your waste will soon find a new purpose!', style: TextStyle(color: Color(0xFF88844D))),
-            ),
-          ).then((_) {
-            Navigator.pop(context, true); // Return true to indicate success
-          });
-
-        } catch (e) {
-    print('Detailed error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: ${e.toString()}'),
-        duration: Duration(seconds: 5),
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _isSubmitting ? null : _submitListing,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF88844D),
+          foregroundColor: const Color(0xFFF7F2E4),
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF7F2E4)),
+                ),
+              )
+            : const Text('Submit Listing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       ),
     );
   }
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF88844D),
-        foregroundColor: const Color(0xFFF7F2E4),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: const Text('Submit Listing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-    ),
-  );
-}
+
+  Future<void> _submitListing() async {
+    // Validate required fields
+    if (_titleController.text.isEmpty || 
+        _descriptionController.text.isEmpty || 
+        _selectedCategory == null || 
+        _locationController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      // Convert XFile to File
+      List<File> imageFiles = _images.map((xFile) => File(xFile.path)).toList();
+
+      // Prepare the material data
+      final materialData = {
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'category': _selectedCategory!,
+        'quantity': _quantityController.text.isNotEmpty ? _quantityController.text : 'Not specified',
+        'location': _locationController.text,
+        'delivery_option': _selectedDeliveryOption ?? 'Needs Pickup',
+        'available_from': _availableFrom?.toIso8601String(),
+        'available_until': _availableUntil?.toIso8601String(),
+        'is_fragile': _isFragile,
+        'contact_preferences': _contactPreferences,
+        'uploader_id': 1, // Replace with actual user ID from auth
+      };
+
+      print('📝 Material data prepared: ${materialData.keys}');
+
+      // Create the material using the service
+      bool success = await MaterialService.createMaterial(materialData, imageFiles);
+
+      if (success) {
+        // Show success dialog
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFFF7F2E4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Good work!', style: TextStyle(color: Color(0xFF88844D))),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close, color: Color(0xFF88844D)),
+                ),
+              ],
+            ),
+            content: const Text('Your waste will soon find a new purpose!', style: TextStyle(color: Color(0xFF88844D))),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.pop(context, true); // Return to previous screen
+                },
+                child: const Text('OK', style: TextStyle(color: Color(0xFF88844D))),
+              ),
+            ],
+          ),
+        );
+      }
+
+    } catch (e) {
+      print('❌ Detailed error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
 
   Future<void> _selectDate(BuildContext context, bool isFromDate) async {
-    final DateTime? picked = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime(2100));
+    final DateTime? picked = await showDatePicker(
+      context: context, 
+      initialDate: DateTime.now(), 
+      firstDate: DateTime.now(), 
+      lastDate: DateTime(2100)
+    );
     if (picked != null) {
       setState(() {
-        if (isFromDate) _availableFrom = picked;
-        else _availableUntil = picked;
+        if (isFromDate) {
+          _availableFrom = picked;
+        } else {
+          _availableUntil = picked;
+        }
       });
     }
   }
@@ -416,7 +448,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 }
 
-// ---------------- Image Upload Widget ----------------
+// Image Upload Widget
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
   const ImageUploadWidget({super.key, required this.onImagesChanged});
@@ -430,34 +462,32 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
   List<XFile> _images = [];
 
   Future<void> _pickImages() async {
-  try {
-    final List<XFile>? pickedImages = await _picker.pickMultiImage(
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 80,
-    );
+    try {
+      final List<XFile>? pickedImages = await _picker.pickMultiImage(
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
+      );
 
-    if (pickedImages != null) {
-      setState(() {
-        if (_images.length + pickedImages.length > 5) {
-          int availableSlots = 5 - _images.length;
-          _images.addAll(pickedImages.take(availableSlots));
-        } else {
-          _images.addAll(pickedImages);
-        }
-      });
+      if (pickedImages != null) {
+        setState(() {
+          if (_images.length + pickedImages.length > 5) {
+            int availableSlots = 5 - _images.length;
+            _images.addAll(pickedImages.take(availableSlots));
+          } else {
+            _images.addAll(pickedImages);
+          }
+        });
 
-      widget.onImagesChanged(_images);
+        widget.onImagesChanged(_images);
+      }
+    } catch (e) {
+      print("Image picker error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick images: $e')),
+      );
     }
-  } catch (e) {
-    print("Image picker error: $e");
-    // Show error to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to pick images: $e')),
-    );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -473,12 +503,16 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
           onTap: _pickImages,
           child: Container(
             height: 120,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBEC092), width: 1)),
+            decoration: BoxDecoration(
+              color: Colors.white, 
+              borderRadius: BorderRadius.circular(12), 
+              border: Border.all(color: const Color(0xFFBEC092), width: 1)
+            ),
             child: _images.isEmpty
-                ? Center(
+                ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFF88844D)),
                         SizedBox(height: 8),
                         Text('Tap to upload images', style: TextStyle(color: Color(0xFF88844D), fontSize: 14)),
@@ -514,7 +548,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                                 });
                               },
                               child: Container(
-                                decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                                 child: const Icon(Icons.close, size: 20, color: Colors.white),
                               ),
                             ),
