@@ -1,5 +1,7 @@
 import React from 'react';
 import styles from './LearnMore.module.css';
+import { useNavigate } from 'react-router-dom';
+import backgroundImage from '../../assets/background.jpg';
 
 interface SafetyItemProps {
   icon: string;
@@ -15,10 +17,16 @@ const SafetyItem: React.FC<SafetyItemProps> = ({ icon, title, text }) => (
 );
 
 const LearnMore: React.FC = () => {
+  const navigate = useNavigate();
   return (
     <div className={styles.container}>
       {/* Hero Section */}
-      <div className={styles.hero}>
+      <div 
+        className={styles.hero}
+        style={{
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.5) 100%), url(${backgroundImage})`
+        }}
+      >
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>Turning Trash Into Treasure, Together</h1>
           <p className={styles.heroSubtitle}>
@@ -156,7 +164,13 @@ const LearnMore: React.FC = () => {
         <section className={styles.ctaSection}>
           <div className={styles.ctaButtons}>
             <button className={styles.primaryButton}>Join the Movement</button>
-            <button className={styles.secondaryButton}>Browse Available Materials</button>
+            <button 
+          className={styles.secondaryButton}
+          onClick={() => navigate('/browse-materials')}
+        >
+          Browse Available Materials
+        </button>
+            <button className={styles.secondaryButton}>Upcycled Products Galllery</button>
           </div>
         </section>
       </main>

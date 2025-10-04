@@ -6,9 +6,6 @@
 /* Hero Section */
 .hero {
   height: 500px;
-  background-image: 
-    linear-gradient(rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.5) 100%),
-    url("https://lh3.googleusercontent.com/aida-public/AB6AXuCXt5scVIkRzXInzemuxJ5LjtS3mUFeX0S4uu30TbArsDPr4zXuNe7UNutRP2I0Zd1GTcotxsU7HCD16THaeMTDA8zEZeKtQ-8c5udi-f89NHWF4f8KZIjrazIWJJ8JWywDuhDP-Al_eEEZWh5Mj8KL-eFmCXBbpFDhyCq7xJwcUVTK75rRdfES6_lQ1X43m7HYtxOBosln8GLCSBbZuXK9coUKat17lrpxvsepl8zcUSP1VmsjqpPBUEIfCI41Wz9aO4M0BSRDrZA");
   background-size: cover;
   background-position: center;
   position: relative;
@@ -101,7 +98,7 @@
 
 .card span {
   font-size: 2.25rem;
-  color: #5eedbe;
+  color: #88844D;
   margin-bottom: 1rem;
 }
 
@@ -124,14 +121,15 @@
   flex-direction: column;
   align-items: center;
   padding: 1rem;
-  background-color: rgba(94, 237, 190, 0.1);
+  background-color: #e3e1cb;
   border-radius: 0.5rem;
   text-align: center;
+  cursor: pointer;
 }
 
 .benefitCard span {
   font-size: 1.875rem;
-  color: #5eedbe;
+  color: #88844D;
   margin-bottom: 0.5rem;
 }
 
@@ -154,7 +152,7 @@
 .statNumber {
   font-size: 1.875rem;
   font-weight: 800;
-  color: #5eedbe;
+  color: #88844D;
   margin: 0;
 }
 
@@ -188,7 +186,7 @@
 }
 
 .listItem span:first-child {
-  color: #5eedbe;
+  color: #88844D;
   margin-right: 0.75rem;
   margin-top: 0.25rem;
 }
@@ -217,7 +215,7 @@
 .primaryButton {
   width: 100%;
   padding: 0.75rem 2rem;
-  background-color: #5eedbe;
+  background-color: #88844D;
   color: #11211c;
   font-weight: 700;
   border: none;
@@ -228,14 +226,14 @@
 }
 
 .primaryButton:hover {
-  background-color: rgba(94, 237, 190, 0.9);
+  background-color: #999A5B;
 }
 
 .secondaryButton {
   width: 100%;
   padding: 0.75rem 2rem;
-  background-color: rgba(94, 237, 190, 0.2);
-  color: #5eedbe;
+  background-color: #BEC092;
+  color: #11211c;
   font-weight: 700;
   border: none;
   border-radius: 0.5rem;
@@ -244,7 +242,7 @@
 }
 
 .secondaryButton:hover {
-  background-color: rgba(94, 237, 190, 0.3);
+  background-color: #868767;
 }
 
 /* Material Icons */
