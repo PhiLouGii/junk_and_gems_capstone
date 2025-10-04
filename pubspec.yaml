@@ -85,6 +85,9 @@ flutter:
     - assets/images/featured7.jpg
     - assets/images/featured8.jpg
     - assets/images/featured9.jpg
+    - assets/images/related1.jpg
+    - assets/images/related2.jpg
+    - assets/images/related3.jpg
     - assets/images/plastic_bottles.jpg
     - assets/images/bottle_caps.jpg
     - assets/images/old_jeans.jpg

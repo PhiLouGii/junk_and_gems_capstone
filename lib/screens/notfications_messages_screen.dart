@@ -205,33 +205,150 @@ class _NotificationsMessagesScreenState
   }
 
   Widget _buildNotificationsTab(bool isDarkMode) {
-    final List<Map<String, dynamic>> notifications = [
-      {
-        'title': 'New Waste materials available',
-        'subtitle': 'Plastic bags have been listed near you',
-        'time': '8 mins ago',
-        'action': 'View',
-        'icon': Icons.recycling,
-        'color': Colors.green,
-        'isUnread': true,
-      },
-      {
-        'title': 'Product Sold!',
-        'subtitle': 'Your upcycled rug just sold. Congrats!',
-        'time': '15 mins ago',
-        'action': 'Track',
-        'icon': Icons.shopping_cart,
-        'color': Colors.orange,
-        'isUnread': true,
-      },
-    ];
+  // Generate dynamic notifications based on time and user context
+  final List<Map<String, dynamic>> notifications = _generateDynamicNotifications();
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: notifications.length,
-      itemBuilder: (context, index) {
-        final notification = notifications[index];
-        return Container(
+  if (notifications.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.notifications_off,
+            size: 64,
+            color: isDarkMode ? Colors.white38 : const Color(0xFFCCCCCC),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No notifications yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : const Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your notifications will appear here',
+            style: TextStyle(
+              color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  return ListView.builder(
+    padding: const EdgeInsets.all(16),
+    itemCount: notifications.length,
+    itemBuilder: (context, index) {
+      final notification = notifications[index];
+      return _buildNotificationCard(notification, isDarkMode, index);
+    },
+  );
+}
+
+List<Map<String, dynamic>> _generateDynamicNotifications() {
+  final now = DateTime.now();
+  final List<Map<String, dynamic>> notifications = [];
+
+  // Add time-based greeting
+  final hour = now.hour;
+  String greeting;
+  if (hour < 12) {
+    greeting = 'Good morning';
+  } else if (hour < 17) {
+    greeting = 'Good afternoon';
+  } else {
+    greeting = 'Good evening';
+  }
+
+  // Welcome notification
+  notifications.add({
+    'type': 'welcome',
+    'title': '$greeting!',
+    'subtitle': 'Welcome back to Junk & Gems',
+    'time': 'Just now',
+    'action': 'Explore',
+    'icon': Icons.waving_hand,
+    'color': Colors.blue,
+    'isUnread': false,
+  });
+
+  // Platform stats (could be dynamic)
+  notifications.add({
+    'type': 'stats',
+    'title': 'Community Update',
+    'subtitle': '12 new materials were listed today',
+    'time': '2 hours ago',
+    'action': 'Browse',
+    'icon': Icons.trending_up,
+    'color': Colors.green,
+    'isUnread': true,
+  });
+
+  // Personalized recommendations
+  notifications.add({
+    'type': 'recommendation',
+    'title': 'New in Your Area',
+    'subtitle': 'Plastic bottles and glass jars available nearby',
+    'time': '4 hours ago',
+    'action': 'View',
+    'icon': Icons.local_shipping,
+    'color': Colors.orange,
+    'isUnread': true,
+  });
+
+  // Educational content
+  final tips = [
+    'Tip: Clean materials get better responses',
+    'Did you know: Upcycling reduces landfill waste by 80%',
+    'Pro tip: Take clear photos in natural light',
+    'Community highlight: 50+ artisans joined this week'
+  ];
+  
+  notifications.add({
+    'type': 'tip',
+    'title': 'Upcycling Tip',
+    'subtitle': tips[now.day % tips.length],
+    'time': '1 day ago',
+    'action': 'Learn',
+    'icon': Icons.lightbulb,
+    'color': Colors.purple,
+    'isUnread': false,
+  });
+
+  // Seasonal/event based notifications
+  if (now.weekday == DateTime.monday) {
+    notifications.add({
+      'type': 'weekly',
+      'title': 'Weekly Roundup',
+      'subtitle': 'Check out the most popular materials this week',
+      'time': '2 days ago',
+      'action': 'See More',
+      'icon': Icons.calendar_today,
+      'color': Colors.red,
+      'isUnread': false,
+    });
+  }
+
+  return notifications;
+}
+
+Widget _buildNotificationCard(Map<String, dynamic> notification, bool isDarkMode, int index) {
+  // Add slight delay for staggered animation
+  final animationDelay = Duration(milliseconds: index * 100);
+  
+  return FutureBuilder(
+    future: Future.delayed(animationDelay),
+    builder: (context, snapshot) {
+      return AnimatedOpacity(
+        opacity: snapshot.connectionState == ConnectionState.done ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
@@ -243,6 +360,9 @@ class _NotificationsMessagesScreenState
                 offset: const Offset(0, 2),
               ),
             ],
+            border: notification['isUnread'] as bool
+                ? Border.all(color: const Color(0xFFBEC092), width: 2)
+                : null,
           ),
           child: ListTile(
             leading: Container(
@@ -269,18 +389,76 @@ class _NotificationsMessagesScreenState
                 color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
               ),
             ),
-            trailing: Text(
-              notification['time'] as String,
-              style: TextStyle(
-                color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
-                fontSize: 12,
-              ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  notification['time'] as String,
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFBEC092),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    notification['action'] as String,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF88844D),
+                    ),
+                  ),
+                ),
+              ],
             ),
+            onTap: () {
+              _handleNotificationTap(notification);
+            },
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
+}
+
+void _handleNotificationTap(Map<String, dynamic> notification) {
+  final type = notification['type'];
+  
+  switch (type) {
+    case 'welcome':
+    case 'stats':
+    case 'recommendation':
+      // Navigate to browse screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+      );
+      break;
+    case 'tip':
+      // Show educational tip
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(notification['subtitle'] as String),
+          backgroundColor: const Color(0xFFBEC092),
+        ),
+      );
+      break;
+    case 'weekly':
+      // Navigate to featured items
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MarketplaceScreen(userName: 'User')),
+      );
+      break;
   }
+}
 
   Widget _buildMessagesTab(bool isDarkMode) {
   if (_errorMessage != null) {
