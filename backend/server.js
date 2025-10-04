@@ -1295,6 +1295,129 @@ app.get("/api/conversations/users/:userId1/:userId2", authenticateToken, async (
   }
 });
 
+app.get("/api/debug/conversations/:conversationId/messages", async (req, res) => {
+  const { conversationId } = req.params;
+  
+  console.log(`🔍 DEBUG: Checking messages for conversation ${conversationId}`);
+  
+  try {
+    // First check if conversation exists
+    const conversationCheck = await pool.query(
+      'SELECT * FROM conversations WHERE id = $1',
+      [conversationId]
+    );
+    
+    if (conversationCheck.rows.length === 0) {
+      return res.json({ 
+        error: 'Conversation not found',
+        conversationId: conversationId 
+      });
+    }
+    
+    console.log(`✅ Conversation ${conversationId} exists`);
+    
+    // Check participants
+    const participants = await pool.query(
+      'SELECT * FROM conversation_participants WHERE conversation_id = $1',
+      [conversationId]
+    );
+    
+    console.log(`✅ Participants: ${participants.rows.length}`);
+    
+    // Get messages
+    const messages = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as sender_name,
+        u.profile_image_url as sender_avatar
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = $1
+      ORDER BY m.sent_at ASC
+    `, [conversationId]);
+    
+    console.log(`✅ Found ${messages.rows.length} messages`);
+    
+    res.json({
+      conversation_exists: true,
+      participant_count: participants.rows.length,
+      message_count: messages.rows.length,
+      participants: participants.rows,
+      messages: messages.rows
+    });
+    
+  } catch (err) {
+    console.error("Debug conversation error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
+  const { conversationId } = req.params;
+  
+  console.log(`📨 Loading messages for conversation: ${conversationId}`);
+  
+  try {
+    // First check if user has access to this conversation
+    const accessCheck = await pool.query(`
+      SELECT 1 FROM conversation_participants 
+      WHERE conversation_id = $1 AND user_id = $2
+    `, [conversationId, req.user.id]);
+
+    if (accessCheck.rows.length === 0) {
+      console.log(`❌ User ${req.user.id} doesn't have access to conversation ${conversationId}`);
+      return res.status(403).json({ error: "Access denied to this conversation" });
+    }
+
+    console.log(`✅ User ${req.user.id} has access to conversation ${conversationId}`);
+
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as sender_name,
+        u.profile_image_url as sender_avatar
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = $1
+      ORDER BY m.sent_at ASC
+    `, [conversationId]);
+
+    console.log(`✅ Found ${result.rows.length} messages for conversation ${conversationId}`);
+    
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Get messages error:", err);
+    res.status(500).json({ 
+      error: "Server error: " + err.message,
+      details: "Check server logs for more information"
+    });
+  }
+});
+
+app.get("/api/test-messages/:conversationId", async (req, res) => {
+  const { conversationId } = req.params;
+  
+  try {
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as sender_name
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = $1
+      ORDER BY m.sent_at ASC
+    `, [conversationId]);
+
+    res.json({
+      conversation_id: conversationId,
+      message_count: result.rows.length,
+      messages: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
 });

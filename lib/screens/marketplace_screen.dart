@@ -134,7 +134,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'price': 'M200',
     'image': 'assets/images/featured7.jpg',
     'artisan_id': '12', 
-    'id': '13',
+    'id': '14',
   },
   {
     'title': 'Shoprite Shower curtain',
@@ -142,7 +142,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'price': 'M200',
     'image': 'assets/images/featured8.jpg',
     'artisan_id': '12', 
-    'id': '13',
+    'id': '15',
   },
   {
     'title': 'Cassette Wall Art',
@@ -150,7 +150,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'price': 'M650',
     'image': 'assets/images/featured9.jpg',
     'artisan_id': '12', 
-    'id': '13',
+    'id': '16',
   },
   ];
 
