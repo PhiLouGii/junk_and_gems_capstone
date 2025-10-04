@@ -63,39 +63,48 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages() async {
-    try {
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
-        headers: {
-          if (_token != null) 'Authorization': 'Bearer $_token',
-        },
-      );
+  if (_token == null) {
+    print('Token not loaded yet');
+    return;
+  }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        setState(() {
+  try {
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      setState(() {
+        // Only update if we have new messages
+        if (data.length != _messages.length || 
+            _messages.any((msg) => msg['is_temp'] == true)) {
           _messages.clear();
           _messages.addAll(data.cast<Map<String, dynamic>>());
-        });
-        
-        // Scroll to bottom
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      } else {
-        print('Failed to load messages: ${response.statusCode}');
-        print('Response body: ${response.body}');
-      }
-    } catch (error) {
-      print('Load messages error: $error');
+        }
+      });
+      
+      // Scroll to bottom
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    } else {
+      print('Failed to load messages: ${response.statusCode}');
+      print('Response body: ${response.body}');
     }
+  } catch (error) {
+    print('Load messages error: $error');
   }
+}
 
   Future<void> _markAsRead() async {
     try {

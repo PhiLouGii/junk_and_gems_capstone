@@ -23,12 +23,15 @@ class _NotificationsMessagesScreenState
   late TabController _tabController;
   String? _currentUserId;
   String? _token;
+  List<Map<String, dynamic>> _conversations = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadCurrentUser();
+    _initializeData();
   }
 
   @override
@@ -37,85 +40,145 @@ class _NotificationsMessagesScreenState
     super.dispose();
   }
 
+  Future<void> _initializeData() async {
+    await _loadCurrentUser();
+    await _loadConversations();
+  }
+
   Future<void> _loadCurrentUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentUserId = prefs.getString('userId');
-      _token = prefs.getString('token');
-    });
-    print('Loaded current user: $_currentUserId');
-    print('Token available: ${_token != null}');
-  }
-
-  Future<Map<String, String>> _getAuthHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? _token;
-    
-    if (token == null) {
-      print('❌ No authentication token found');
-      throw Exception('User not authenticated');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _currentUserId = prefs.getString('userId');
+        _token = prefs.getString('token');
+      });
+      print('✅ Current User ID: $_currentUserId');
+      print('✅ Token: ${_token != null ? "Available" : "Missing"}');
+      
+      if (_token != null) {
+        print('🔑 Token value: ${_token!.substring(0, 20)}...'); // Print first 20 chars for debugging
+      }
+    } catch (e) {
+      print('❌ Error loading current user: $e');
     }
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
   }
 
-  Future<List<Map<String, dynamic>>> _loadConversations() async {
-    if (_currentUserId == null) {
-      print('❌ Current user ID is null');
-      return [];
+  Future<void> _loadConversations() async {
+    if (_currentUserId == null || _token == null) {
+      print('❌ Cannot load conversations: No current user ID or token');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Please log in to view messages';
+      });
+      return;
     }
 
     try {
-      final headers = await _getAuthHeaders();
+      print('📡 Loading conversations for user: $_currentUserId');
+      print('📡 Using token: Bearer $_token');
+      
       final response = await http.get(
         Uri.parse('http://10.0.2.2:3003/api/users/$_currentUserId/conversations'),
-        headers: headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
       );
 
-      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response Status: ${response.statusCode}');
+      print('📡 Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        print('✅ Successfully loaded ${data.length} conversations');
-        return data.cast<Map<String, dynamic>>();
+        print('✅ Loaded ${data.length} conversations');
+        
+        setState(() {
+          _conversations = data.cast<Map<String, dynamic>>();
+          _isLoading = false;
+          _errorMessage = null;
+        });
+
+        // Debug: Print all conversations
+        for (var i = 0; i < _conversations.length; i++) {
+          print('🎯 Conversation $i: ${_conversations[i]}');
+        }
       } else if (response.statusCode == 401) {
-        print('❌ Unauthorized - please check your authentication');
-        return [];
+        print('❌ Authentication failed - token may be invalid or expired');
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Authentication failed. Please log in again.';
+        });
       } else {
-        print('❌ API Error: ${response.statusCode} - ${response.body}');
-        return [];
+        print('❌ Failed to load conversations: ${response.statusCode}');
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Failed to load conversations. Please try again.';
+        });
       }
     } catch (error) {
       print('❌ Error loading conversations: $error');
-      return [];
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Network error. Please check your connection.';
+      });
     }
+  }
+
+  void _navigateToChat(Map<String, dynamic> conversation) {
+    if (_currentUserId == null) return;
+
+    final conversationId = conversation['conversation_id']?.toString() ?? '1';
+    final otherUserId = conversation['other_user_id']?.toString() ?? '2';
+    final userName = conversation['other_user_name']?.toString() ?? 'User';
+
+    print('💬 Opening conversation: $conversationId with $userName ($otherUserId)');
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          userName: userName,
+          otherUserId: otherUserId,
+          currentUserId: _currentUserId!,
+          conversationId: conversationId,
+        ),
+      ),
+    ).then((_) {
+      // Refresh when returning from chat
+      _loadConversations();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDarkMode = themeProvider.isDarkMode;
     
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
         elevation: 0,
         title: Text(
           'Notifications',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadConversations,
+            tooltip: 'Refresh Conversations',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF88844D),
           labelColor: const Color(0xFF88844D),
-          unselectedLabelColor: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
+          unselectedLabelColor: isDarkMode ? Colors.white70 : const Color(0xFF88844D).withOpacity(0.6),
           labelStyle: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 16,
@@ -133,15 +196,15 @@ class _NotificationsMessagesScreenState
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildNotificationsTab(),
-          _buildMessagesTab(),
+          _buildNotificationsTab(isDarkMode),
+          _buildMessagesTab(isDarkMode),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavBar(context),
+      bottomNavigationBar: _buildBottomNavBar(context, isDarkMode),
     );
   }
 
-  Widget _buildNotificationsTab() {
+  Widget _buildNotificationsTab(bool isDarkMode) {
     final List<Map<String, dynamic>> notifications = [
       {
         'title': 'New Waste materials available',
@@ -161,439 +224,273 @@ class _NotificationsMessagesScreenState
         'color': Colors.orange,
         'isUnread': true,
       },
-      {
-        'title': 'Welcome, Mahloil',
-        'subtitle': 'A new artisan has joined the platform.',
-        'time': '1 hour ago',
-        'action': 'View Profile',
-        'icon': Icons.group,
-        'color': Colors.blue,
-        'isUnread': false,
-      },
-      {
-        'title': 'Listing Update',
-        'subtitle': 'Your listing for wires is gaining interest',
-        'time': '3 hours ago',
-        'action': 'View Listing',
-        'icon': Icons.list_alt,
-        'color': Colors.purple,
-        'isUnread': false,
-      },
-      {
-        'title': 'Platform Update',
-        'subtitle': 'System maintenance is scheduled for tonight',
-        'time': '1 day ago',
-        'action': 'Learn More',
-        'icon': Icons.notifications,
-        'color': Colors.red,
-        'isUnread': false,
-      },
     ];
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: notifications.map((notification) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-              border: notification['isUnread'] as bool
-                  ? Border.all(color: const Color(0xFFBEC092), width: 2)
-                  : null,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: (notification['color'] as Color).withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      notification['icon'] as IconData,
-                      color: notification['color'] as Color,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          notification['title'] as String,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          notification['subtitle'] as String,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Text(
-                              notification['time'] as String,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                              ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFBEC092),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                notification['action'] as String,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF88844D),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildMessagesTab() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _loadConversations(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Authentication Required',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Please log in to view your messages',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    // Navigate to login screen
-                  },
-                  child: const Text('Go to Login'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final conversations = snapshot.data ?? [];
-
-        if (conversations.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.chat_bubble_outline,
-                  size: 64,
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No conversations yet',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start a conversation with an artisan!',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBEC092), width: 1),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search,
-                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-                          decoration: InputDecoration(
-                            hintText: 'Search Messages...',
-                            hintStyle: TextStyle(
-                              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)
-                            ),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFBEC092),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Unread',
-                      style: TextStyle(
-                        color: Color(0xFF88844D),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFBEC092), width: 1),
-                    ),
-                    child: Text(
-                      'Archived',
-                      style: TextStyle(
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: conversations.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final conversation = conversations[index];
-                  return GestureDetector(
-                    onTap: () {
-                      if (_currentUserId != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChatScreen(
-                              userName: conversation['other_user_name'] ?? 'User',
-                              otherUserId: conversation['other_user_id'].toString(),
-                              currentUserId: _currentUserId!,
-                              conversationId: conversation['conversation_id'].toString(),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    child: _buildConversationCard(
-                      name: conversation['other_user_name'] ?? 'Unknown User',
-                      message: conversation['last_message'] ?? 'Start a conversation',
-                      time: _formatLastMessageTime(conversation['last_message_time']),
-                      isUnread: (conversation['unread_count'] ?? 0) > 0,
-                      unreadCount: conversation['unread_count'] ?? 0,
-                    ),
-                  );
-                },
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: notifications.length,
+      itemBuilder: (context, index) {
+        final notification = notifications[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
+          ),
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (notification['color'] as Color).withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                notification['icon'] as IconData,
+                color: notification['color'] as Color,
+              ),
+            ),
+            title: Text(
+              notification['title'] as String,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : const Color(0xFF333333),
+              ),
+            ),
+            subtitle: Text(
+              notification['subtitle'] as String,
+              style: TextStyle(
+                color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
+              ),
+            ),
+            trailing: Text(
+              notification['time'] as String,
+              style: TextStyle(
+                color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
+                fontSize: 12,
+              ),
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildConversationCard({
-    required String name,
-    required String message,
-    required String time,
-    required bool isUnread,
-    required int unreadCount,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+  Widget _buildMessagesTab(bool isDarkMode) {
+  if (_errorMessage != null) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: isDarkMode ? Colors.white38 : const Color(0xFFCCCCCC),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Authentication Required',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : const Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _errorMessage!,
+            style: TextStyle(
+              color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _loadConversations,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFBEC092),
+              foregroundColor: const Color(0xFF88844D),
+            ),
+            child: const Text('Retry'),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Debug Info:',
+            style: TextStyle(
+              color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
+              fontSize: 12,
+            ),
+          ),
+          Text(
+            'User ID: $_currentUserId',
+            style: TextStyle(
+              color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
+              fontSize: 12,
+            ),
+          ),
+          Text(
+            'Token: ${_token != null ? "Available" : "Missing"}',
+            style: TextStyle(
+              color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
+              fontSize: 12,
+            ),
           ),
         ],
-        border: isUnread
-            ? Border.all(color: const Color(0xFFBEC092), width: 2)
-            : null,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Icon(
-                Icons.person, 
-                color: Theme.of(context).textTheme.bodyLarge?.color
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        time,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                      fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            if (isUnread) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF88844D),
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  unreadCount > 9 ? '9+' : unreadCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
 
-  String _formatLastMessageTime(String? timestamp) {
+  if (_isLoading) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading conversations...',
+            style: TextStyle(
+              color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  if (_conversations.isEmpty) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 64,
+            color: isDarkMode ? Colors.white38 : const Color(0xFFCCCCCC),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No conversations yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : const Color(0xFF333333),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Start a conversation with someone!',
+            style: TextStyle(
+              color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _loadConversations,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFBEC092),
+              foregroundColor: const Color(0xFF88844D),
+            ),
+            child: const Text('Refresh'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  return RefreshIndicator(
+    onRefresh: _loadConversations,
+    child: ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _conversations.length,
+      itemBuilder: (context, index) {
+        final conversation = _conversations[index];
+        
+        // FIX: Convert unread_count from string to int
+        final unreadCountString = conversation['unread_count']?.toString() ?? '0';
+        final unreadCount = int.tryParse(unreadCountString) ?? 0;
+        final isUnread = unreadCount > 0;
+        
+        return Card(
+          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+          elevation: 2,
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: const Color(0xFFBEC092),
+              child: Icon(
+                Icons.person,
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+              ),
+            ),
+            title: Text(
+              conversation['other_user_name']?.toString() ?? 'Unknown User',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : const Color(0xFF333333),
+              ),
+            ),
+            subtitle: Text(
+              conversation['last_message']?.toString() ?? 'No messages yet',
+              style: TextStyle(
+                color: isDarkMode ? Colors.white70 : const Color(0xFF666666),
+                fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _formatLastMessageTime(conversation['last_message_time']),
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white54 : const Color(0xFF999999),
+                    fontSize: 12,
+                  ),
+                ),
+                if (isUnread) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF88844D),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : unreadCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            onTap: () => _navigateToChat(conversation),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+  String _formatLastMessageTime(dynamic timestamp) {
     if (timestamp == null) return 'Just now';
     
     try {
-      final dateTime = DateTime.parse(timestamp).toLocal();
+      final dateTime = DateTime.parse(timestamp.toString()).toLocal();
       final now = DateTime.now();
       final difference = now.difference(dateTime);
 
@@ -608,12 +505,11 @@ class _NotificationsMessagesScreenState
     }
   }
 
-  Widget _buildBottomNavBar(BuildContext context) {
+  Widget _buildBottomNavBar(BuildContext context, bool isDarkMode) {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -625,62 +521,45 @@ class _NotificationsMessagesScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _navItem(Icons.home_filled, false, 'Home', onTap: () {}),
-          _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
-            );
+          _buildNavItem(Icons.home_filled, false, 'Home', isDarkMode, onTap: () {}),
+          _buildNavItem(Icons.inventory_2_outlined, false, 'Browse', isDarkMode, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()));
           }),
-          _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const MarketplaceScreen(userName: 'User'),
-              ),
-            );
+          _buildNavItem(Icons.shopping_bag_outlined, false, 'Shop', isDarkMode, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const MarketplaceScreen(userName: 'User')));
           }),
-          _navItem(Icons.notifications_outlined, true, 'Alerts', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
-            );
+          _buildNavItem(Icons.notifications_outlined, true, 'Alerts', isDarkMode, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()));
           }),
-          _navItem(Icons.person_outline, false, 'Profile', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')),
-            );
+          _buildNavItem(Icons.person_outline, false, 'Profile', isDarkMode, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')));
           }),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, bool isSelected, String label, {VoidCallback? onTap}) {
+  Widget _buildNavItem(IconData icon, bool isSelected, String label, bool isDarkMode, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
-              size: 24,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? const Color(0xFF88844D) : (isDarkMode ? Colors.white54 : const Color(0xFF88844D).withOpacity(0.6)),
+            size: 24,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: isSelected ? const Color(0xFF88844D) : (isDarkMode ? Colors.white54 : const Color(0xFF88844D).withOpacity(0.6)),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

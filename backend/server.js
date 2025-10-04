@@ -436,9 +436,17 @@ app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, r
 app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) => {
   const { userId } = req.params;
   
+  console.log(`📨 Loading conversations for user: ${userId}`);
+  
   try {
+    // Verify the user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const result = await pool.query(`
-      SELECT 
+      SELECT DISTINCT
         c.id as conversation_id,
         c.updated_at,
         u.id as other_user_id,
@@ -452,7 +460,10 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
          AND m.read_at IS NULL) as unread_count
       FROM conversations c
       JOIN conversation_participants cp ON c.id = cp.conversation_id
-      JOIN users u ON u.id = cp.user_id AND u.id != $1
+      JOIN users u ON (
+        u.id != $1 AND 
+        u.id IN (SELECT user_id FROM conversation_participants WHERE conversation_id = c.id AND user_id != $1)
+      )
       LEFT JOIN LATERAL (
         SELECT message_text, sent_at
         FROM messages 
@@ -461,13 +472,80 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
         LIMIT 1
       ) last_msg ON true
       WHERE cp.user_id = $1
-      ORDER BY last_msg.sent_at DESC NULLS LAST
+      ORDER BY last_msg.sent_at DESC NULLS LAST, c.updated_at DESC
     `, [userId]);
 
+    console.log(`✅ Found ${result.rows.length} conversations for user ${userId}`);
+    
+    // Debug: log the actual conversations found
+    if (result.rows.length > 0) {
+      console.log('🎯 Conversations found:', result.rows);
+    } else {
+      console.log('❌ No conversations found with current query');
+      
+      // Let's try a simpler query to debug
+      const debugResult = await pool.query(`
+        SELECT 
+          c.id as conversation_id,
+          cp.user_id,
+          (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as participant_count
+        FROM conversations c
+        JOIN conversation_participants cp ON c.id = cp.conversation_id
+        WHERE cp.user_id = $1
+      `, [userId]);
+      
+      console.log('🔍 Debug query result:', debugResult.rows);
+    }
+    
     res.json(result.rows);
   } catch (err) {
-    console.error("Get conversations error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Get conversations error:", err);
+    res.status(500).json({ 
+      error: "Server error: " + err.message,
+      details: "Check server logs for more information"
+    });
+  }
+});
+
+app.get("/api/debug/user-conversations/:userId", async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    console.log(`🔍 Debug: Checking conversations for user ${userId}`);
+    
+    // Check conversation participants
+    const participants = await pool.query(`
+      SELECT cp.*, u.name as user_name
+      FROM conversation_participants cp
+      JOIN users u ON cp.user_id = u.id
+      WHERE cp.conversation_id IN (
+        SELECT conversation_id FROM conversation_participants WHERE user_id = $1
+      )
+      ORDER BY cp.conversation_id, cp.user_id
+    `, [userId]);
+    
+    // Check messages
+    const messages = await pool.query(`
+      SELECT m.*, u.name as sender_name
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id IN (
+        SELECT conversation_id FROM conversation_participants WHERE user_id = $1
+      )
+      ORDER BY m.conversation_id, m.sent_at
+    `, [userId]);
+    
+    res.json({
+      user_id: userId,
+      participant_data: participants.rows,
+      message_data: messages.rows,
+      summary: {
+        total_conversations: new Set(participants.rows.map(p => p.conversation_id)).size,
+        total_messages: messages.rows.length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1189,6 +1267,30 @@ app.post("/api/setup-products", async (req, res) => {
     res.json({ message: "Sample products added successfully" });
   } catch (err) {
     console.error("Setup products error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/api/conversations/users/:userId1/:userId2", authenticateToken, async (req, res) => {
+  const { userId1, userId2 } = req.params;
+  
+  try {
+    const result = await pool.query(`
+      SELECT c.* 
+      FROM conversations c
+      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
+      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
+      WHERE cp1.user_id = $1 AND cp2.user_id = $2
+      LIMIT 1
+    `, [userId1, userId2]);
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.status(404).json({ error: "Conversation not found" });
+    }
+  } catch (err) {
+    console.error("Get conversation between users error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
