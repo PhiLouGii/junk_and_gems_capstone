@@ -166,11 +166,10 @@ const LearnMore: React.FC = () => {
             <button className={styles.primaryButton}>Join the Movement</button>
             <button 
           className={styles.secondaryButton}
-          onClick={() => navigate('/browse-materials')}
+          onClick={() => navigate('/upcycled-products')}
         >
-          Browse Available Materials
+          Upcycled Products Gallery
         </button>
-            <button className={styles.secondaryButton}>Upcycled Products Galllery</button>
           </div>
         </section>
       </main>

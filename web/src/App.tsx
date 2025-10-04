@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import LearnMore from './components/LearnMore/LearnMore';
-import BrowseMaterials from './components/BrowseMaterials/BrowseMaterials';
+import UpcycledProductsGallery from './components/UpcycledProductsGallery/UpcycledProductsGallery';
 import './App.css';
 
 const App: React.FC = () => {
@@ -10,7 +10,7 @@ const App: React.FC = () => {
       <div className="App">
         <Routes>
           <Route path="/" element={<LearnMore />} />
-          <Route path="/browse-materials" element={<BrowseMaterials />} />
+          <Route path="/upcycled-products" element={<UpcycledProductsGallery />} />
         </Routes>
       </div>
     </Router>

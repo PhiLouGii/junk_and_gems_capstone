@@ -1,0 +1,531 @@
+.container {
+  min-height: 100vh;
+  background-color: #F7F2E4;
+  padding-bottom: 40px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background-color: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.backButton:hover {
+  background-color: #f0f0f0;
+}
+
+.titleSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #11211c;
+  margin: 0;
+  text-align: center;
+}
+
+.headerSpacer {
+  width: 48px;
+}
+
+/* Search Bar */
+.searchBar {
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border: 1px solid #BEC092;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 16px;
+  height: 48px;
+}
+
+.searchBar span {
+  color: rgba(17, 33, 28, 0.6);
+  margin-right: 12px;
+}
+
+.searchInput {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 16px;
+  color: #11211c;
+  background: transparent;
+}
+
+.searchInput::placeholder {
+  color: rgba(17, 33, 28, 0.6);
+}
+
+/* Stats Bar */
+.statsBar {
+  display: flex;
+  justify-content: space-around;
+  padding: 20px 16px;
+  background: linear-gradient(135deg, #BEC092, #88844D);
+  margin: 0 16px 24px;
+  border-radius: 12px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: white;
+}
+
+.statNumber {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.statLabel {
+  font-size: 12px;
+  opacity: 0.9;
+  text-align: center;
+}
+
+/* Sections */
+.section {
+  padding: 0 16px 32px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 20px;
+  font-weight: bold;
+  color: #11211c;
+  margin: 0;
+}
+
+.sectionSubtitle {
+  font-size: 14px;
+  color: #666;
+  margin: 4px 0 16px 0;
+}
+
+.signUpPrompt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #856404;
+}
+
+/* Featured Products Grid */
+.featuredGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Products Grid */
+.productsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* Product Card */
+.productCard {
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.productCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.productCard.blurred {
+  cursor: pointer;
+}
+
+.productImage {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+}
+
+.productImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.blurOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-align: center;
+  padding: 16px;
+}
+
+.blurOverlay span {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.blurOverlay p {
+  font-size: 14px;
+  margin: 0;
+  font-weight: 500;
+}
+
+.productInfo {
+  padding: 12px;
+}
+
+.productTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #11211c;
+  margin: 0 0 4px 0;
+  line-height: 1.3;
+}
+
+.productArtisan {
+  font-size: 12px;
+  color: #666;
+  margin: 0 0 8px 0;
+}
+
+.productPrice {
+  font-size: 16px;
+  font-weight: bold;
+  color: #11211c;
+}
+
+.productMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.productCategory {
+  font-size: 11px;
+  color: #5eedbe;
+  background-color: rgba(94, 237, 190, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Categories Grid */
+.categoriesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.categoryCard {
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s;
+  position: relative;
+}
+
+.categoryCard:hover {
+  transform: translateY(-2px);
+}
+
+.categoryImage {
+  position: relative;
+  height: 100px;
+  overflow: hidden;
+}
+
+.categoryImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.categoryInfo {
+  padding: 12px;
+}
+
+.categoryName {
+  font-size: 14px;
+  font-weight: 600;
+  color: #11211c;
+  margin: 0 0 4px 0;
+}
+
+.categoryCount {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+}
+
+/* CTA Section */
+.ctaSection {
+  background: linear-gradient(135deg, #88844D, beige);
+  margin: 32px 16px;
+  padding: 40px 24px;
+  border-radius: 16px;
+  text-align: center;
+  color: white;
+}
+
+.ctaIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.ctaIcon span {
+  font-size: 48px;
+  color: #88844D;
+}
+
+.ctaTitle {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0 0 12px 0;
+}
+
+.ctaDescription {
+  font-size: 16px;
+  line-height: 1.5;
+  opacity: 0.9;
+  margin: 0 0 24px 0;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ctaButtons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Buttons */
+.primaryButton {
+  background-color: #5eedbe;
+  color: #11211c;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.primaryButton:hover {
+  background-color: #4ddcae;
+}
+
+.secondaryButton {
+  background-color: transparent;
+  color: #5eedbe;
+  border: 2px solid #5eedbe;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.secondaryButton:hover {
+  background-color: rgba(94, 237, 190, 0.1);
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.modalHeader h3 {
+  font-size: 20px;
+  font-weight: bold;
+  color: #11211c;
+  margin: 0;
+  flex: 1;
+}
+
+.modalHeader span {
+  color: #88844D;
+  font-size: 24px;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #666;
+}
+
+.modalContent {
+  margin-bottom: 24px;
+}
+
+.modalContent p {
+  color: #666;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.benefitsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.benefitsList li {
+  padding: 8px 0;
+  color: #11211c;
+  position: relative;
+  padding-left: 24px;
+}
+
+.benefitsList li:before {
+  content: "✓";
+  color: #88844D;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+}
+
+.modalActions .primaryButton,
+.modalActions .secondaryButton {
+  flex: 1;
+}
+
+.primaryButton {
+  background-color: #88844D;
+  color: #F7F2E4;
+}
+
+.primaryButton:hover {
+  background-color: #6e6b3a;
+}
+
+.secondaryButton {
+  border-color: #88844D;
+  color: #88844D;
+}
+
+.secondaryButton:hover {
+  background-color: rgba(136, 132, 77, 0.1);
+}
+
+/* Responsive Design */
+@media (min-width: 768px) {
+  .title {
+    font-size: 28px;
+  }
+  
+  .featuredGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .productsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .categoriesGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .ctaButtons {
+    flex-direction: row;
+  }
+}
+
+@media (min-width: 1024px) {
+  .featuredGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .productsGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .categoriesGrid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
