@@ -5,4 +5,4 @@ Junk & Gems is a mobile application that transforms waste into opportunity by co
 
 ## Key Features
 - Material Listing: Households, businesses, individuals post unwanted materials with photos and descriptions
-- 
+- Artisan Discovery: Creators browse and search for free raw materials

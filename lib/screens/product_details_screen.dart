@@ -128,10 +128,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final String artisanId = widget.product['artisan_id'] ?? '2'; 
     final String productId = widget.product['id'] ?? '1';
 
-    print('🔐 CURRENT USER ID: $_currentUserId');
-    print('🎯 TRYING TO MESSAGE ARTISAN ID: $artisanId');
-    print('📦 PRODUCT ID: $productId');
-    print('👤 ARTISAN NAME: ${widget.product['artisan']}');
+    print('=== MESSAGE ARTISAN DEBUG ===');
+    print('🔐 Current User ID: $_currentUserId');
+    print('🎯 Artisan ID: $artisanId');
+    print('📦 Product ID: $productId');
+    print('👤 Artisan Name: ${widget.product['artisan']}');
+    print('📝 Product Title: ${widget.product['title']}');
+    print('=============================');
 
     // Start conversation with artisan
     final response = await http.post(
@@ -150,25 +153,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (response.statusCode == 200) {
       final conversation = json.decode(response.body);
+      print('✅ Conversation created: ${conversation['id']}');
       
       // Navigate to chat screen
       Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => ProductDetailScreen(
-      product: {
-        'title': 'Sta-Soft Lamp',
-        'price': 'M400',
-        'image': 'assets/images/featured3.jpg',
-        'artisan': 'Lexie Grey',
-        'artisan_id': '2', 
-        'id': '1',
-      },
-    ),
-  ),
-);
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(
+            userName: widget.product['artisan'] ?? 'Artisan',
+            otherUserId: artisanId,
+            currentUserId: _currentUserId!,
+            conversationId: conversation['id'].toString(),
+            product: widget.product,
+          ),
+        ),
+      );
     } else {
       final errorResponse = json.decode(response.body);
+      print('❌ API Error: ${errorResponse['error']}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to start conversation: ${errorResponse['error']}'),
