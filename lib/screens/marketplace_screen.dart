@@ -120,6 +120,38 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'artisan_id': '11', 
     'id': '6',
   },
+  {
+    'title': 'Broken China Mosaic',
+    'artisan': 'Mahloli Makhetha',
+    'price': 'M250',
+    'image': 'assets/images/featured5.jpg',
+    'artisan_id': '12', 
+    'id': '13',
+  },
+  {
+    'title': 'Bottle Cap Soap Dish',
+    'artisan': 'Deborah Pholo',
+    'price': 'M200',
+    'image': 'assets/images/featured7.jpg',
+    'artisan_id': '12', 
+    'id': '13',
+  },
+  {
+    'title': 'Shoprite Shower curtain',
+    'artisan': 'Limakatso Liphoto',
+    'price': 'M200',
+    'image': 'assets/images/featured8.jpg',
+    'artisan_id': '12', 
+    'id': '13',
+  },
+  {
+    'title': 'Cassette Wall Art',
+    'artisan': 'Angharad West',
+    'price': 'M650',
+    'image': 'assets/images/featured9.jpg',
+    'artisan_id': '12', 
+    'id': '13',
+  },
   ];
 
   @override
