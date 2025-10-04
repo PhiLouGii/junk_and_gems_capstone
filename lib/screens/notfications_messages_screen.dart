@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
@@ -8,6 +7,7 @@ import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationsMessagesScreen extends StatefulWidget {
   const NotificationsMessagesScreen({super.key});
@@ -21,17 +21,77 @@ class _NotificationsMessagesScreenState
     extends State<NotificationsMessagesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String? _currentUserId;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadCurrentUser();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentUserId = prefs.getString('userId');
+      _token = prefs.getString('token');
+    });
+    print('Loaded current user: $_currentUserId');
+    print('Token available: ${_token != null}');
+  }
+
+  Future<Map<String, String>> _getAuthHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? _token;
+    
+    if (token == null) {
+      print('❌ No authentication token found');
+      throw Exception('User not authenticated');
+    }
+    
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> _loadConversations() async {
+    if (_currentUserId == null) {
+      print('❌ Current user ID is null');
+      return [];
+    }
+
+    try {
+      final headers = await _getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/users/$_currentUserId/conversations'),
+        headers: headers,
+      );
+
+      print('📡 Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        print('✅ Successfully loaded ${data.length} conversations');
+        return data.cast<Map<String, dynamic>>();
+      } else if (response.statusCode == 401) {
+        print('❌ Unauthorized - please check your authentication');
+        return [];
+      } else {
+        print('❌ API Error: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (error) {
+      print('❌ Error loading conversations: $error');
+      return [];
+    }
   }
 
   @override
@@ -81,9 +141,6 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  /// =========================
-  /// Notifications Tab
-  /// =========================
   Widget _buildNotificationsTab() {
     final List<Map<String, dynamic>> notifications = [
       {
@@ -158,7 +215,6 @@ class _NotificationsMessagesScreenState
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon Circle
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -172,8 +228,6 @@ class _NotificationsMessagesScreenState
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  // Text Column
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,9 +289,6 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  /// =========================
-  /// Messages Tab
-  /// =========================
   Widget _buildMessagesTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _loadConversations(),
@@ -252,20 +303,81 @@ class _NotificationsMessagesScreenState
 
         if (snapshot.hasError) {
           return Center(
-            child: Text(
-              'Error: ${snapshot.error}',
-              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Authentication Required',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please log in to view your messages',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    // Navigate to login screen
+                  },
+                  child: const Text('Go to Login'),
+                ),
+              ],
             ),
           );
         }
 
         final conversations = snapshot.data ?? [];
 
+        if (conversations.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.chat_bubble_outline,
+                  size: 64,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No conversations yet',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Start a conversation with an artisan!',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              // Search Bar
               Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -299,13 +411,10 @@ class _NotificationsMessagesScreenState
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Chips
               Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFFBEC092),
                       borderRadius: BorderRadius.circular(20),
@@ -321,8 +430,7 @@ class _NotificationsMessagesScreenState
                   ),
                   const SizedBox(width: 12),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(20),
@@ -340,8 +448,6 @@ class _NotificationsMessagesScreenState
                 ],
               ),
               const SizedBox(height: 20),
-
-              // Conversations List
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -351,23 +457,26 @@ class _NotificationsMessagesScreenState
                   final conversation = conversations[index];
                   return GestureDetector(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(
-                            userName: conversation['other_user_name'],
-                            otherUserId: conversation['other_user_id'],
-                            currentUserId: '1', // Get from your auth system
-                            conversationId: conversation['conversation_id'],
+                      if (_currentUserId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatScreen(
+                              userName: conversation['other_user_name'] ?? 'User',
+                              otherUserId: conversation['other_user_id'].toString(),
+                              currentUserId: _currentUserId!,
+                              conversationId: conversation['conversation_id'].toString(),
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      }
                     },
                     child: _buildConversationCard(
-                      name: conversation['other_user_name'],
+                      name: conversation['other_user_name'] ?? 'Unknown User',
                       message: conversation['last_message'] ?? 'Start a conversation',
                       time: _formatLastMessageTime(conversation['last_message_time']),
                       isUnread: (conversation['unread_count'] ?? 0) > 0,
+                      unreadCount: conversation['unread_count'] ?? 0,
                     ),
                   );
                 },
@@ -379,14 +488,12 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  /// =========================
-  /// Conversation Card Widget
-  /// =========================
   Widget _buildConversationCard({
     required String name,
     required String message,
     required String time,
     required bool isUnread,
+    required int unreadCount,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -407,7 +514,6 @@ class _NotificationsMessagesScreenState
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Avatar Circle
             Container(
               width: 50,
               height: 50,
@@ -459,15 +565,21 @@ class _NotificationsMessagesScreenState
                 ],
               ),
             ),
-            // Unread indicator
             if (isUnread) ...[
               const SizedBox(width: 8),
               Container(
-                width: 12,
-                height: 12,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: const BoxDecoration(
                   color: Color(0xFF88844D),
                   shape: BoxShape.circle,
+                ),
+                child: Text(
+                  unreadCount > 9 ? '9+' : unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -477,25 +589,8 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  Future<List<Map<String, dynamic>>> _loadConversations() async {
-    try {
-      final response = await http.get(
-        Uri.parse('http://localhost:3003/api/users/1/conversations'),
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.cast<Map<String, dynamic>>();
-      }
-      return [];
-    } catch (error) {
-      print('Error loading conversations: $error');
-      return [];
-    }
-  }
-
   String _formatLastMessageTime(String? timestamp) {
-    if (timestamp == null) return '';
+    if (timestamp == null) return 'Just now';
     
     try {
       final dateTime = DateTime.parse(timestamp).toLocal();
@@ -505,13 +600,14 @@ class _NotificationsMessagesScreenState
       if (difference.inMinutes < 1) return 'Now';
       if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
       if (difference.inHours < 24) return '${difference.inHours}h ago';
-      return '${difference.inDays}d ago';
+      if (difference.inDays < 7) return '${difference.inDays}d ago';
+      
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     } catch (e) {
-      return '';
+      return 'Recently';
     }
   }
 
-  // Bottom Nav Bar
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
       height: 70,

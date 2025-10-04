@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 
@@ -30,10 +31,12 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   final ScrollController _scrollController = ScrollController();
   Timer? _pollingTimer;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
+    _loadToken();
     _loadMessages();
     _startPolling();
     _markAsRead();
@@ -43,6 +46,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _pollingTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _token = prefs.getString('token');
+    });
   }
 
   void _startPolling() {
@@ -55,7 +65,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadMessages() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3003/api/conversations/${widget.conversationId}/messages'),
+        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+        headers: {
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
       );
 
       if (response.statusCode == 200) {
@@ -67,12 +80,17 @@ class _ChatScreenState extends State<ChatScreen> {
         
         // Scroll to bottom
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
         });
+      } else {
+        print('Failed to load messages: ${response.statusCode}');
+        print('Response body: ${response.body}');
       }
     } catch (error) {
       print('Load messages error: $error');
@@ -82,8 +100,11 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _markAsRead() async {
     try {
       await http.put(
-        Uri.parse('http://localhost:3003/api/conversations/${widget.conversationId}/read'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/read'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
         body: json.encode({'userId': widget.currentUserId}),
       );
     } catch (error) {
@@ -95,32 +116,94 @@ class _ChatScreenState extends State<ChatScreen> {
     final String messageText = _messageController.text.trim();
     if (messageText.isEmpty) return;
 
+    // Create a temporary message to show immediately
+    final tempMessage = {
+      'id': 'temp-${DateTime.now().millisecondsSinceEpoch}',
+      'message_text': messageText,
+      'sender_id': widget.currentUserId,
+      'sender_name': 'You',
+      'sent_at': DateTime.now().toIso8601String(),
+      'conversation_id': widget.conversationId,
+      'is_temp': true, // Mark as temporary
+    };
+
+    // Add the temporary message immediately to the UI
+    setState(() {
+      _messages.add(tempMessage);
+    });
+
+    // Clear the input field
+    _messageController.clear();
+
+    // Scroll to bottom to show the new message
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3003/api/conversations/${widget.conversationId}/messages'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
         body: json.encode({
           'senderId': widget.currentUserId,
           'messageText': messageText,
         }),
       );
 
+      print('Send message response status: ${response.statusCode}');
+      print('Send message response body: ${response.body}');
+
       if (response.statusCode == 201) {
-        _messageController.clear();
-        _loadMessages(); 
+        final newMessage = json.decode(response.body);
+        
+        // Replace the temporary message with the real one from the server
+        setState(() {
+          final tempIndex = _messages.indexWhere((msg) => msg['is_temp'] == true && msg['message_text'] == messageText);
+          if (tempIndex != -1) {
+            _messages.removeAt(tempIndex);
+            _messages.add(newMessage);
+          } else {
+            _messages.add(newMessage);
+          }
+        });
+
+        // Reload messages to ensure we have the latest state
+        _loadMessages();
       } else {
+        final errorResponse = json.decode(response.body);
+        
+        // Remove the temporary message if sending failed
+        setState(() {
+          _messages.removeWhere((msg) => msg['is_temp'] == true && msg['message_text'] == messageText);
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to send message'),
+            content: Text('Failed to send message: ${errorResponse['error']}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (error) {
       print('Send message error: $error');
+      
+      // Remove the temporary message if there was an error
+      setState(() {
+        _messages.removeWhere((msg) => msg['is_temp'] == true && msg['message_text'] == messageText);
+      });
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error sending message'),
+          content: Text('Error sending message: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -151,6 +234,15 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Image.asset(
                 widget.product!['image'] ?? 'assets/images/featured3.jpg',
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+                    child: Icon(
+                      Icons.recycling,
+                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -226,23 +318,35 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           _buildProductInfo(isDarkMode),
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                final isMe = message['sender_id'].toString() == widget.currentUserId;
-                
-                return _buildMessageBubble(
-                  message: message['message_text'],
-                  isMe: isMe,
-                  time: _formatTime(message['sent_at']),
-                  senderName: isMe ? 'You' : message['sender_name'] ?? 'User',
-                  isDarkMode: isDarkMode,
-                );
-              },
-            ),
+            child: _messages.isEmpty
+                ? Center(
+                    child: Text(
+                      'No messages yet.\nStart the conversation!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
+                        fontSize: 16,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMe = message['sender_id'].toString() == widget.currentUserId;
+                      
+                      return _buildMessageBubble(
+                        message: message['message_text'] ?? '',
+                        isMe: isMe,
+                        time: _formatTime(message['sent_at'] ?? ''),
+                        senderName: isMe ? 'You' : message['sender_name'] ?? 'User',
+                        isDarkMode: isDarkMode,
+                        isTemp: message['is_temp'] == true,
+                      );
+                    },
+                  ),
           ),
           _buildMessageInput(isDarkMode),
         ],
@@ -256,6 +360,7 @@ class _ChatScreenState extends State<ChatScreen> {
     required String time,
     required String senderName,
     required bool isDarkMode,
+    bool isTemp = false,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -301,19 +406,35 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ],
                   ),
-                  child: Text(
-                    message,
-                    style: TextStyle(
-                      color: isMe ? (isDarkMode ? Colors.white : const Color(0xFF88844D)) : 
-                             (isDarkMode ? Colors.white : Colors.black87),
-                      fontSize: 16,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: isMe ? (isDarkMode ? Colors.white : const Color(0xFF88844D)) : 
+                                 (isDarkMode ? Colors.white : Colors.black87),
+                          fontSize: 16,
+                        ),
+                      ),
+                      if (isTemp && isMe) ...[
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: isDarkMode ? Colors.white70 : const Color(0xFF88844D).withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 4, left: 16, right: 16),
                   child: Text(
-                    time,
+                    isTemp ? 'Sending...' : time,
                     style: TextStyle(
                       fontSize: 10,
                       color: isDarkMode ? Colors.white70 : Colors.grey[600],
@@ -400,7 +521,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final dateTime = DateTime.parse(timestamp).toLocal();
       return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     } catch (e) {
-      return '';
+      return 'Now';
     }
   }
 }
