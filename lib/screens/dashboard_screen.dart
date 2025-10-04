@@ -181,7 +181,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             }),
             _buildUpcycledCard('Denim Handbag', 'assets/images/upcycled1.jpg'),
-            _buildUpcycledCard('Bottle Lamp', 'assets/images/upcycled2.jpg'),
+            _buildUpcycledCard('Beer Bottle Wall Art', 'assets/images/upcycled2.jpg'),
           ],
         ),
       ],

@@ -30,7 +30,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
   final List<Map<String, String>> _featuredProducts = [
     {
-    'title': 'Denim Patchwork Jacket',
+    'title': 'Fabric and Denim Patchwork Jacket',
     'artisan': 'Lexie Grey',
     'price': 'M450',
     'image': 'assets/images/featured1.jpg',
@@ -38,7 +38,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'id': '1', 
   },
     {
-    'title': 'Plastic Bottle Lamp',
+    'title': 'Beer Bottle Lamp',
     'artisan': 'Philippa Giibwa', 
     'price': 'M380',
     'image': 'assets/images/featured2.jpg',
@@ -46,17 +46,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'id': '2',
   },
     {
-    'title': 'Sta-Soft Lamp M400',
+    'title': 'Sta-Soft Lamp',
     'artisan': 'Nthati Radiapole',
-    'price': 'M400',
+    'price': 'M300',
     'image': 'assets/images/featured3.jpg',
     'artisan_id': '10', 
     'id': '3',
   },
     {
-    'title': 'CD Chandelier',
+    'title': 'Belt Patchwork Bag',
     'artisan': 'Mark Sloan',
-    'price': 'M550',
+    'price': 'M200',
     'image': 'assets/images/featured4.jpg',
     'artisan_id': '5', 
     'id': '4',
@@ -70,9 +70,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'id': '5',
   },
     {
-    'title': 'RedBull Lamp',
+    'title': 'Shoelace Table Coasters',
     'artisan': 'Arizona Robbins',
-    'price': 'M450',
+    'price': 'M250',
     'image': 'assets/images/featured6.jpg',
     'artisan_id': '11', 
     'id': '6',
@@ -91,15 +91,15 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     {
     'title': 'Sta-Soft Lamp',
     'artisan': 'Nthati Radiapole',
-    'price': 'M400',
+    'price': 'M300',
     'image': 'assets/images/featured3.jpg',
     'artisan_id': '10', 
     'id': '3',
   },
     {
-    'title': 'CD Chandelier',
+    'title': 'Belt Patchwork Bag',
     'artisan': 'Mark Sloan',
-    'price': 'M550',
+    'price': 'M200',
     'image': 'assets/images/featured4.jpg',
     'artisan_id': '5', 
     'id': '4',
@@ -113,9 +113,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     'id': '5',
   },
     {
-    'title': 'RedBull Lamp',
+    'title': 'Shoelace Table Coasters',
     'artisan': 'Arizona Robbins',
-    'price': 'M450',
+    'price': 'M250',
     'image': 'assets/images/featured6.jpg',
     'artisan_id': '11', 
     'id': '6',

@@ -111,6 +111,29 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     );
   }
 
+   Widget _buildDemoBanner() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Colors.amber[100],
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.amber[800]),
+          SizedBox(width: 8),
+          Text(
+            'Demo Mode - Using sample materials',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.amber[800],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -300,13 +323,15 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     );
   }
 
-  Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
+Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
     final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
   
     final String imageUrl = hasImages 
         ? material['image_urls'][0] 
         : '';
+
+    final bool isClaimed = material['claimed_by'] != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -363,19 +388,43 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     ),
                   ],
                 ),
+                // Show quantity if available
+                if (material['quantity'] != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.inventory_2, size: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
+                      const SizedBox(width: 4),
+                      Text(
+                        material['quantity']!,
+                        style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
+                        onTap: isClaimed ? null : () {
                           _claimMaterial(material['id'].toString(), material['title']);
                         },
                         child: Container(
                           height: 36,
-                          decoration: BoxDecoration(color: const Color(0xFFBEC092), borderRadius: BorderRadius.circular(8)),
-                          child: const Center(
-                            child: Text('Claim', style: TextStyle(color: Color(0xFF88844D), fontWeight: FontWeight.w600, fontSize: 14)),
+                          decoration: BoxDecoration(
+                            color: isClaimed ? Colors.grey : const Color(0xFFBEC092),
+                            borderRadius: BorderRadius.circular(8)
+                          ),
+                          child: Center(
+                            child: Text(
+                              isClaimed ? 'Claimed' : 'Claim',
+                              style: TextStyle(
+                                color: isClaimed ? Colors.white : const Color(0xFF88844D),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -386,9 +435,19 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                         onTap: () => _showMaterialDetails(context, material: material),
                         child: Container(
                           height: 36,
-                          decoration: BoxDecoration(border: Border.all(color: const Color(0xFFBEC092), width: 2), borderRadius: BorderRadius.circular(8)),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFFBEC092), width: 2),
+                            borderRadius: BorderRadius.circular(8)
+                          ),
                           child: Center(
-                            child: Text('Details', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontWeight: FontWeight.w600, fontSize: 14)),
+                            child: Text(
+                              'Details',
+                              style: TextStyle(
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14
+                              ),
+                            ),
                           ),
                         ),
                       ),
