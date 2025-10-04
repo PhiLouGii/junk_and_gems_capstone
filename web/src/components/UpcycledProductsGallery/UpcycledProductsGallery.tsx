@@ -2,11 +2,23 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './UpcycledProductsGallery.module.css';
 
+// Import category images from src/assets
 import homeDecorImage from '../../assets/home_decor.jpg';
 import homeFurnitureImage from '../../assets/home_furniture.jpg';
 import craftsImage from '../../assets/crafts.jpg';
 import jewelryImage from '../../assets/jewelry.jpg';
 import fashionImage from '../../assets/fashion.jpg';
+
+// Import product images from src/assets
+import featured1 from '../../assets/featured1.jpg';
+import featured2 from '../../assets/featured2.jpg';
+import featured3 from '../../assets/featured3.png';
+import featured4 from '../../assets/featured4.jpg';
+import featured5 from '../../assets/featured5.jpg';
+import featured6 from '../../assets/featured6.jpg';
+import featured7 from '../../assets/featured7.jpg';
+import featured8 from '../../assets/featured8.jpg';   
+
 
 interface Product {
   id: string;
@@ -16,13 +28,13 @@ interface Product {
   image: string;
   description: string;
   category: string;
-  isBlurred?: boolean;
 }
 
 const UpcycledProductsGallery: React.FC = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
+  const [clickedItem, setClickedItem] = useState<{ type: 'product' | 'category'; name: string } | null>(null);
 
   // Sample product data - in real app, this would come from an API
   const featuredProducts: Product[] = [
@@ -31,40 +43,36 @@ const UpcycledProductsGallery: React.FC = () => {
       title: 'Denim Patchwork Jacket',
       artisan: 'Lexie Grey',
       price: 'M450',
-      image: '/assets/images/featured1.jpg',
+      image: featured1,
       description: 'Unique jacket made from upcycled denim pieces',
-      category: 'Fashion',
-      isBlurred: true
+      category: 'Fashion'
     },
     {
       id: '2',
-      title: 'Plastic Bottle Lamp',
+      title: 'Skateboard Shelf',
       artisan: 'Philippa Giibwa',
-      price: 'M380',
-      image: '/assets/images/featured2.jpg',
-      description: 'Creative lamp made from recycled plastic bottles',
-      category: 'Home Decor',
-      isBlurred: true
+      price: 'M350',
+      image: featured2,
+      description: 'Creative shelf to hold your books and DVDs, made from a skateboard',
+      category: 'Home Furniture'
     },
     {
       id: '3',
-      title: 'Sta-Soft Lamp',
+      title: 'Plastic bags',
       artisan: 'Cristina Yang',
-      price: 'M400',
-      image: '/assets/images/featured3.jpg',
-      description: 'Innovative lamp crafted from upcycled fabric softener containers',
-      category: 'Home Decor',
-      isBlurred: true
+      price: 'M200',
+      image: featured3,
+      description: 'Plastic bags weaved into a beautiful and usable bags',
+      category: 'Home Decor'
     },
     {
       id: '4',
-      title: 'CD Chandelier',
+      title: 'Tin can sculpture',
       artisan: 'Mark Sloan',
-      price: 'M550',
-      image: '/assets/images/featured4.jpg',
-      description: 'Beautiful chandelier made from recycled CDs',
-      category: 'Home Decor',
-      isBlurred: true
+      price: 'M150',
+      image: featured4,
+      description: 'A stunning sculpture made from recycled tin cans',
+      category: 'Home Decor'
     }
   ];
 
@@ -73,39 +81,66 @@ const UpcycledProductsGallery: React.FC = () => {
     { name: 'Furniture', image: homeFurnitureImage, count: 8 },
     { name: 'Crafts', image: craftsImage, count: 15 },
     { name: 'Jewelry', image: jewelryImage, count: 20 },
-    { name: 'Fashion', image: fashionImage,  count: 10 }
+    { name: 'Fashion', image: fashionImage, count: 10 }
   ];
 
   const allProducts: Product[] = [
     ...featuredProducts,
     {
       id: '5',
-      title: 'Denim Patchwork Bag',
+      title: 'Belt Patchwork Bag',
       artisan: 'Maya Bishop',
-      price: 'M330',
-      image: '/assets/images/upcycled1.jpg',
-      description: 'Stylish bag made from upcycled denim',
-      category: 'Fashion',
-      isBlurred: true
+      price: 'M300',
+      image: featured8,
+      description: 'Stylish bag made from upcycled belts',
+      category: 'Fashion'
     },
     {
       id: '6',
-      title: 'RedBull Lamp',
+      title: 'Key Stationary Holder',
       artisan: 'Arizona Robbins',
-      price: 'M450',
-      image: '/assets/images/featured6.jpg',
-      description: 'Creative lamp made from RedBull cans',
-      category: 'Home Decor',
-      isBlurred: true
+      price: 'M150',
+      image: featured6,
+      description: 'A cup to keep your pens and pencils, made from recycled keys',
+      category: 'Home Decor'
+    },
+    {
+      id: '7',
+      title: 'Shrek Bottle Cap Wall Art',
+      artisan: 'Jackson Avery',
+      price: 'M520',
+      image: featured5,
+      description: 'Colourful wall art of Shrek made from recycled bottle caps',
+      category: 'Home Decor'
+    },
+    {
+      id: '8',
+      title: 'Tyre Couch',
+      artisan: 'April Kepner',
+      price: 'M1500',
+      image: featured7,
+      description: 'Comfortable living room chair made from upcycled tires',
+      category: 'Furniture'
     }
   ];
 
   const handleProductClick = (product: Product) => {
     if (!isLoggedIn) {
+      setClickedItem({ type: 'product', name: product.title });
       setShowSignUpModal(true);
     } else {
       // Navigate to product detail page
       console.log('View product:', product.title);
+    }
+  };
+
+  const handleCategoryClick = (category: string) => {
+    if (!isLoggedIn) {
+      setClickedItem({ type: 'category', name: category });
+      setShowSignUpModal(true);
+    } else {
+      // Filter products by category
+      console.log('Filter by category:', category);
     }
   };
 
@@ -115,12 +150,13 @@ const UpcycledProductsGallery: React.FC = () => {
     // In real app, this would redirect to signup page
   };
 
-  const handleCategoryClick = (category: string) => {
-    if (!isLoggedIn) {
-      setShowSignUpModal(true);
+  const getModalMessage = () => {
+    if (!clickedItem) return '';
+    
+    if (clickedItem.type === 'product') {
+      return `Sign up to get detailed information about "${clickedItem.name}" and connect with the artisan!`;
     } else {
-      // Filter products by category
-      console.log('Filter by category:', category);
+      return `Sign up to explore all products in "${clickedItem.name}" and discover amazing upcycled creations!`;
     }
   };
 
@@ -175,17 +211,11 @@ const UpcycledProductsGallery: React.FC = () => {
           {featuredProducts.map((product) => (
             <div 
               key={product.id} 
-              className={`${styles.productCard} ${!isLoggedIn ? styles.blurred : ''}`}
+              className={styles.productCard}
               onClick={() => handleProductClick(product)}
             >
               <div className={styles.productImage}>
                 <img src={product.image} alt={product.title} />
-                {!isLoggedIn && (
-                  <div className={styles.blurOverlay}>
-                    <span className="material-symbols-outlined">lock</span>
-                    <p>Sign up to view</p>
-                  </div>
-                )}
               </div>
               <div className={styles.productInfo}>
                 <h3 className={styles.productTitle}>{product.title}</h3>
@@ -201,19 +231,14 @@ const UpcycledProductsGallery: React.FC = () => {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Browse Categories</h2>
         <div className={styles.categoriesGrid}>
-          {categories.map((category, index) => (
+          {categories.map((category) => (
             <div 
               key={category.name}
-              className={`${styles.categoryCard} ${!isLoggedIn && index > 1 ? styles.blurred : ''}`}
+              className={styles.categoryCard}
               onClick={() => handleCategoryClick(category.name)}
             >
               <div className={styles.categoryImage}>
                 <img src={category.image} alt={category.name} />
-                {!isLoggedIn && index > 1 && (
-                  <div className={styles.blurOverlay}>
-                    <span className="material-symbols-outlined">lock</span>
-                  </div>
-                )}
               </div>
               <div className={styles.categoryInfo}>
                 <h3 className={styles.categoryName}>{category.name}</h3>
@@ -231,26 +256,20 @@ const UpcycledProductsGallery: React.FC = () => {
           {!isLoggedIn && (
             <div className={styles.signUpPrompt}>
               <span className="material-symbols-outlined">info</span>
-              <span>Sign up to unlock all products</span>
+              <span>Sign up to connect with artisans</span>
             </div>
           )}
         </div>
 
         <div className={styles.productsGrid}>
-          {allProducts.map((product, index) => (
+          {allProducts.map((product) => (
             <div 
               key={product.id}
-              className={`${styles.productCard} ${!isLoggedIn ? styles.blurred : ''}`}
+              className={styles.productCard}
               onClick={() => handleProductClick(product)}
             >
               <div className={styles.productImage}>
                 <img src={product.image} alt={product.title} />
-                {!isLoggedIn && (
-                  <div className={styles.blurOverlay}>
-                    <span className="material-symbols-outlined">lock</span>
-                    <p>Sign up to view details</p>
-                  </div>
-                )}
               </div>
               <div className={styles.productInfo}>
                 <h3 className={styles.productTitle}>{product.title}</h3>
@@ -297,8 +316,8 @@ const UpcycledProductsGallery: React.FC = () => {
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <span className="material-symbols-outlined">lock</span>
-              <h3>Oops... Content Locked</h3>
+              <span className="material-symbols-outlined">auto_awesome</span>
+              <h3>Join Our Community</h3>
               <button 
                 className={styles.closeButton}
                 onClick={() => setShowSignUpModal(false)}
@@ -307,12 +326,12 @@ const UpcycledProductsGallery: React.FC = () => {
               </button>
             </div>
             <div className={styles.modalContent}>
-              <p>Sign up to unlock all upcycled products and connect with our creative community!</p>
+              <p>{getModalMessage()}</p>
               <ul className={styles.benefitsList}>
-                <li>Browse hundreds of unique upcycled items</li>
                 <li>Connect directly with artisans</li>
-                <li>Get early access to new creations</li>
-                <li>Join the sustainable movement</li>
+                <li>Get detailed product information</li>
+                <li>Save your favorite products</li>
+                <li>Purchase unique upcycled items</li>
               </ul>
             </div>
             <div className={styles.modalActions}>
@@ -326,7 +345,7 @@ const UpcycledProductsGallery: React.FC = () => {
                 className={styles.secondaryButton}
                 onClick={() => setShowSignUpModal(false)}
               >
-                Maybe Later
+                Continue Browsing
               </button>
             </div>
           </div>
