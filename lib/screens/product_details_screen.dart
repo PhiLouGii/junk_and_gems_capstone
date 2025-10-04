@@ -22,10 +22,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _currentCarouselIndex = 0;
   String? _currentUserId;
 
+  String? _token;
   // More by Nthati R. products
   final List<Map<String, String>> _moreByArtisan = [
-    {'title': 'Patchwork blouse', 'price': 'M250', 'image': 'assets/images/featured1.jpg'},
-    {'title': 'Plastic bottle light', 'price': 'M450', 'image': 'assets/images/featured2.jpg'},
+    {
+    'title': 'Patchwork blouse', 
+    'price': 'M250', 
+    'image': 'assets/images/featured1.jpg',
+    'artisan': 'Lexie Grey',
+    'artisan_id': '2', 
+    'id': '1',
+  },
+    {
+    'title': 'Plastic bottle light', 
+    'price': 'M450', 
+    'image': 'assets/images/featured2.jpg',
+    'artisan': 'Philippa Giibwa',
+    'artisan_id': '3', 
+    'id': '2',
+  },
     {
       'title': 'Bleach bottle lamp',
       'price': 'M450',
@@ -34,8 +49,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       'artisan_id': '10',
       'id': '1',
     },
-    {'title': 'CD lights', 'price': 'M250', 'image': 'assets/images/featured4.jpg'},
-    {'title': 'Cassette Lamp', 'price': 'M450', 'image': 'assets/images/featured5.jpg'},
+    {
+    'title': 'CD lights', 
+    'price': 'M250', 
+    'image': 'assets/images/featured4.jpg',
+    'artisan': 'Mark Sloan',
+    'artisan_id': '5', 
+    'id': '4',
+  },
+    {
+    'title': 'Cassette Lamp', 
+    'price': 'M450', 
+    'image': 'assets/images/featured5.jpg',
+    'artisan': 'Maya Bishop',
+    'artisan_id': '7', 
+    'id': '5',
+  },
   ];
 
   // Related products
@@ -48,7 +77,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCurrentUserId();
+    _loadCurrentUser();
     _startCarouselAutoScroll();
   }
 
@@ -58,89 +87,105 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.dispose();
   }
   
-  Future<void> _loadCurrentUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentUserId = prefs.getString('userId');
-    });
+  Future<void> _loadCurrentUser() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    _currentUserId = prefs.getString('userId');
+    _token = prefs.getString('token');
+  });
+  
+  print('🔐 CURRENT USER ID: $_currentUserId');
+  print('🔐 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
+  
+  // Print all stored preferences for debugging
+  final allKeys = prefs.getKeys();
+  for (String key in allKeys) {
+    print('📝 SharedPrefs - $key: ${prefs.get(key)}');
   }
+}
 
   void _messageArtisan(BuildContext context) async {
-    try {
-      // Show loading
+  try {
+    // Show loading
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Starting conversation...'),
+        duration: Duration(seconds: 2),
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+      ),
+    );
+
+    if (_currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Starting conversation...'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
+          content: Text('Please log in to message artisans.'),
+          backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
 
-      if (_currentUserId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Please log in to message artisans.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+    final String artisanId = widget.product['artisan_id'] ?? '2'; 
+    final String productId = widget.product['id'] ?? '1';
 
-      final String artisanId = widget.product['artisan_id'] ?? '2'; 
-      final String productId = widget.product['id'] ?? '1';
+    print('🔐 CURRENT USER ID: $_currentUserId');
+    print('🎯 TRYING TO MESSAGE ARTISAN ID: $artisanId');
+    print('📦 PRODUCT ID: $productId');
+    print('👤 ARTISAN NAME: ${widget.product['artisan']}');
 
-      print('Attempting to start conversation with artisan: $artisanId, product: $productId');
+    // Start conversation with artisan
+    final response = await http.post(
+      Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'currentUserId': _currentUserId,
+        'otherUserId': artisanId,
+        'productId': productId,
+        'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
+      }),
+    ).timeout(const Duration(seconds: 10));
 
-      // Start conversation with artisan
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'currentUserId': _currentUserId,
-          'otherUserId': artisanId,
-          'productId': productId,
-          'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
-        }),
-      ).timeout(const Duration(seconds: 10));
+    print('📡 Response status: ${response.statusCode}');
+    print('📦 Response body: ${response.body}');
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final conversation = json.decode(response.body);
-        
-        // Navigate to chat screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              userName: widget.product['artisan'] ?? 'Artisan',
-              otherUserId: artisanId,
-              currentUserId: _currentUserId!,
-              conversationId: conversation['id'].toString(),
-              product: widget.product,
-            ),
-          ),
-        );
-      } else {
-        final errorResponse = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to start conversation: ${errorResponse['error']}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (error) {
-      print('Message artisan error: $error');
+    if (response.statusCode == 200) {
+      final conversation = json.decode(response.body);
+      
+      // Navigate to chat screen
+      Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => ProductDetailScreen(
+      product: {
+        'title': 'Sta-Soft Lamp',
+        'price': 'M400',
+        'image': 'assets/images/featured3.jpg',
+        'artisan': 'Lexie Grey',
+        'artisan_id': '2', 
+        'id': '1',
+      },
+    ),
+  ),
+);
+    } else {
+      final errorResponse = json.decode(response.body);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error starting conversation'),
+          content: Text('Failed to start conversation: ${errorResponse['error']}'),
           backgroundColor: Colors.red,
         ),
       );
     }
+  } catch (error) {
+    print('Message artisan error: $error');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error starting conversation: $error'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   void _startCarouselAutoScroll() {
     Future.delayed(const Duration(seconds: 3), () {
