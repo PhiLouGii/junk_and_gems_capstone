@@ -21,5 +21,31 @@ https://github.com/PhiLouGii/junk_and_gems_capstone
 
 ## Backend Setup
 1. Clone the repository
-```git clone https://github.com/your-username/junk-and-gems.git
-cd junk-and-gems/backend ```
+```git clone https://github.com/your-username/junk-and-gems.git```
+```cd junk-and-gems/backend ```
+
+2. Install dependencies
+```npm install```
+
+3. Database setup
+``` CREATE DATABASE junk_and_gems;```
+
+4. Environmental configuration
+``` cp .env.example .env```
+
+5. Start the server
+```node server.js```
+
+## Frontend Setup
+
+1. Navigate back to where the frontend code is
+``` cd ..```
+
+2. Get Flutter dependencies
+```flutter pub get```
+
+3. Configure API endpoints
+```const String baseUrl = 'http://your-local-ip:3003';```
+
+4. Run the application
+``` flutter run```
