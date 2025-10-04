@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/checkout_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:junk_and_gems/providers/cart_provider.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 
 class ShoppingCartScreen extends StatefulWidget {
   const ShoppingCartScreen({super.key});
@@ -11,53 +13,46 @@ class ShoppingCartScreen extends StatefulWidget {
 }
 
 class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
-  int _canTabLampQuantity = 1;
-  int _denimBagQuantity = 2;
-  int _availableGems = 840;
-  int _appliedGems = 0;
   final TextEditingController _gemsController = TextEditingController();
-
-  final List<Map<String, dynamic>> _cartItems = [
-    {
-    'title': 'Sta-Soft Lamp',
-    'price': 400,
-    'image': 'assets/images/featured3.jpg',
-    'quantity': 1,
-    },
-    {
-      'title': 'Can Tab Lamp',
-      'price': 650,
-      'image': 'assets/images/featured6.jpg',
-      'quantity': 1,
-    },
-    {
-      'title': 'Denim Patchwork Bag',
-      'price': 330,
-      'image': 'assets/images/upcycled1.jpg',
-      'quantity': 2,
-    },
-  ];
-
-  double get _subtotal {
-    return _cartItems.fold(0, (sum, item) => sum + (item['price'] * item['quantity']));
-  }
-
-  double get _total {
-    final gemDiscount = _appliedGems; // 100 Gems = M100, so 1 Gem = M1
-    return _subtotal - gemDiscount;
-  }
+  int _appliedGems = 0;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize with current quantities
-    _cartItems[0]['quantity'] = _canTabLampQuantity;
-    _cartItems[1]['quantity'] = _denimBagQuantity;
+    // We can't use Provider in initState directly, so we use WidgetsBinding
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCartData();
+    });
+  }
+
+  void _loadCartData() {
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (authProvider.isAuthenticated) {
+      cartProvider.fetchCart(); // Remove the parameter - fetchCart doesn't take userId
+      setState(() {
+        _isInitialized = true;
+      });
+    }
+  }
+
+  double get _subtotal {
+    final cartProvider = Provider.of<CartProvider>(context);
+    return cartProvider.subtotal;
+  }
+
+  double get _total {
+    final gemDiscount = _appliedGems.toDouble();
+    return _subtotal - gemDiscount;
   }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final cartProvider = Provider.of<CartProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -83,57 +78,122 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // Cart Items
-                  _buildCartItems(),
-                  const SizedBox(height: 24),
-                  
-                  // Apply Gems Section
-                  _buildGemsSection(),
-                  const SizedBox(height: 24),
-                  
-                  // Order Summary
-                  _buildOrderSummary(),
-                ],
-              ),
+      body: !_isInitialized && authProvider.isAuthenticated
+          ? Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        // Cart Items
+                        _buildCartItems(cartProvider),
+                        const SizedBox(height: 24),
+                        
+                        // Apply Gems Section
+                        _buildGemsSection(authProvider),
+                        const SizedBox(height: 24),
+                        
+                        // Order Summary
+                        _buildOrderSummary(),
+                      ],
+                    ),
+                  ),
+                ),
+                
+                // Bottom Buttons
+                _buildBottomButtons(cartProvider),
+              ],
             ),
-          ),
-          
-          // Bottom Buttons
-          _buildBottomButtons(),
-        ],
-      ),
     );
   }
 
-  Widget _buildCartItems() {
+  Widget _buildCartItems(CartProvider cartProvider) {
+    if (cartProvider.isLoading) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (cartProvider.error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Error loading cart',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                cartProvider.error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.red,
+                ),
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  cartProvider.clearError();
+                  _loadCartData();
+                },
+                child: Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (cartProvider.items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.shopping_cart_outlined, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'Your cart is empty',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Add some items to get started',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
-      children: _cartItems.asMap().entries.map((entry) {
+      children: cartProvider.items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
         
         return Column(
           children: [
-            _buildCartItem(
-              title: item['title'],
-              price: item['price'],
-              image: item['image'],
-              quantity: item['quantity'],
-              onQuantityChanged: (newQuantity) {
-                setState(() {
-                  _cartItems[index]['quantity'] = newQuantity;
-                  if (index == 0) _canTabLampQuantity = newQuantity;
-                  if (index == 1) _denimBagQuantity = newQuantity;
-                });
-              },
-            ),
-            if (index < _cartItems.length - 1) 
+            _buildCartItem(item, cartProvider),
+            if (index < cartProvider.items.length - 1) 
               Divider(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
                 thickness: 1,
@@ -145,130 +205,196 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     );
   }
 
-  Widget _buildCartItem({
-    required String title,
-    required int price,
-    required String image,
-    required int quantity,
-    required Function(int) onQuantityChanged,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Product Image
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE4E5C2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              image,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: const Color(0xFFE4E5C2),
-                  child: Icon(
-                    Icons.shopping_bag,
-                    size: 30,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                );
-              },
+  Widget _buildCartItem(CartItem item, CartProvider cartProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Product Image
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE4E5C2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                  ? Image.network(
+                      item.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildPlaceholderIcon();
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                    )
+                  : _buildPlaceholderIcon(),
             ),
           ),
-        ),
-        const SizedBox(width: 16),
-        
-        // Product Details and Quantity
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+          const SizedBox(width: 16),
+          
+          // Product Details and Quantity
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'M$price',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                const SizedBox(height: 4),
+                Text(
+                  'M${item.price.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              
-              // Quantity Selector
-              Container(
-                width: 120,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBEC092)),
+                const SizedBox(height: 12),
+                
+                // Quantity Selector
+                Container(
+                  width: 120,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBEC092)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.remove, 
+                          size: 18,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                        onPressed: () {
+                          if (item.quantity > 1) {
+                            cartProvider.updateCartItemQuantity(
+                              item.id!, 
+                              item.quantity - 1
+                            );
+                          } else {
+                            cartProvider.removeFromCart(item.id!);
+                          }
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                      ),
+                      Text(
+                        item.quantity.toString(),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.add, 
+                          size: 18,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                        onPressed: () {
+                          cartProvider.updateCartItemQuantity(
+                            item.id!, 
+                            item.quantity + 1
+                          );
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 40,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.remove, 
-                        size: 18,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                      onPressed: () {
-                        if (quantity > 1) {
-                          onQuantityChanged(quantity - 1);
-                        }
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
-                      ),
-                    ),
-                    Text(
-                      quantity.toString(),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.add, 
-                        size: 18,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                      onPressed: () {
-                        onQuantityChanged(quantity + 1);
-                      },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          
+          // Remove button
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline,
+              color: Colors.red,
+            ),
+            onPressed: () {
+              _showDeleteConfirmation(item, cartProvider);
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildGemsSection() {
+  void _showDeleteConfirmation(CartItem item, CartProvider cartProvider) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Remove Item'),
+          content: Text('Are you sure you want to remove ${item.title} from your cart?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                cartProvider.removeFromCart(item.id!);
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'Remove',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPlaceholderIcon() {
+    return Container(
+      color: const Color(0xFFE4E5C2),
+      child: Icon(
+        Icons.shopping_bag,
+        size: 30,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
+      ),
+    );
+  }
+
+  Widget _buildGemsSection(AuthProvider authProvider) {
+    final availableGems = authProvider.user?.availableGems ?? 0;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -303,7 +429,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               children: [
                 const TextSpan(text: 'You have '),
                 TextSpan(
-                  text: '$_availableGems Gems',
+                  text: '$availableGems Gems',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -343,10 +469,17 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                       onChanged: (value) {
                         setState(() {
                           _appliedGems = int.tryParse(value) ?? 0;
-                          // Ensure applied gems don't exceed available gems
-                          if (_appliedGems > _availableGems) {
-                            _appliedGems = _availableGems;
-                            _gemsController.text = _availableGems.toString();
+                          // Ensure applied gems don't exceed available gems or subtotal
+                          if (_appliedGems > availableGems) {
+                            _appliedGems = availableGems;
+                            _gemsController.text = availableGems.toString();
+                          }
+                          
+                          // Ensure applied gems don't exceed subtotal
+                          final maxApplicableGems = _subtotal.toInt();
+                          if (_appliedGems > maxApplicableGems) {
+                            _appliedGems = maxApplicableGems;
+                            _gemsController.text = maxApplicableGems.toString();
                           }
                         });
                       },
@@ -365,10 +498,21 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                   onPressed: () {
                     // Apply the gems
                     final gems = int.tryParse(_gemsController.text) ?? 0;
+                    final availableGems = authProvider.user?.availableGems ?? 0;
+                    final maxApplicableGems = _subtotal.toInt();
+                    
                     setState(() {
-                      _appliedGems = gems > _availableGems ? _availableGems : gems;
+                      _appliedGems = gems.clamp(0, availableGems).clamp(0, maxApplicableGems);
                       _gemsController.text = _appliedGems.toString();
                     });
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Applied $_appliedGems gems to your order'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
                   },
                   child: Text(
                     'Apply',
@@ -382,12 +526,24 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               ),
             ],
           ),
+          if (_appliedGems > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Applied $_appliedGems gems (M${_appliedGems.toStringAsFixed(2)} discount)',
+              style: TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildOrderSummary() {
+    final cartProvider = Provider.of<CartProvider>(context);
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -403,7 +559,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       ),
       child: Column(
         children: [
-          _buildSummaryRow('Subtotal', 'M${_subtotal.toStringAsFixed(2)}'),
+          _buildSummaryRow('Subtotal (${cartProvider.totalItems} items)', 'M${_subtotal.toStringAsFixed(2)}'),
           const SizedBox(height: 8),
           if (_appliedGems > 0)
             Column(
@@ -412,6 +568,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                 const SizedBox(height: 8),
               ],
             ),
+          const Divider(),
+          const SizedBox(height: 8),
           _buildSummaryRow(
             'Total',
             'M${_total.toStringAsFixed(2)}',
@@ -446,7 +604,9 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     );
   }
 
-  Widget _buildBottomButtons() {
+  Widget _buildBottomButtons(CartProvider cartProvider) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -492,20 +652,23 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
+                color: cartProvider.items.isEmpty || !authProvider.isAuthenticated 
+                    ? Colors.grey 
+                    : const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: TextButton(
-                onPressed: () {
+                onPressed: cartProvider.items.isEmpty || !authProvider.isAuthenticated ? null : () {
                   // Navigate to checkout
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => CheckoutScreen(
-                        cartItems: _cartItems,
+                        cartItems: cartProvider.items,
                         subtotal: _subtotal,
                         gemsDiscount: _appliedGems.toDouble(),
                         total: _total,
+                        appliedGems: _appliedGems,
                       ),
                     ),
                   );

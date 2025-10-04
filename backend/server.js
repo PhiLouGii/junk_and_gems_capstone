@@ -788,6 +788,411 @@ app.get("/api/debug/all-users", async (req, res) => {
   }
 });
 
+// Get user's cart
+app.get("/api/cart", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Get or create cart for user
+    let cart = await pool.query(
+      "SELECT * FROM carts WHERE user_id = $1",
+      [userId]
+    );
+
+    if (cart.rows.length === 0) {
+      const newCart = await pool.query(
+        "INSERT INTO carts (user_id) VALUES ($1) RETURNING *",
+        [userId]
+      );
+      cart = newCart;
+    }
+
+    const cartId = cart.rows[0].id;
+
+    // Get cart items with product details
+    const cartItems = await pool.query(`
+      SELECT 
+        ci.*,
+        p.title,
+        p.price,
+        p.image_url,
+        p.description
+      FROM cart_items ci
+      JOIN products p ON ci.product_id = p.id
+      WHERE ci.cart_id = $1
+    `, [cartId]);
+
+    res.json({
+      cartId: cartId,
+      items: cartItems.rows,
+      totalItems: cartItems.rows.reduce((sum, item) => sum + item.quantity, 0)
+    });
+  } catch (err) {
+    console.error("Get cart error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Add item to cart
+app.post("/api/cart/items", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { productId, quantity = 1 } = req.body;
+
+  try {
+    // Get user's cart
+    let cart = await pool.query(
+      "SELECT * FROM carts WHERE user_id = $1",
+      [userId]
+    );
+
+    if (cart.rows.length === 0) {
+      const newCart = await pool.query(
+        "INSERT INTO carts (user_id) VALUES ($1) RETURNING *",
+        [userId]
+      );
+      cart = newCart;
+    }
+
+    const cartId = cart.rows[0].id;
+
+    // Check if item already exists in cart
+    const existingItem = await pool.query(
+      "SELECT * FROM cart_items WHERE cart_id = $1 AND product_id = $2",
+      [cartId, productId]
+    );
+
+    if (existingItem.rows.length > 0) {
+      // Update quantity if item exists
+      const updatedItem = await pool.query(
+        "UPDATE cart_items SET quantity = quantity + $1, updated_at = NOW() WHERE cart_id = $2 AND product_id = $3 RETURNING *",
+        [quantity, cartId, productId]
+      );
+      res.json(updatedItem.rows[0]);
+    } else {
+      // Add new item to cart
+      const newItem = await pool.query(
+        "INSERT INTO cart_items (cart_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
+        [cartId, productId, quantity]
+      );
+      res.status(201).json(newItem.rows[0]);
+    }
+  } catch (err) {
+    console.error("Add to cart error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update cart item quantity
+app.put("/api/cart/items/:itemId", authenticateToken, async (req, res) => {
+  const { itemId } = req.params;
+  const { quantity } = req.body;
+  const userId = req.user.id;
+
+  try {
+    // Verify user owns this cart item
+    const cartItem = await pool.query(`
+      SELECT ci.* FROM cart_items ci
+      JOIN carts c ON ci.cart_id = c.id
+      WHERE ci.id = $1 AND c.user_id = $2
+    `, [itemId, userId]);
+
+    if (cartItem.rows.length === 0) {
+      return res.status(404).json({ error: "Cart item not found" });
+    }
+
+    if (quantity <= 0) {
+      // Remove item if quantity is 0 or less
+      await pool.query("DELETE FROM cart_items WHERE id = $1", [itemId]);
+      res.json({ message: "Item removed from cart" });
+    } else {
+      // Update quantity
+      const updatedItem = await pool.query(
+        "UPDATE cart_items SET quantity = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+        [quantity, itemId]
+      );
+      res.json(updatedItem.rows[0]);
+    }
+  } catch (err) {
+    console.error("Update cart item error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Remove item from cart
+app.delete("/api/cart/items/:itemId", authenticateToken, async (req, res) => {
+  const { itemId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Verify user owns this cart item
+    const cartItem = await pool.query(`
+      SELECT ci.* FROM cart_items ci
+      JOIN carts c ON ci.cart_id = c.id
+      WHERE ci.id = $1 AND c.user_id = $2
+    `, [itemId, userId]);
+
+    if (cartItem.rows.length === 0) {
+      return res.status(404).json({ error: "Cart item not found" });
+    }
+
+    await pool.query("DELETE FROM cart_items WHERE id = $1", [itemId]);
+    res.json({ message: "Item removed from cart" });
+  } catch (err) {
+    console.error("Remove cart item error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Clear entire cart
+app.delete("/api/cart", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const cart = await pool.query(
+      "SELECT * FROM carts WHERE user_id = $1",
+      [userId]
+    );
+
+    if (cart.rows.length === 0) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    const cartId = cart.rows[0].id;
+    await pool.query("DELETE FROM cart_items WHERE cart_id = $1", [cartId]);
+    
+    res.json({ message: "Cart cleared successfully" });
+  } catch (err) {
+    console.error("Clear cart error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- CHECKOUT ENDPOINTS ---
+
+// Create order from cart
+app.post("/api/orders", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { appliedGems = 0, shippingAddress, paymentMethod } = req.body;
+
+  try {
+    // Get user's cart with items
+    const cart = await pool.query(`
+      SELECT 
+        c.id as cart_id,
+        ci.product_id,
+        ci.quantity,
+        p.title,
+        p.price,
+        p.image_url,
+        u.available_gems
+      FROM carts c
+      JOIN cart_items ci ON c.id = ci.cart_id
+      JOIN products p ON ci.product_id = p.id
+      JOIN users u ON c.user_id = u.id
+      WHERE c.user_id = $1
+    `, [userId]);
+
+    if (cart.rows.length === 0) {
+      return res.status(400).json({ error: "Cart is empty" });
+    }
+
+    // Calculate totals
+    const subtotal = cart.rows.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Validate applied gems
+    const availableGems = cart.rows[0].available_gems || 0;
+    const actualAppliedGems = Math.min(appliedGems, availableGems, subtotal);
+    
+    const total = subtotal - actualAppliedGems;
+
+    // Generate order number
+    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Start transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Create order
+      const orderResult = await client.query(`
+        INSERT INTO orders (user_id, order_number, subtotal, gems_discount, total_amount, shipping_address, payment_method)
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+      `, [userId, orderNumber, subtotal, actualAppliedGems, total, shippingAddress, paymentMethod]);
+
+      const order = orderResult.rows[0];
+
+      // Create order items
+      for (const item of cart.rows) {
+        await client.query(`
+          INSERT INTO order_items (order_id, product_id, quantity, price_at_time)
+          VALUES ($1, $2, $3, $4)
+        `, [order.id, item.product_id, item.quantity, item.price]);
+      }
+
+      // Update user's gems if any were applied
+      if (actualAppliedGems > 0) {
+        await client.query(
+          "UPDATE users SET available_gems = available_gems - $1 WHERE id = $2",
+          [actualAppliedGems, userId]
+        );
+      }
+
+      // Clear the cart
+      await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cart.rows[0].cart_id]);
+
+      await client.query('COMMIT');
+
+      // Get complete order details
+      const orderDetails = await pool.query(`
+        SELECT 
+          o.*,
+          json_agg(
+            json_build_object(
+              'product_id', oi.product_id,
+              'title', p.title,
+              'price', oi.price_at_time,
+              'quantity', oi.quantity,
+              'image_url', p.image_url
+            )
+          ) as items
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN products p ON oi.product_id = p.id
+        WHERE o.id = $1
+        GROUP BY o.id
+      `, [order.id]);
+
+      res.status(201).json({
+        success: true,
+        order: orderDetails.rows[0],
+        message: "Order created successfully"
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+  } catch (err) {
+    console.error("Create order error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Get user's orders
+app.get("/api/orders", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const orders = await pool.query(`
+      SELECT 
+        o.*,
+        json_agg(
+          json_build_object(
+            'product_id', oi.product_id,
+            'title', p.title,
+            'price', oi.price_at_time,
+            'quantity', oi.quantity,
+            'image_url', p.image_url
+          )
+        ) as items
+      FROM orders o
+      JOIN order_items oi ON o.id = oi.order_id
+      JOIN products p ON oi.product_id = p.id
+      WHERE o.user_id = $1
+      GROUP BY o.id
+      ORDER BY o.created_at DESC
+    `, [userId]);
+
+    res.json(orders.rows);
+  } catch (err) {
+    console.error("Get orders error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user's available gems
+app.get("/api/user/gems", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const result = await pool.query(
+      "SELECT available_gems FROM users WHERE id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ available_gems: result.rows[0].available_gems });
+  } catch (err) {
+    console.error("Get user gems error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// --- PRODUCTS ENDPOINTS ---
+
+// Get all products
+app.get("/api/products", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM products 
+      ORDER BY created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get products error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Add some sample products (run this once)
+app.post("/api/setup-products", async (req, res) => {
+  try {
+    // Insert sample products
+    const sampleProducts = [
+      {
+        title: 'Sta-Soft Lamp',
+        description: 'Beautiful lamp made from recycled materials',
+        price: 400,
+        image_url: 'assets/images/featured3.jpg',
+        category: 'lighting'
+      },
+      {
+        title: 'Can Tab Lamp',
+        description: 'Creative lamp made from can tabs',
+        price: 650,
+        image_url: 'assets/images/featured6.jpg',
+        category: 'lighting'
+      },
+      {
+        title: 'Denim Patchwork Bag',
+        description: 'Unique bag made from denim patches',
+        price: 330,
+        image_url: 'assets/images/upcycled1.jpg',
+        category: 'accessories'
+      }
+    ];
+
+    for (const product of sampleProducts) {
+      await pool.query(
+        `INSERT INTO products (title, description, price, image_url, category) 
+         VALUES ($1, $2, $3, $4, $5)`,
+        [product.title, product.description, product.price, product.image_url, product.category]
+      );
+    }
+
+    res.json({ message: "Sample products added successfully" });
+  } catch (err) {
+    console.error("Setup products error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
 });
