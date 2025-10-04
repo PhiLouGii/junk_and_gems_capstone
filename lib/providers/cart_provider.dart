@@ -1,6 +1,5 @@
 // providers/cart_provider.dart
 import 'package:flutter/foundation.dart';
-import 'package:junk_and_gems/services/api_service.dart';
 
 class CartItem {
   final int? id;
@@ -21,26 +20,12 @@ class CartItem {
     required this.quantity,
   });
 
-  factory CartItem.fromJson(Map<String, dynamic> json) {
-    return CartItem(
-      id: json['id'],
-      productId: json['product_id'],
-      title: json['title'],
-      price: (json['price'] as num).toDouble(),
-      imageUrl: json['image_url'],
-      description: json['description'],
-      quantity: json['quantity'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
+  // Convert to Map for CheckoutScreen compatibility
+  Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'product_id': productId,
       'title': title,
       'price': price,
-      'image_url': imageUrl,
-      'description': description,
+      'image': imageUrl ?? 'assets/images/placeholder.jpg',
       'quantity': quantity,
     };
   }
@@ -63,96 +48,64 @@ class CartProvider with ChangeNotifier {
     return _items.fold(0, (sum, item) => sum + item.quantity);
   }
 
+  // Add this method - no parameters needed
   Future<void> fetchCart() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await ApiService().get('/api/cart');
-      final cartData = response['items'] as List? ?? [];
+      // Simulate API call - replace with actual API call
+      await Future.delayed(Duration(seconds: 1));
       
-      _items = cartData.map((item) => CartItem.fromJson(item)).toList();
+      // For testing - add some dummy items
+      _items = [
+        CartItem(
+          id: 1,
+          productId: 1,
+          title: 'Sta-Soft Lamp',
+          price: 400,
+          imageUrl: 'assets/images/featured3.jpg',
+          quantity: 1,
+        ),
+        CartItem(
+          id: 2,
+          productId: 2,
+          title: 'Can Tab Lamp',
+          price: 650,
+          imageUrl: 'assets/images/featured6.jpg',
+          quantity: 1,
+        ),
+        CartItem(
+          id: 3,
+          productId: 3,
+          title: 'Denim Patchwork Bag',
+          price: 330,
+          imageUrl: 'assets/images/upcycled1.jpg',
+          quantity: 2,
+        ),
+      ];
     } catch (error) {
       _error = 'Failed to load cart: $error';
-      print('Error fetching cart: $error');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> addToCart(int productId, {int quantity = 1}) async {
-    _error = null;
-    notifyListeners();
-
-    try {
-      await ApiService().post('/api/cart/items', {
-        'productId': productId,
-        'quantity': quantity,
-      });
-      
-      // Refresh cart after adding
-      await fetchCart();
-    } catch (error) {
-      _error = 'Failed to add item to cart: $error';
-      print('Error adding to cart: $error');
-      throw error;
-    }
-  }
-
   Future<void> updateCartItemQuantity(int itemId, int newQuantity) async {
     _error = null;
-    notifyListeners();
-
-    try {
-      await ApiService().put('/api/cart/items/$itemId', {
-        'quantity': newQuantity,
-      });
-      
-      // Update local state immediately for better UX
-      final index = _items.indexWhere((item) => item.id == itemId);
-      if (index != -1) {
-        _items[index].quantity = newQuantity;
-        notifyListeners();
-      }
-    } catch (error) {
-      _error = 'Failed to update quantity: $error';
-      print('Error updating cart item: $error');
-      throw error;
+    final index = _items.indexWhere((item) => item.id == itemId);
+    if (index != -1) {
+      _items[index].quantity = newQuantity;
+      notifyListeners();
     }
   }
 
   Future<void> removeFromCart(int itemId) async {
     _error = null;
+    _items.removeWhere((item) => item.id == itemId);
     notifyListeners();
-
-    try {
-      await ApiService().delete('/api/cart/items/$itemId');
-      
-      // Update local state immediately
-      _items.removeWhere((item) => item.id == itemId);
-      notifyListeners();
-    } catch (error) {
-      _error = 'Failed to remove item: $error';
-      print('Error removing from cart: $error');
-      throw error;
-    }
-  }
-
-  Future<void> clearCart() async {
-    _error = null;
-    notifyListeners();
-
-    try {
-      await ApiService().delete('/api/cart');
-      _items.clear();
-      notifyListeners();
-    } catch (error) {
-      _error = 'Failed to clear cart: $error';
-      print('Error clearing cart: $error');
-      throw error;
-    }
   }
 
   void clearError() {
