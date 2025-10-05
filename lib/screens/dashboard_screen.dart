@@ -3,6 +3,7 @@ import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
+import 'package:junk_and_gems/screens/other_user_profile_screen.dart';
 import 'package:junk_and_gems/utils/session_manager.dart';
 import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
@@ -465,106 +466,162 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Build user card for both artisans and contributors
   Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
-  final name = user['name'] ?? 'Unknown User';
-  final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
-  final profileImage = user['profile_image_url'];
-  final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
-  final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
+    final name = user['name'] ?? 'Unknown User';
+    final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
+    final profileImage = user['profile_image_url'];
+    final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
+    final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
+    final userId = user['id']?.toString() ?? '0';
 
-  return Container(
-    width: 140,
-    height: 180, 
-    decoration: BoxDecoration(
-      color: Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.1),
-          blurRadius: 8,
-          offset: const Offset(0, 3),
+    return GestureDetector(
+      onTap: () {
+        _showUserProfileModal(context, name, userId);
+      },
+      child: Container(
+        width: 140,
+        height: 180, 
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-      ],
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const SizedBox(height: 12), 
-        // Profile Picture - use real image if available
-        Container(
-          width: 60, 
-          height: 60, 
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 12), 
+            Container(
+              width: 60, 
+              height: 60, 
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: const Color(0xFFBEC092),
+                  width: 2,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: profileImage != null 
+                    ? Image.network(
+                        profileImage,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? const Color(0xFF3A3A3A) 
+                                : const Color(0xFFE4E5C2),
+                            child: Icon(
+                              Icons.person,
+                              size: 24,
+                              color: const Color(0xFF88844D),
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? const Color(0xFF3A3A3A) 
+                                : const Color(0xFFE4E5C2),
+                            child: Icon(
+                              Icons.person,
+                              size: 24,
+                              color: const Color(0xFF88844D),
+                            ),
+                          );
+                        },
+                      )
+                    : Container(
+                        color: Theme.of(context).brightness == Brightness.dark 
+                            ? const Color(0xFF3A3A3A) 
+                            : const Color(0xFFE4E5C2),
+                        child: Icon(
+                          Icons.person,
+                          size: 24,
+                          color: const Color(0xFF88844D),
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 8), 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                _getDisplayName(name),
+                style: TextStyle(
+                  fontSize: 14, 
+                  fontWeight: FontWeight.w600, 
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                specialty,
+                style: TextStyle(
+                  fontSize: 12, 
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (donationCount > 0 || materialCount > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                isArtisan 
+                    ? '$donationCount donations'
+                    : '$materialCount materials',
+                style: TextStyle(
+                  fontSize: 10, 
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12), 
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showUserProfileModal(BuildContext context, String userName, String userId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: const Color(0xFFBEC092),
-              width: 2,
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
             ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: profileImage != null 
-                ? Image.network(
-                    profileImage,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildProfilePlaceholder();
-                    },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return _buildProfilePlaceholder();
-                    },
-                  )
-                : _buildProfilePlaceholder(),
+          child: OtherUserProfileScreen(
+            userName: userName,
+            userId: userId,
           ),
-        ),
-        const SizedBox(height: 8), 
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            _getDisplayName(name),
-            style: TextStyle(
-              fontSize: 14, 
-              fontWeight: FontWeight.w600, 
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            specialty,
-            style: TextStyle(
-              fontSize: 12, 
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (donationCount > 0 || materialCount > 0) ...[
-          const SizedBox(height: 2),
-          Text(
-            isArtisan 
-                ? '$donationCount donations'
-                : '$materialCount materials',
-            style: TextStyle(
-              fontSize: 10, 
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-        const SizedBox(height: 12), 
-      ],
-    ),
-  );
-}
+        );
+      },
+    );
+  }
 
   Widget _buildProfilePlaceholder() {
     return Container(

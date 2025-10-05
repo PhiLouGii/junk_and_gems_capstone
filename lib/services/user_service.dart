@@ -50,6 +50,57 @@ class UserService {
     }
   }
 
+   static Future<Map<String, dynamic>> getOtherUserProfile(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/users/$userId/profile'),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load user profile');
+      }
+    } catch (e) {
+      print('Error fetching user profile: $e');
+      throw e;
+    }
+  }
+
+  static Future<List<dynamic>> getDonationsByUserId(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/users/$userId/donations'),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load user donations');
+      }
+    } catch (e) {
+      print('Error fetching user donations: $e');
+      throw e;
+    }
+  }
+
+  static Future<List<dynamic>> getProductsByUserId(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/users/$userId/products'),
+      );
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load user products');
+      }
+    } catch (e) {
+      print('Error fetching user products: $e');
+      throw e;
+    }
+  }
+
   // Upload profile picture
   static Future<String> uploadProfilePicture(File imageFile, String userId) async {
     try {
