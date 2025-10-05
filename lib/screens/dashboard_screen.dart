@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
@@ -8,6 +10,7 @@ import 'package:junk_and_gems/utils/session_manager.dart';
 import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'browse_materials_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -40,7 +43,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   try {
     print('🚀 Starting to load dashboard data...');
     
-     final List<Future<dynamic>> futures = [
+      await _loadCachedData();
+    
+    final List<Future<dynamic>> futures = [
       UserService.getArtisans(),
       UserService.getContributors(),
       UserService.getUserImpact(widget.userId),
@@ -48,7 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final results = await Future.wait(futures);
 
-    // Now cast the results to their proper types
+    
     final artisansData = results[0] as List<dynamic>;
     final contributorsData = results[1] as List<dynamic>;
     final impactData = results[2] as Map<String, dynamic>;
@@ -76,6 +81,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       isLoading = false;
     });
     
+    await _saveDataToCache(artisansData, contributorsData, impactData);
+    
     print('✅ Dashboard data loaded successfully');
     
   } catch (e) {
@@ -83,6 +90,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       isLoading = false;
     });
+  }
+}
+
+Future<void> _loadCachedData() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final cachedArtisans = prefs.getString('cachedArtisans');
+    final cachedContributors = prefs.getString('cachedContributors');
+    final cachedImpact = prefs.getString('cachedImpact');
+    
+    if (cachedArtisans != null && cachedContributors != null && cachedImpact != null) {
+      print('📚 Loading cached dashboard data...');
+      
+      setState(() {
+        artisans = List<dynamic>.from(json.decode(cachedArtisans));
+        contributors = List<dynamic>.from(json.decode(cachedContributors));
+        userImpact = Map<String, dynamic>.from(json.decode(cachedImpact));
+      });
+      
+      print('📚 Cached artisans: ${artisans.length}');
+      print('📚 Cached contributors: ${contributors.length}');
+      print('📚 Cached impact: $userImpact');
+    }
+  } catch (e) {
+    print('❌ Error loading cached data: $e');
+  }
+}
+
+// NEW: Save data to SharedPreferences for persistence
+Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contributorsData, Map<String, dynamic> impactData) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    await prefs.setString('cachedArtisans', json.encode(artisansData));
+    await prefs.setString('cachedContributors', json.encode(contributorsData));
+    await prefs.setString('cachedImpact', json.encode(impactData));
+    
+    print('💾 Dashboard data saved to cache');
+  } catch (e) {
+    print('❌ Error saving data to cache: $e');
   }
 }
 

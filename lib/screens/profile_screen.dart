@@ -12,6 +12,7 @@ import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 
+
 class ProfileScreen extends StatefulWidget {
   final String userName;
   final String userId;
@@ -28,14 +29,15 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String bioText = "";
-  Map<String, String> userData = {};
+  Map<String, dynamic> userData = {}; 
   bool isLoading = true;
   bool isSavingBio = false;
   bool isSavingProfilePicture = false;
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _bioController = TextEditingController();
+  int userGems = 0;
 
-  @override
+    @override
   void initState() {
     super.initState();
     _loadUserData();
@@ -65,6 +67,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadUserGems() async {
+    try {
+      print('💰 Loading user gems for user: ${widget.userId}');
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/users/${widget.userId}/profile'),
+      );
+      
+      if (response.statusCode == 200) {
+        final userProfile = json.decode(response.body);
+        final gems = userProfile['available_gems'] ?? 0;
+        print('💰 User gems loaded: $gems');
+        
+        setState(() {
+          userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
+        });
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('userGems', userGems);
+      } else {
+        print('❌ Failed to load user gems: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error loading user gems: $e');
+      // Try to load from SharedPreferences as fallback
+      final prefs = await SharedPreferences.getInstance();
+      final cachedGems = prefs.getInt('userGems') ?? 0;
+      setState(() {
+        userGems = cachedGems;
+      });
+    }
+  }
+
   Future<void> _loadUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -80,6 +114,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         bioText = userData['bio'] ?? '';
         _bioController.text = bioText;
       });
+
+      // Load gems after basic user data
+      await _loadUserGems();
     } catch (e) {
       print('Error loading user data: $e');
     } finally {
@@ -385,10 +422,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileHeader(String userName, String username) {
+   Widget _buildProfileHeader(String userName, String username) {
     final profilePicture = userData['profilePicture'];
     
-    return Column(
+     return Column(
       children: [
         Stack(
           children: [
@@ -479,7 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        // Gems Counter
+        // Gems counter
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -492,7 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Icon(Icons.star, color: Colors.green, size: 18),
               const SizedBox(width: 4),
               Text(
-                "1250 Gems",
+                "$userGems Gems", 
                 style: TextStyle(
                   color: Colors.green,
                   fontWeight: FontWeight.w600,

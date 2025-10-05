@@ -1481,7 +1481,7 @@ app.get("/api/users/:userId/profile", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const userResult = await pool.query(`
+    const result = await pool.query(`
       SELECT 
         id, name, username, profile_image_url, 
         user_type, specialty, bio, donation_count,
@@ -1490,23 +1490,33 @@ app.get("/api/users/:userId/profile", async (req, res) => {
       WHERE id = $1
     `, [userId]);
 
-    if (userResult.rows.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = userResult.rows[0];
+    const user = result.rows[0];
     
-    // Get user's materials count
+    // Get user stats from materials table
     const donationsCount = await pool.query(
       'SELECT COUNT(*) FROM materials WHERE uploader_id = $1',
       [userId]
     );
     
-    // For now, return 0 for products until we have a products table
+    // Get products count (if products table exists with creator_id)
+    let productsCount = { rows: [{ count: '0' }] };
+    try {
+      productsCount = await pool.query(
+        'SELECT COUNT(*) FROM products WHERE creator_id = $1',
+        [userId]
+      );
+    } catch (err) {
+      console.log('Products table might not exist yet, using 0');
+    }
+
     res.json({
       ...user,
       total_donations: parseInt(donationsCount.rows[0].count),
-      total_products: 0 // Default to 0 for now
+      total_products: parseInt(productsCount.rows[0].count)
     });
   } catch (err) {
     console.error("Get user profile error:", err);
