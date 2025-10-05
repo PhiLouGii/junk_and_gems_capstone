@@ -140,6 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildArtisanCarousel(),
                 const SizedBox(height: 24),
                 _buildContributorCarousel(),
+                const SizedBox(height: 20), // Extra bottom padding
               ],
             ),
           ),
@@ -439,7 +440,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Artisan Carousel with Real Data
+  // Artisan Carousel with Real Data - INCREASED HEIGHT
   Widget _buildArtisanCarousel() {
     if (isLoading) {
       return _buildLoadingCarousel("Artisan Highlights");
@@ -462,11 +463,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 190, // Increased height to prevent overflow
+          height: 220, // INCREASED HEIGHT SIGNIFICANTLY
           child: cs.CarouselSlider(
             items: artisans.map((artisan) => _buildUserCard(artisan, true)).toList(),
             options: cs.CarouselOptions(
-              height: 190, // Increased height
+              height: 220, // INCREASED HEIGHT SIGNIFICANTLY
               autoPlay: true,
               autoPlayInterval: const Duration(seconds: 4),
               enlargeCenterPage: true,
@@ -479,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Contributors Carousel with Real Data
+  // Contributors Carousel with Real Data - INCREASED HEIGHT
   Widget _buildContributorCarousel() {
     if (isLoading) {
       return _buildLoadingCarousel("Frequent Contributors");
@@ -502,11 +503,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 190, // Increased height to prevent overflow
+          height: 220, // INCREASED HEIGHT SIGNIFICANTLY
           child: cs.CarouselSlider(
             items: contributors.map((contributor) => _buildUserCard(contributor, false)).toList(),
             options: cs.CarouselOptions(
-              height: 190, // Increased height
+              height: 220, // INCREASED HEIGHT SIGNIFICANTLY
               autoPlay: true,
               autoPlayInterval: const Duration(seconds: 4),
               enlargeCenterPage: true,
@@ -519,155 +520,140 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Build user card for both artisans and contributors - FIXED OVERFLOW
+  // Build user card for both artisans and contributors - LARGER CONTAINER
   Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
-    final name = user['name'] ?? 'Unknown User';
-    final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
-    final profileImage = user['profile_image_url'];
-    final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
-    final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
-    final userId = user['id']?.toString() ?? '0';
-    final availableGems = int.tryParse(user['available_gems']?.toString() ?? '0') ?? 0;
+  final name = user['name'] ?? 'Unknown User';
+  final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
+  final profileImage = user['profile_image_url'];
+  final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
+  final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
+  final userId = user['id']?.toString() ?? '0';
+  // Removed availableGems since we're not displaying it
 
-    return GestureDetector(
-      onTap: () {
-        _showUserProfileModal(context, name, userId);
-      },
-      child: Container(
-        width: 140,
-        height: 180, 
-        margin: const EdgeInsets.only(bottom: 8), // Added margin to prevent overflow
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+  return GestureDetector(
+    onTap: () {
+      _showUserProfileModal(context, name, userId);
+    },
+    child: Container(
+      width: 150,
+      height: 180, // Reduced height since we removed gems
+      margin: const EdgeInsets.only(bottom: 8, right: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Profile Image
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(35),
+                border: Border.all(
+                  color: const Color(0xFFBEC092),
+                  width: 2,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(35),
+                child: profileImage != null 
+                    ? Image.network(
+                        profileImage,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildProfilePlaceholder();
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return _buildProfilePlaceholder();
+                        },
+                      )
+                    : _buildProfilePlaceholder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            // Name
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                _getDisplayName(name),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600, 
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            
+            // Specialty
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                specialty,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Stats - Only donation and material counts, NO GEMS
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (donationCount > 0) 
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '$donationCount donations',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                if (materialCount > 0) 
+                  Text(
+                    '$materialCount materials',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                  ),
+              ].where((child) => child != null).cast<Widget>().toList(),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0), // Added padding to contain content
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Profile Image
-              Container(
-                width: 60, 
-                height: 60, 
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: const Color(0xFFBEC092),
-                    width: 2,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
-                  child: profileImage != null 
-                      ? Image.network(
-                          profileImage,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildProfilePlaceholder();
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return _buildProfilePlaceholder();
-                          },
-                        )
-                      : _buildProfilePlaceholder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              // Name
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  _getDisplayName(name),
-                  style: TextStyle(
-                    fontSize: 14, 
-                    fontWeight: FontWeight.w600, 
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              
-              // Specialty
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  specialty,
-                  style: TextStyle(
-                    fontSize: 12, 
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              
-              const SizedBox(height: 6),
-              
-              // Stats - Using Flexible to prevent overflow
-              Flexible(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (donationCount > 0) 
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '$donationCount donations',
-                          style: TextStyle(
-                            fontSize: 10, 
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                        ),
-                      ),
-                    if (materialCount > 0) 
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '$materialCount materials',
-                          style: TextStyle(
-                            fontSize: 10, 
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                        ),
-                      ),
-                    if (availableGems > 0) 
-                      Text(
-                        '$availableGems gems',
-                        style: TextStyle(
-                          fontSize: 10, 
-                          color: const Color(0xFF88844D),
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                      ),
-                  ].where((child) => child != null).cast<Widget>().toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   void _showUserProfileModal(BuildContext context, String userName, String userId) {
     showModalBottomSheet(
@@ -700,7 +686,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : const Color(0xFFE4E5C2),
       child: Icon(
         Icons.person,
-        size: 24,
+        size: 30, // Larger icon
         color: const Color(0xFF88844D),
       ),
     );
@@ -728,7 +714,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         Container(
-          height: 190,
+          height: 220, // Increased to match new height
           child: const Center(
             child: CircularProgressIndicator(color: Color(0xFF88844D)),
           ),
@@ -751,7 +737,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         Container(
-          height: 190,
+          height: 220, // Increased to match new height
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
