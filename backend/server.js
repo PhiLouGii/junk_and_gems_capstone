@@ -142,26 +142,41 @@ app.get("/materials", async (req, res) => {
       WHERE m.is_claimed = false
       ORDER BY m.created_at DESC
     `);
+
+     console.log(`✅ Found ${result.rows.length} materials`);
+
+      // Convert database results to frontend format
+    const materials = result.rows.map(material => {
+      // Get images from image_data_base64 (our working column)
+      const imageUrls = material.image_data_base64 || [];
+      
+      if (imageUrls.length > 0) {
+        console.log(`📸 Material ${material.id} has ${imageUrls.length} images`);
+      } else {
+        console.log(`⚠️ Material ${material.id} has no images`);
+      }
     
-    // Convert database results to frontend format
-    const materials = result.rows.map(material => ({
-      id: material.id,
-      title: material.title,
-      description: material.description,
-      category: material.category,
-      quantity: material.quantity,
-      location: material.location,
-      delivery_option: material.delivery_option,
-      available_from: material.available_from,
-      available_until: material.available_until,
-      is_fragile: material.is_fragile,
-      contact_preferences: material.contact_preferences,
-      image_urls: material.image_data_base64 || [], // Use image_data_base64 column
-      uploader: material.uploader_name,
-      amount: material.quantity,
-      created_at: material.created_at,
-      time: formatTimeAgo(material.created_at)
-    }));
+    const materialData = {
+        id: material.id,
+        title: material.title,
+        description: material.description,
+        category: material.category,
+        quantity: material.quantity,
+        location: material.location,
+        delivery_option: material.delivery_option,
+        available_from: material.available_from,
+        available_until: material.available_until,
+        is_fragile: material.is_fragile,
+        contact_preferences: material.contact_preferences,
+        image_urls: imageUrls, // Always use image_data_base64 content
+        uploader: material.uploader_name,
+        amount: material.quantity,
+        created_at: material.created_at,
+        time: formatTimeAgo(material.created_at)
+      };
+
+      return materialData;
+    });
 
     res.json(materials);
   } catch (err) {
@@ -173,60 +188,46 @@ app.get("/materials", async (req, res) => {
 // Create new material/donation with base64 images
 app.post("/materials", async (req, res) => {
   console.log('📝 Received material creation request');
-  console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
-
-  const { 
-    title, 
-    description, 
-    category, 
-    quantity, 
-    location, 
-    delivery_option, 
-    available_from, 
-    available_until, 
-    is_fragile, 
-    contact_preferences,
-    image_urls,
-    uploader_id 
+const { 
+    title, description, category, quantity, location, delivery_option, 
+    available_from, available_until, is_fragile, contact_preferences,
+    image_urls, uploader_id 
   } = req.body;
-
-
+ 
   try {
     // Basic validation
     if (!title || !description || !category || !uploader_id) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log('🔍 Field analysis:');
-    console.log('  title:', title);
-    console.log('  description:', description);
-    console.log('  category:', category);
-    console.log('  contact_preferences:', contact_preferences, 'type:', typeof contact_preferences);
-    console.log('  image_urls:', image_urls, 'type:', typeof image_urls);
-
-    // Ensure contact_preferences is properly formatted
-    let contactPrefs = contact_preferences;
-    if (typeof contact_preferences === 'object') {
-      contactPrefs = contact_preferences;
-    } else {
-      contactPrefs = {};
-    }
-
-    // let contactPrefs = {}; // This line was causing redeclaration error
-    if (contact_preferences && typeof contact_preferences === 'object') {
-      contactPrefs = contact_preferences;
-    }
-    console.log('✅ Final contact_preferences:', contactPrefs);
+    console.log('🔍 Image URLs received:', image_urls);
+    console.log('🔍 Contact preferences received:', contact_preferences, 'type:', typeof contact_preferences);
 
     // Handle image_urls - ensure it's a proper array
     let imageUrls = [];
     if (image_urls && Array.isArray(image_urls)) {
       imageUrls = image_urls;
     }
-    console.log('✅ Final image_urls:', imageUrls);
 
-    
-    const result = await pool.query(
+    console.log('✅ Final image URLs:', imageUrls);
+
+     let contactPrefs = {};
+    if (contact_preferences) {
+      if (typeof contact_preferences === 'string') {
+        try {
+          contactPrefs = JSON.parse(contact_preferences);
+          console.log('✅ Parsed contact_preferences from string to object');
+        } catch (e) {
+          console.log('❌ Failed to parse contact_preferences string, using empty object');
+          contactPrefs = {};
+        }
+      } else if (typeof contact_preferences === 'object') {
+        contactPrefs = contact_preferences;
+      }
+    }
+    console.log('✅ Final contact_preferences:', contactPrefs);
+
+   const result = await pool.query(
       `INSERT INTO materials 
        (title, description, category, quantity, location, delivery_option, 
         available_from, available_until, is_fragile, contact_preferences, 
@@ -234,22 +235,17 @@ app.post("/materials", async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
       [
-        title, 
-        description, 
-        category, 
-        quantity || 'Not specified', 
-        location, 
-        delivery_option || 'Needs Pickup',
-        available_from || new Date().toISOString(),
+        title, description, category, quantity || 'Not specified', location, 
+        delivery_option || 'Needs Pickup', available_from || new Date().toISOString(),
         available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        is_fragile || false,
-        contactPrefs, // This should work with jsonb column
-        imageUrls,    // This goes into image_data_base64 array column
+        is_fragile || false, 
+        contactPrefs, 
+        imageUrls, 
         uploader_id
       ]
     );
 
-     console.log('✅ Material created successfully with ID:', result.rows[0].id);
+    console.log('✅ Material created successfully with ID:', result.rows[0].id);
 
     // Get the created material with uploader info
     const materialWithUploader = await pool.query(`
@@ -264,16 +260,17 @@ app.post("/materials", async (req, res) => {
     `, [result.rows[0].id]);
 
     const material = materialWithUploader.rows[0];
-    
-    // Format response for frontend
+
+     /// Format response - use image_data_base64 for the response
     const formattedMaterial = {
       ...material,
-      image_urls: material.image_data_base64 || [], // Map image_data_base64 to image_urls for frontend
+      image_urls: material.image_data_base64 || [], // Map to image_urls for frontend
       uploader: material.uploader_name,
       amount: material.quantity,
       time: formatTimeAgo(material.created_at)
     };
 
+    console.log('✅ Sending response with image_urls:', formattedMaterial.image_urls);
     res.status(201).json(formattedMaterial);
   } catch (err) {
     console.error("❌ Create material error:", err);
@@ -1851,6 +1848,259 @@ app.post("/api/test-material", async (req, res) => {
   } catch (err) {
     console.error("Test material error:", err);
     res.status(500).json({ error: "Test failed: " + err.message });
+  }
+});
+
+app.get("/api/debug/materials-images", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id,
+        title,
+        image_data_base64,
+        image_urls,
+        created_at
+      FROM materials 
+      ORDER BY created_at DESC
+      LIMIT 10
+    `);
+    
+    res.json({
+      materials: result.rows,
+      summary: {
+        total: result.rows.length,
+        with_image_data: result.rows.filter(m => m.image_data_base64 && m.image_data_base64.length > 0).length,
+        with_image_urls: result.rows.filter(m => m.image_urls && m.image_urls.length > 0).length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fix existing materials to have proper image URLs
+app.post("/api/fix-existing-images", async (req, res) => {
+  try {
+    console.log('🔄 Fixing existing materials images...');
+    
+    // Get all materials with image_data_base64 that contains Cloudinary URLs
+    const materials = await pool.query(`
+      SELECT id, image_data_base64, image_urls 
+      FROM materials 
+      WHERE image_data_base64 IS NOT NULL AND array_length(image_data_base64, 1) > 0
+    `);
+    
+    console.log(`📝 Found ${materials.rows.length} materials with image_data_base64`);
+    
+    let fixedCount = 0;
+    
+    for (const material of materials.rows) {
+      // Check if image_data_base64 contains Cloudinary URLs
+      const hasCloudinaryUrls = material.image_data_base64 && 
+                               material.image_data_base64.some(url => 
+                                 url && url.includes('cloudinary.com')
+                               );
+      
+      if (hasCloudinaryUrls) {
+        // Convert array to JSONB format for image_urls column
+        const cloudinaryUrls = material.image_data_base64.filter(url => 
+          url && url.includes('cloudinary.com')
+        );
+
+
+       await pool.query(
+          'UPDATE materials SET image_urls = $1::jsonb WHERE id = $2',
+          [JSON.stringify(cloudinaryUrls), material.id]
+        );
+        
+        console.log(`✅ Fixed material ${material.id} - copied ${cloudinaryUrls.length} Cloudinary URLs to image_urls`);
+        fixedCount++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Fixed ${fixedCount} materials with Cloudinary URLs`,
+      details: 'Copied Cloudinary URLs from image_data_base64 to image_urls column'
+    });
+    
+  } catch (err) {
+    console.error("Fix images error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
+  }
+});
+
+// Add sample images to materials without any images
+app.post("/api/add-sample-images-to-empty", async (req, res) => {
+  try {
+    // Use jsonb_array_length for JSONB columns and array_length for array columns
+    const materials = await pool.query(`
+      SELECT id, title, category FROM materials 
+      WHERE (image_urls IS NULL OR jsonb_array_length(image_urls) = 0)
+        AND (image_data_base64 IS NULL OR array_length(image_data_base64, 1) = 0)
+    `);
+    
+    console.log(`📝 Found ${materials.rows.length} materials without any images`);
+    
+    const sampleImages = {
+      'plastic': [
+        'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1585518419759-7fe2e0fbf8a6?w=400&h=300&fit=crop'
+      ],
+      'fabric': [
+        'https://images.unsplash.com/photo-1520006403909-838d6b92c22e?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=300&fit=crop'
+      ],
+      'glass': [
+        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1544144433-d50aff500b91?w=400&h=300&fit=crop'
+      ],
+      'wood': [
+        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1562778612-e1e0cda9915c?w=400&h=300&fit=crop'
+      ],
+      'metal': [
+        'https://images.unsplash.com/photo-1565373679108-41aac54c36a8?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1577023311546-18e2ac6e13a8?w=400&h=300&fit=crop'
+      ],
+      'electronics': [
+        'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=400&h=300&fit=crop',
+        'https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=400&h=300&fit=crop'
+      ],
+      'ceramics': [
+        'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&h=300&fit=crop'
+      ]
+    };
+    
+    for (const material of materials.rows) {
+      const category = material.category?.toLowerCase() || 'general';
+      const categoryKey = Object.keys(sampleImages).find(key => category.includes(key)) || 'general';
+      const images = sampleImages[categoryKey] || ['https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop'];
+      
+      // Add 1-2 sample images
+       const randomImages = [images[0]];
+      if (images.length > 1 && Math.random() > 0.5) {
+        randomImages.push(images[1]);
+      }
+      
+      await pool.query(
+        'UPDATE materials SET image_urls = $1::jsonb, image_data_base64 = $2 WHERE id = $3',
+        [JSON.stringify(randomImages), randomImages, material.id]
+      );
+      
+      console.log(`✅ Added ${randomImages.length} sample images to material ${material.id} (${material.category})`);
+    }
+    
+    res.json({
+      success: true,
+      message: `Added sample images to ${materials.rows.length} materials`
+    });
+    
+  } catch (err) {
+    console.error("Add sample images error:", err);
+    res.status(500).json({ error: "Failed to add sample images: " + err.message });
+  }
+});
+
+app.post("/api/simple-image-fix", async (req, res) => {
+  try {
+    console.log('🔄 Simple image fix...');
+    
+    // Get all materials
+    const materials = await pool.query(`
+      SELECT id, image_data_base64, image_urls 
+      FROM materials 
+      ORDER BY id
+    `);
+    
+    let fixedCount = 0;
+    
+    for (const material of materials.rows) {
+      // If image_data_base64 is empty but image_urls has data, copy it over
+      if ((!material.image_data_base64 || material.image_data_base64.length === 0) && 
+          material.image_urls && material.image_urls.length > 0) {
+        
+        await pool.query(
+          'UPDATE materials SET image_data_base64 = $1 WHERE id = $2',
+          [material.image_urls, material.id]
+        );
+        
+        console.log(`✅ Fixed material ${material.id} - copied image_urls to image_data_base64`);
+        fixedCount++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Fixed ${fixedCount} materials`,
+      details: 'Copied image_urls to image_data_base64 for empty materials'
+    });
+    
+  } catch (err) {
+    console.error("Simple fix error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
+  }
+});
+
+// Debug endpoint to see exact request format
+app.post("/api/debug-request", async (req, res) => {
+  console.log('=== DEBUG REQUEST BODY ===');
+  console.log('Headers:', req.headers);
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  console.log('Body type:', typeof req.body);
+  console.log('Contact preferences:', req.body.contact_preferences, 'type:', typeof req.body.contact_preferences);
+  console.log('Image URLs:', req.body.image_urls, 'type:', typeof req.body.image_urls);
+  
+  res.json({
+    received: true,
+    body: req.body,
+    body_type: typeof req.body
+  });
+});
+
+app.post("/api/quick-fix-empty-materials", async (req, res) => {
+  try {
+    // Get materials with no images
+    const materials = await pool.query(`
+      SELECT id, title, category 
+      FROM materials 
+      WHERE image_data_base64 IS NULL OR array_length(image_data_base64, 1) = 0
+    `);
+    
+    console.log(`📝 Found ${materials.rows.length} materials without images`);
+    
+    const sampleImages = {
+      'plastic': ['https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&h=300&fit=crop'],
+      'fabric': ['https://images.unsplash.com/photo-1520006403909-838d6b92c22e?w=400&h=300&fit=crop'],
+      'glass': ['https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=300&fit=crop'],
+      'wood': ['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop'],
+      'metal': ['https://images.unsplash.com/photo-1565373679108-41aac54c36a8?w=400&h=300&fit=crop'],
+      'electronics': ['https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=400&h=300&fit=crop'],
+      'ceramics': ['https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&h=300&fit=crop'],
+      'computer': ['https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=400&h=300&fit=crop']
+    };
+    
+    for (const material of materials.rows) {
+      const category = material.category?.toLowerCase() || 'general';
+      const categoryKey = Object.keys(sampleImages).find(key => category.includes(key)) || 'general';
+      const imageUrl = sampleImages[categoryKey] || ['https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop'];
+      
+      await pool.query(
+        'UPDATE materials SET image_data_base64 = $1 WHERE id = $2',
+        [imageUrl, material.id]
+      );
+      
+      console.log(`✅ Added sample image to material ${material.id} (${material.category})`);
+    }
+    
+    res.json({
+      success: true,
+      message: `Added sample images to ${materials.rows.length} materials`
+    });
+    
+  } catch (err) {
+    console.error("Quick fix error:", err);
+    res.status(500).json({ error: "Quick fix failed: " + err.message });
   }
 });
 

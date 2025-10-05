@@ -324,52 +324,73 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
 Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
-    final bool hasImages = material['image_urls'] != null && 
+  final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
   
-    final String imageUrl = hasImages 
-        ? material['image_urls'][0] 
-        : '';
+  final String imageUrl = hasImages ? material['image_urls'][0] : '';
 
     final bool isClaimed = material['claimed_by'] != null;
 
+    // Debug logging
+  if (hasImages) {
+    print('📸 Material ${material['id']} has ${material['image_urls'].length} images');
+    print('📸 First image URL: $imageUrl');
+  }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: hasImages && imageUrl.startsWith('data:image')
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+    ),
+    child: Column(
+      children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          child: Container(
+            height: 140,
+            width: double.infinity,
+            child: hasImages 
                 ? Image.network(
                     imageUrl,
-                    height: 140,
-                    width: double.infinity,
                     fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: Colors.grey[200],
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
                     errorBuilder: (context, error, stackTrace) {
+                      print('❌ Error loading image for material ${material['id']}: $error');
+                      print('❌ Image URL: $imageUrl');
                       return _buildCategoryPlaceholder(material['category'] ?? 'General');
                     },
                   )
                 : _buildCategoryPlaceholder(material['category'] ?? 'General'),
           ),
+        ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  material['title'] ?? 'No Title',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  material['description'] ?? 'No description',
-                  style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
-                ),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                material['title'] ?? 'No Title',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                material['description'] ?? 'No description',
+                style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
+              ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
