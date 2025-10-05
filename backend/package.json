@@ -1,6 +1,7 @@
 {
   "name": "junk-and-gems-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend for Junk and Gems application",
   "main": "server.js",
   "scripts": {

@@ -1,11 +1,12 @@
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
-const express = require("express");
-const cors = require("cors");
-const { Pool } = require("pg");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const cloudinary = require('cloudinary').v2;
+import express from "express";
+import cors from "cors";
+import { Pool } from "pg";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import cloudinary from 'cloudinary';
 
 const app = express();
 const port = 3003;
@@ -27,7 +28,7 @@ const pool = new Pool({
 });
 
 // Configure Cloudinary
-cloudinary.config({
+cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
@@ -1340,8 +1341,9 @@ app.get("/api/user/gems", authenticateToken, async (req, res) => {
 // --- PRODUCTS ENDPOINTS ---
 
 // Create new product listing
-app.post("/api/products", authenticateToken, async (req, res) => {
+app.post("/api/products", async (req, res) => {
   console.log('📝 Received product creation request');
+  console.log('Request body:', req.body);
   
   const { 
     title, 
@@ -1353,21 +1355,23 @@ app.post("/api/products", authenticateToken, async (req, res) => {
     dimensions, 
     location,
     creator_id,
-    image_urls = []
+    image_url
   } = req.body;
 
   try {
     // Basic validation
     if (!title || !description || !price || !creator_id) {
-      return res.status(400).json({ error: "Missing required fields: title, description, price, and creator_id are required" });
+      return res.status(400).json({ 
+        error: "Missing required fields: title, description, price, and creator_id are required" 
+      });
     }
 
     console.log('✅ Validating product data:', {
       title,
       price,
       category,
-      creator_id,
-      image_count: image_urls.length
+      condition,
+      creator_id
     });
 
     // Insert the new product
@@ -1386,7 +1390,7 @@ app.post("/api/products", authenticateToken, async (req, res) => {
         dimensions,
         location,
         creator_id,
-        image_urls.length > 0 ? image_urls[0] : null // Using first image as main image
+        image_url
       ]
     );
 
@@ -1427,7 +1431,6 @@ app.post("/api/setup-products-table", async (req, res) => {
   try {
     console.log('Creating products table...');
 
-    // Create products table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
@@ -1447,6 +1450,16 @@ app.post("/api/setup-products-table", async (req, res) => {
     `);
     console.log('✓ Created products table');
 
+     res.json({ 
+      success: true, 
+      message: "Products table setup completed successfully" 
+    });
+  } catch (err) {
+    console.error("Setup products table error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
+  }
+});
+
     // Create index for better performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_products_creator_id ON products(creator_id);
@@ -1458,11 +1471,6 @@ app.post("/api/setup-products-table", async (req, res) => {
       success: true, 
       message: "Products table setup completed successfully" 
     });
-  } catch (err) {
-    console.error("Setup products table error:", err);
-    res.status(500).json({ error: "Setup failed: " + err.message });
-  }
-});
 
 // Get all products
 app.get("/api/products", async (req, res) => {
