@@ -5,6 +5,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const port = 3003;
@@ -23,6 +24,13 @@ const pool = new Pool({
   database: "junk_and_gems",
   password: "philippa",
   port: 5433, 
+});
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 // --- AUTHENTICATION MIDDLEWARE ---
@@ -175,33 +183,28 @@ app.post("/materials", async (req, res) => {
     available_until, 
     is_fragile, 
     contact_preferences,
-    image_data_base64, // Array of base64 strings
+    image_urls, // Array of Cloudinary URLs
     uploader_id 
   } = req.body;
+
 
   try {
     if (!title || !description || !category || !uploader_id) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-
-    // Process base64 images - extract just the data part
-    const processedImages = image_data_base64 ? image_data_base64.map(img => {
-      // Remove data:image/xxx;base64, prefix if present
-      return img.includes('base64,') ? img.split('base64,')[1] : img;
-    }) : [];
-
+    
     const result = await pool.query(
       `INSERT INTO materials 
        (title, description, category, quantity, location, delivery_option, 
         available_from, available_until, is_fragile, contact_preferences, 
-        image_data_base64, uploader_id) 
+        image_urls, uploader_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
       [
         title, description, category, quantity, location, delivery_option,
         available_from, available_until, is_fragile, 
         JSON.stringify(contact_preferences), 
-        processedImages, uploader_id
+        image_urls || [], uploader_id
       ]
     );
 
@@ -222,7 +225,7 @@ app.post("/materials", async (req, res) => {
     // Format response for frontend
     const formattedMaterial = {
       ...material,
-      image_urls: material.image_data_base64 ? material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
+      image_urls: material.image_urls || [],
       uploader: material.uploader_name,
       amount: material.quantity,
       time: formatTimeAgo(material.created_at)
@@ -1714,6 +1717,31 @@ app.get("/api/users/:userId/impact", async (req, res) => {
   } catch (err) {
     console.error("Get user impact error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/upload-image", async (req, res) => {
+  const { image_data_base64 } = req.body;
+
+  try {
+    if (!image_data_base64) {
+      return res.status(400).json({ error: "No image data provided" });
+    }
+
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(image_data_base64, {
+      folder: 'junk_and_gems/materials',
+      resource_type: 'image'
+    });
+
+    res.json({
+      success: true,
+      image_url: uploadResult.secure_url,
+      public_id: uploadResult.public_id
+    });
+  } catch (error) {
+    console.error("Cloudinary upload error:", error);
+    res.status(500).json({ error: "Image upload failed" });
   }
 });
 

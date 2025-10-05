@@ -430,16 +430,16 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   Future<void> _submitListing() async {
-    // Validate required fields
-    if (_titleController.text.isEmpty || 
-        _descriptionController.text.isEmpty || 
-        _selectedCategory == null || 
-        _locationController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields')),
-      );
-      return;
-    }
+  // Validate required fields
+  if (_titleController.text.isEmpty || 
+      _descriptionController.text.isEmpty || 
+      _selectedCategory == null || 
+      _locationController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all required fields')),
+    );
+    return;
+  }
 
     setState(() {
       _isSubmitting = true;
@@ -450,76 +450,76 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       List<File> imageFiles = _images.map((xFile) => File(xFile.path)).toList();
 
       // Prepare the material data
-      final materialData = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'category': _selectedCategory!,
-        'quantity': _quantityController.text.isNotEmpty ? _quantityController.text : 'Not specified',
-        'location': _locationController.text,
-        'delivery_option': _selectedDeliveryOption ?? 'Needs Pickup',
-        'available_from': _availableFrom?.toIso8601String(),
-        'available_until': _availableUntil?.toIso8601String(),
-        'is_fragile': _isFragile,
-        'contact_preferences': _contactPreferences,
-        'uploader_id': 1, // Replace with actual user ID from auth
-      };
+    final materialData = {
+      'title': _titleController.text,
+      'description': _descriptionController.text,
+      'category': _selectedCategory!,
+      'quantity': _quantityController.text.isNotEmpty ? _quantityController.text : 'Not specified',
+      'location': _locationController.text,
+      'delivery_option': _selectedDeliveryOption ?? 'Needs Pickup',
+      'available_from': _availableFrom?.toIso8601String(),
+      'available_until': _availableUntil?.toIso8601String(),
+      'is_fragile': _isFragile,
+      'contact_preferences': _contactPreferences,
+      'uploader_id': 3, // Replace with actual user ID from auth
+    };
 
-      print('📝 Material data prepared: ${materialData.keys}');
+    print('📝 Material data prepared: ${materialData.keys}');
 
       // Create the material using the service
-      bool success = await MaterialService.createMaterial(materialData, imageFiles);
+      bool success = await MaterialService.createMaterial(materialData, _images);
 
-      if (success) {
-        // Show success dialog
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            backgroundColor: Theme.of(context).cardColor,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Good work!', 
-                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Icon(
-                    Icons.close, 
-                    color: Theme.of(context).textTheme.bodyLarge?.color
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              'Your waste will soon find a new purpose!', 
-              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context, true); // Return to previous screen
-                },
-                child: Text(
-                  'OK', 
-                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+       if (success) {
+      // Show success dialog
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Good work!', 
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Icon(
+                  Icons.close, 
+                  color: Theme.of(context).textTheme.bodyLarge?.color
                 ),
               ),
             ],
           ),
-        );
-      }
-
-    } catch (e) {
-      print('❌ Detailed error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          duration: const Duration(seconds: 5),
+            content: Text(
+            'Your waste will soon find a new purpose!', 
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); 
+                Navigator.pop(context, true);
+                },
+              child: Text(
+                'OK', 
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+              ),
+            ),
+          ],
         ),
       );
+    }
+
+    } catch (e) {
+    print('❌ Detailed error: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        duration: const Duration(seconds: 5),
+      ),
+    );
     } finally {
       setState(() {
         _isSubmitting = false;
