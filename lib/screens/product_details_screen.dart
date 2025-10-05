@@ -69,9 +69,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // Related products
   final List<Map<String, String>> _relatedProducts = [
-    {'title': 'Egg Tray Light', 'price': 'M300', 'image': 'assets/images/related1.jpg'},
-    {'title': 'Can Lamp', 'price': 'M500', 'image': 'assets/images/related2.jpg'},
-    {'title': 'Umeason-L', 'price': 'M450', 'image': 'assets/images/related3.jpg'},
+    {'title': 'Plastic Spoon Light', 'price': 'M450', 'image': 'assets/images/related1.jpg'},
+    {'title': 'Egg tray Lamp', 'price': 'M400', 'image': 'assets/images/related2.jpg'},
+    {'title': 'LEGO lamp', 'price': 'M300', 'image': 'assets/images/related3.jpg'},
   ];
 
   @override

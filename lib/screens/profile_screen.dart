@@ -422,6 +422,130 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // In your ProfileScreen, add these methods:
+
+File? _profileImage;
+final ImagePicker _picker = ImagePicker();
+
+Future<void> _pickProfileImage() async {
+  try {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 400,
+      maxHeight: 400,
+      imageQuality: 80,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _profileImage = File(pickedFile.path);
+      });
+      
+      // Upload to Cloudinary
+      await _uploadProfilePicture();
+    }
+  } catch (e) {
+    print('❌ Error picking image: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to pick image: $e')),
+    );
+  }
+}
+
+Future<void> _uploadProfilePicture() async {
+  if (_profileImage == null) return;
+
+  try {
+    final String? imageUrl = await UserService.uploadProfilePicture(
+      int.parse(widget.userId),
+      _profileImage!
+    );
+
+    if (imageUrl != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profile picture updated successfully!')),
+      );
+      
+      // Update the local state with the new image URL
+      setState(() {
+        // You might want to store this in your user state management
+      });
+    }
+  } catch (e) {
+    print('❌ Error uploading profile picture: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to upload profile picture: $e')),
+    );
+  }
+}
+
+// In your build method, update the profile picture section:
+Widget _buildProfilePicture() {
+  return GestureDetector(
+    onTap: _pickProfileImage,
+    child: Stack(
+      children: [
+        Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFBEC092), width: 3),
+          ),
+          child: ClipOval(
+            child: _profileImage != null
+                ? Image.file(_profileImage!, fit: BoxFit.cover)
+                : (userData['profile_image_url'] != null && 
+                    userData['profile_image_url'].isNotEmpty)
+                    ? Image.network(
+                        userData['profile_image_url'],
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / 
+                                    loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildProfilePlaceholder();
+                        },
+                      )
+                    : _buildProfilePlaceholder(),
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFF88844D),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildProfilePlaceholder() {
+  return Container(
+    color: const Color(0xFFE4E5C2),
+    child: const Icon(
+      Icons.person,
+      size: 50,
+      color: Color(0xFF88844D),
+    ),
+  );
+}
+
    Widget _buildProfileHeader(String userName, String username) {
     final profilePicture = userData['profilePicture'];
     

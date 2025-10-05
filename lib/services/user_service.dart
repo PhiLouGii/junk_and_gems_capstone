@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserService {
@@ -9,44 +10,36 @@ class UserService {
   // Get featured artisans
   static Future<List<dynamic>> getArtisans() async {
     try {
-      print('🔍 Fetching artisans from: $baseUrl/api/artisans');
       final response = await http.get(Uri.parse('$baseUrl/api/artisans'));
       
-      print('📡 Artisans response status: ${response.statusCode}');
-      print('📡 Artisans response body: ${response.body}');
-      
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('✅ Found ${data.length} artisans');
-        return data;
+        final List<dynamic> artisans = json.decode(response.body);
+        print('✅ Loaded ${artisans.length} artisans');
+        return artisans;
       } else {
-        throw Exception('Failed to load artisans - Status: ${response.statusCode}');
+        throw Exception('Failed to load artisans: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching artisans: $e');
-      throw Exception('Network error: $e');
+      print('❌ Error loading artisans: $e');
+      rethrow;
     }
   }
 
   // Get top contributors
   static Future<List<dynamic>> getContributors() async {
     try {
-      print('🔍 Fetching contributors from: $baseUrl/api/contributors');
       final response = await http.get(Uri.parse('$baseUrl/api/contributors'));
       
-      print('📡 Contributors response status: ${response.statusCode}');
-      print('📡 Contributors response body: ${response.body}');
-      
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('✅ Found ${data.length} contributors');
-        return data;
+        final List<dynamic> contributors = json.decode(response.body);
+        print('✅ Loaded ${contributors.length} contributors');
+        return contributors;
       } else {
-        throw Exception('Failed to load contributors - Status: ${response.statusCode}');
+        throw Exception('Failed to load contributors: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching contributors: $e');
-      throw Exception('Network error: $e');
+      print('❌ Error loading contributors: $e');
+      rethrow;
     }
   }
 
@@ -124,32 +117,29 @@ static Future<List<dynamic>> getProductsByUserId(String userId) async {
 
 
   // Upload profile picture
-  static Future<String> uploadProfilePicture(File imageFile, String userId) async {
+  static Future<String?> uploadProfilePicture(int userId, File imageFile) async {
     try {
-      var request = http.MultipartRequest(
-        'POST', 
-        Uri.parse('$baseUrl/api/users/$userId/profile-picture')
-      );
-      
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'profile_picture', 
-          imageFile.path
-        )
+      // Read the image file and convert to base64
+      List<int> imageBytes = await imageFile.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+      String imageData = 'data:image/jpeg;base64,$base64Image';
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/users/$userId/profile-picture'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'image_data_base64': imageData}),
       );
 
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
-      final jsonResponse = jsonDecode(responseData);
-      
-      if (response.statusCode == 200 && jsonResponse['success']) {
-        return jsonResponse['profile_image_url'];
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        return responseData['profile_image_url'];
       } else {
-        throw Exception(jsonResponse['error'] ?? 'Upload failed');
+        print('❌ Profile picture upload failed: ${response.statusCode}');
+        return null;
       }
     } catch (e) {
-      print('Error uploading profile picture: $e');
-      throw Exception('Profile picture upload failed: $e');
+      print('❌ Profile picture upload error: $e');
+      return null;
     }
   }
 
@@ -191,38 +181,40 @@ static Future<List<dynamic>> getProductsByUserId(String userId) async {
     }
   }
 
+  // Get user impact
   static Future<Map<String, dynamic>> getUserImpact(String userId) async {
-  try {
-    print('🔍 Fetching user impact for: $userId');
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/users/$userId/impact'),
-    );
-    
-    print('📡 Impact response status: ${response.statusCode}');
-    print('📡 Impact response body: ${response.body}');
-    
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      print('✅ User impact data: $data');
-      return data;
-    } else {
-      print('❌ Failed to load user impact - Status: ${response.statusCode}');
-      // Return default impact data if API fails
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/users/$userId/impact'));
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load user impact: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error loading user impact: $e');
       return {
-        'pieces_donated': 0,
-        'upcycled_items': 0,
-        'gems_earned': 0
+        'pieces_donated': '0',
+        'upcycled_items': '0', 
+        'gems_earned': '0'
       };
     }
-  } catch (e) {
-    print('❌ Error fetching user impact: $e');
-    // Return default impact data on error
-    return {
-      'pieces_donated': 0,
-      'upcycled_items': 0,
-      'gems_earned': 0
-    };
   }
+
+  // Get user profile
+  static Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/users/$userId/profile'));
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to load user profile: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error loading user profile: $e');
+      rethrow;
+    }
   }
 
   static Future<void> debugEndpoints() async {

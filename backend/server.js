@@ -344,13 +344,23 @@ app.get("/api/artisans", async (req, res) => {
     const result = await pool.query(`
       SELECT 
         id, name, username, profile_image_url, specialty, bio,
-        donation_count::integer, created_at, user_type
+        donation_count::integer, created_at, user_type,
+        available_gems::integer
       FROM users 
       WHERE user_type IN ('artisan', 'both')
       ORDER BY donation_count::integer DESC, created_at DESC
       LIMIT 10
     `);
-    res.json(result.rows);
+    
+    console.log(`✅ Found ${result.rows.length} artisans`);
+    
+    // Ensure all artisans have profile pictures
+    const artisansWithImages = result.rows.map(artisan => ({
+      ...artisan,
+      profile_image_url: artisan.profile_image_url || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face'
+    }));
+    
+    res.json(artisansWithImages);
   } catch (err) {
     console.error("Get artisans error:", err);
     res.status(500).json({ error: "Server error" });
@@ -364,17 +374,27 @@ app.get("/api/contributors", async (req, res) => {
       SELECT 
         u.id, u.name, u.username, u.profile_image_url, 
         u.specialty, u.bio, u.donation_count::integer, u.created_at, u.user_type,
+        u.available_gems::integer,
         COUNT(m.id)::integer as material_count,
         COALESCE(STRING_AGG(DISTINCT m.category, ', '), 'Various') as top_categories
       FROM users u
       LEFT JOIN materials m ON u.id = m.uploader_id
       WHERE u.user_type IN ('contributor', 'both') OR m.id IS NOT NULL
       GROUP BY u.id, u.name, u.username, u.profile_image_url, 
-               u.specialty, u.bio, u.donation_count, u.created_at, u.user_type
+               u.specialty, u.bio, u.donation_count, u.created_at, u.user_type, u.available_gems
       ORDER BY u.donation_count::integer DESC, material_count DESC
       LIMIT 10
     `);
-    res.json(result.rows);
+    
+    console.log(`✅ Found ${result.rows.length} contributors`);
+    
+    // Ensure all contributors have profile pictures
+    const contributorsWithImages = result.rows.map(contributor => ({
+      ...contributor,
+      profile_image_url: contributor.profile_image_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face'
+    }));
+    
+    res.json(contributorsWithImages);
   } catch (err) {
     console.error("Get contributors error:", err);
     res.status(500).json({ error: "Server error" });
@@ -406,7 +426,7 @@ app.put("/api/users/:id/profile", authenticateToken, async (req, res) => {
   }
 });
 
-// Upload profile picture as base64
+// Upload profile picture to Cloudinary
 app.post("/api/users/:id/profile-picture", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { image_data_base64 } = req.body;
@@ -416,26 +436,87 @@ app.post("/api/users/:id/profile-picture", authenticateToken, async (req, res) =
       return res.status(400).json({ error: "No image data provided" });
     }
 
-    // Process base64 image
-    const processedImage = image_data_base64.includes('base64,') 
-      ? image_data_base64.split('base64,')[1] 
-      : image_data_base64;
+    console.log('📸 Uploading profile picture to Cloudinary for user:', id);
 
-    // Update user's profile picture
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(image_data_base64, {
+      folder: 'junk_and_gems/profile_pictures',
+      resource_type: 'image',
+      width: 200,
+      height: 200,
+      crop: 'fill',
+      gravity: 'face'
+    });
+
+    console.log('✅ Cloudinary upload result:', uploadResult.secure_url);
+
+    // Update user's profile picture URL
     await pool.query(
       "UPDATE users SET profile_image_url = $1 WHERE id = $2",
-      [`data:image/jpeg;base64,${processedImage}`, id]
+      [uploadResult.secure_url, id]
     );
 
     res.json({
       success: true,
-      profile_image_url: `data:image/jpeg;base64,${processedImage}`,
+      profile_image_url: uploadResult.secure_url,
       message: "Profile picture updated successfully"
     });
 
   } catch (error) {
     console.error("Profile picture upload error:", error);
-    res.status(500).json({ error: "Profile picture upload failed" });
+    res.status(500).json({ error: "Profile picture upload failed: " + error.message });
+  }
+});
+
+// Add sample profile pictures to users without them
+app.post("/api/fix-user-profile-pictures", async (req, res) => {
+  try {
+    const users = await pool.query(`
+      SELECT id, name, user_type 
+      FROM users 
+      WHERE profile_image_url IS NULL OR profile_image_url = ''
+    `);
+    
+    console.log(`📝 Found ${users.rows.length} users without profile pictures`);
+    
+    const sampleAvatars = {
+      'artisan': [
+        'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face',
+        'https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?w=200&h=200&fit=crop&crop=face',
+        'https://images.unsplash.com/photo-1552058544-f2b08422138a?w=200&h=200&fit=crop&crop=face'
+      ],
+      'contributor': [
+        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&crop=face'
+      ],
+      'both': [
+        'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop&crop=face',
+        'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face'
+      ]
+    };
+    
+    for (const user of users.rows) {
+      const userType = user.user_type?.toLowerCase() || 'contributor';
+      const avatars = sampleAvatars[userType] || sampleAvatars.contributor;
+      const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+      
+      await pool.query(
+        'UPDATE users SET profile_image_url = $1 WHERE id = $2',
+        [randomAvatar, user.id]
+      );
+      
+      console.log(`✅ Added profile picture to user ${user.id} (${user.name})`);
+    }
+    
+    res.json({
+      success: true,
+      message: `Added profile pictures to ${users.rows.length} users`
+    });
+    
+  } catch (err) {
+    console.error("Fix profile pictures error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
   }
 });
 
@@ -1257,6 +1338,131 @@ app.get("/api/user/gems", authenticateToken, async (req, res) => {
 });
 
 // --- PRODUCTS ENDPOINTS ---
+
+// Create new product listing
+app.post("/api/products", authenticateToken, async (req, res) => {
+  console.log('📝 Received product creation request');
+  
+  const { 
+    title, 
+    description, 
+    price, 
+    category, 
+    condition, 
+    materials_used, 
+    dimensions, 
+    location,
+    creator_id,
+    image_urls = []
+  } = req.body;
+
+  try {
+    // Basic validation
+    if (!title || !description || !price || !creator_id) {
+      return res.status(400).json({ error: "Missing required fields: title, description, price, and creator_id are required" });
+    }
+
+    console.log('✅ Validating product data:', {
+      title,
+      price,
+      category,
+      creator_id,
+      image_count: image_urls.length
+    });
+
+    // Insert the new product
+    const result = await pool.query(
+      `INSERT INTO products 
+       (title, description, price, category, condition, materials_used, dimensions, location, creator_id, image_url) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING *`,
+      [
+        title,
+        description,
+        price,
+        category,
+        condition,
+        materials_used,
+        dimensions,
+        location,
+        creator_id,
+        image_urls.length > 0 ? image_urls[0] : null // Using first image as main image
+      ]
+    );
+
+    const product = result.rows[0];
+    console.log('✅ Product created successfully with ID:', product.id);
+
+    // Get the created product with creator info
+    const productWithCreator = await pool.query(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar
+      FROM products p
+      JOIN users u ON p.creator_id = u.id
+      WHERE p.id = $1
+    `, [product.id]);
+
+    const fullProduct = productWithCreator.rows[0];
+
+    console.log('✅ Sending response for product:', fullProduct.id);
+    res.status(201).json(fullProduct);
+
+  } catch (err) {
+    console.error("❌ Create product error:", err);
+    console.error("❌ Error details:", err.stack);
+    
+    // Check if it's a foreign key constraint error (creator doesn't exist)
+    if (err.code === '23503') {
+      return res.status(400).json({ error: "Invalid creator: User does not exist" });
+    }
+    
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Setup products table
+app.post("/api/setup-products-table", async (req, res) => {
+  try {
+    console.log('Creating products table...');
+
+    // Create products table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10,2) NOT NULL,
+        category VARCHAR(100),
+        condition VARCHAR(50),
+        materials_used TEXT,
+        dimensions VARCHAR(100),
+        location VARCHAR(255),
+        image_url VARCHAR(500),
+        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✓ Created products table');
+
+    // Create index for better performance
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_products_creator_id ON products(creator_id);
+      CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC);
+    `);
+    console.log('✓ Created indexes for products table');
+
+    res.json({ 
+      success: true, 
+      message: "Products table setup completed successfully" 
+    });
+  } catch (err) {
+    console.error("Setup products table error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
+  }
+});
 
 // Get all products
 app.get("/api/products", async (req, res) => {

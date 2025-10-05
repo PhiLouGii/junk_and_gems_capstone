@@ -286,11 +286,11 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 
   Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () {
+  return SizedBox(
+    width: double.infinity,
+    height: 56,
+    child: ElevatedButton(
+      onPressed: () async {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
