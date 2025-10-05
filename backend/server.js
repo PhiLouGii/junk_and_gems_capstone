@@ -156,7 +156,7 @@ app.get("/materials", async (req, res) => {
       available_until: material.available_until,
       is_fragile: material.is_fragile,
       contact_preferences: material.contact_preferences,
-      image_urls: material.image_data_base64 ? material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
+      image_urls: material.image_data_base64 || [], // Use image_data_base64 column
       uploader: material.uploader_name,
       amount: material.quantity,
       created_at: material.created_at,
@@ -172,6 +172,9 @@ app.get("/materials", async (req, res) => {
 
 // Create new material/donation with base64 images
 app.post("/materials", async (req, res) => {
+  console.log('📝 Received material creation request');
+  console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
+
   const { 
     title, 
     description, 
@@ -183,30 +186,70 @@ app.post("/materials", async (req, res) => {
     available_until, 
     is_fragile, 
     contact_preferences,
-    image_urls, // Array of Cloudinary URLs
+    image_urls,
     uploader_id 
   } = req.body;
 
 
   try {
+    // Basic validation
     if (!title || !description || !category || !uploader_id) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+
+    console.log('🔍 Field analysis:');
+    console.log('  title:', title);
+    console.log('  description:', description);
+    console.log('  category:', category);
+    console.log('  contact_preferences:', contact_preferences, 'type:', typeof contact_preferences);
+    console.log('  image_urls:', image_urls, 'type:', typeof image_urls);
+
+    // Ensure contact_preferences is properly formatted
+    let contactPrefs = contact_preferences;
+    if (typeof contact_preferences === 'object') {
+      contactPrefs = contact_preferences;
+    } else {
+      contactPrefs = {};
+    }
+
+    // let contactPrefs = {}; // This line was causing redeclaration error
+    if (contact_preferences && typeof contact_preferences === 'object') {
+      contactPrefs = contact_preferences;
+    }
+    console.log('✅ Final contact_preferences:', contactPrefs);
+
+    // Handle image_urls - ensure it's a proper array
+    let imageUrls = [];
+    if (image_urls && Array.isArray(image_urls)) {
+      imageUrls = image_urls;
+    }
+    console.log('✅ Final image_urls:', imageUrls);
+
     
     const result = await pool.query(
       `INSERT INTO materials 
        (title, description, category, quantity, location, delivery_option, 
         available_from, available_until, is_fragile, contact_preferences, 
-        image_urls, uploader_id) 
+        image_data_base64, uploader_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
       [
-        title, description, category, quantity, location, delivery_option,
-        available_from, available_until, is_fragile, 
-        JSON.stringify(contact_preferences), 
-        image_urls || [], uploader_id
+        title, 
+        description, 
+        category, 
+        quantity || 'Not specified', 
+        location, 
+        delivery_option || 'Needs Pickup',
+        available_from || new Date().toISOString(),
+        available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        is_fragile || false,
+        contactPrefs, // This should work with jsonb column
+        imageUrls,    // This goes into image_data_base64 array column
+        uploader_id
       ]
     );
+
+     console.log('✅ Material created successfully with ID:', result.rows[0].id);
 
     // Get the created material with uploader info
     const materialWithUploader = await pool.query(`
@@ -225,7 +268,7 @@ app.post("/materials", async (req, res) => {
     // Format response for frontend
     const formattedMaterial = {
       ...material,
-      image_urls: material.image_urls || [],
+      image_urls: material.image_data_base64 || [], // Map image_data_base64 to image_urls for frontend
       uploader: material.uploader_name,
       amount: material.quantity,
       time: formatTimeAgo(material.created_at)
@@ -233,7 +276,8 @@ app.post("/materials", async (req, res) => {
 
     res.status(201).json(formattedMaterial);
   } catch (err) {
-    console.error("Create material error:", err);
+    console.error("❌ Create material error:", err);
+    console.error("❌ Error details:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
@@ -1742,6 +1786,71 @@ app.post("/api/upload-image", async (req, res) => {
   } catch (error) {
     console.error("Cloudinary upload error:", error);
     res.status(500).json({ error: "Image upload failed" });
+  }
+});
+
+// Debug endpoint to check materials table structure
+app.get("/api/debug/materials-schema", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        column_name, 
+        data_type, 
+        is_nullable,
+        column_default
+      FROM information_schema.columns 
+      WHERE table_name = 'materials' 
+      ORDER BY ordinal_position;
+    `);
+    
+    res.json({
+      table: 'materials',
+      columns: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/test-material", async (req, res) => {
+  try {
+    const testData = {
+      title: "Test Material",
+      description: "Test description",
+      category: "Plastic", 
+      quantity: "5 items",
+      location: "Test Location",
+      delivery_option: "Needs Pickup",
+      is_fragile: false,
+      contact_preferences: {"In-app Chat": true},
+      image_urls: ["https://example.com/test.jpg"],
+      uploader_id: 1
+    };
+
+    const result = await pool.query(
+      `INSERT INTO materials 
+       (title, description, category, quantity, location, delivery_option, 
+        is_fragile, contact_preferences, image_data_base64, uploader_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING *`,
+      [
+        testData.title,
+        testData.description, 
+        testData.category,
+        testData.quantity,
+        testData.location,
+        testData.delivery_option,
+        testData.is_fragile,
+        testData.contact_preferences,
+        testData.image_urls,
+        testData.uploader_id
+      ]
+    );
+
+    res.json({ success: true, material: result.rows[0] });
+  } catch (err) {
+    console.error("Test material error:", err);
+    res.status(500).json({ error: "Test failed: " + err.message });
   }
 });
 

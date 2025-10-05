@@ -446,8 +446,13 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     });
 
     try {
-      // Convert XFile to File
-      List<File> imageFiles = _images.map((xFile) => File(xFile.path)).toList();
+    print('📝 Starting material creation process...');
+
+    // Ensure contact preferences are properly formatted
+    Map<String, bool> formattedContactPrefs = {};
+    _contactPreferences.forEach((key, value) {
+      formattedContactPrefs[key] = value ?? false;
+    });
 
       // Prepare the material data
     final materialData = {
@@ -460,14 +465,15 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       'available_from': _availableFrom?.toIso8601String(),
       'available_until': _availableUntil?.toIso8601String(),
       'is_fragile': _isFragile,
-      'contact_preferences': _contactPreferences,
+      'contact_preferences': formattedContactPrefs, // Use the formatted map
       'uploader_id': 3, // Replace with actual user ID from auth
     };
 
-    print('📝 Material data prepared: ${materialData.keys}');
+    print('📝 Material data prepared: $materialData');
 
       // Create the material using the service
       bool success = await MaterialService.createMaterial(materialData, _images);
+
 
        if (success) {
       // Show success dialog
@@ -499,9 +505,9 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context); 
-                Navigator.pop(context, true);
-                },
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context, true); // Return to previous screen
+              },
               child: Text(
                 'OK', 
                 style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
@@ -512,7 +518,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       );
     }
 
-    } catch (e) {
+  } catch (e) {
     print('❌ Detailed error: $e');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

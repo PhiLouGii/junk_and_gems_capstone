@@ -12,25 +12,42 @@ class MaterialService {
     try {
       print('📸 Starting image upload to Cloudinary...');
       
-      // Upload images to Cloudinary first
-      List<String> imageUrls = await CloudinaryService.uploadMultipleImages(images);
+      List<String> imageUrls = [];
+      if (images.isNotEmpty) {
+        // Upload images to Cloudinary first
+        imageUrls = await CloudinaryService.uploadMultipleImages(images);
+        print('✅ Image upload complete. Got ${imageUrls.length} URLs');
+      } else {
+        print('ℹ️ No images to upload');
+      }
       
-      print('✅ Image upload complete. Got ${imageUrls.length} URLs');
-      
-      // Add Cloudinary URLs to material data
-      materialData['image_urls'] = imageUrls;
-      
-      // Remove any base64 image data if present
-      materialData.remove('image_data_base64');
+      // Prepare the final data with proper types
+      final Map<String, dynamic> requestData = {
+        'title': materialData['title']?.toString() ?? '',
+        'description': materialData['description']?.toString() ?? '',
+        'category': materialData['category']?.toString() ?? '',
+        'quantity': materialData['quantity']?.toString() ?? 'Not specified',
+        'location': materialData['location']?.toString() ?? '',
+        'delivery_option': materialData['delivery_option']?.toString() ?? 'Needs Pickup',
+        'available_from': materialData['available_from']?.toString(),
+        'available_until': materialData['available_until']?.toString(),
+        'is_fragile': materialData['is_fragile'] ?? false,
+        'contact_preferences': materialData['contact_preferences'] ?? {},
+        'image_urls': imageUrls,
+        'uploader_id': materialData['uploader_id'] ?? 3,
+      };
 
       print('📦 Sending material data to server...');
+      print('📦 Data being sent: ${json.encode(requestData)}');
+
       final response = await http.post(
         Uri.parse('$_baseUrl/materials'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(materialData),
+        body: json.encode(requestData),
       );
 
       print('📡 Server response: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
       
       if (response.statusCode == 201) {
         print('✅ Material created successfully');
@@ -79,60 +96,6 @@ class MaterialService {
     } catch (e) {
       print('Error claiming material: $e');
       throw Exception('Failed to claim material: $e');
-    }
-  }
-
-  // Get user's posted materials
-  static Future<List<dynamic>> getUserMaterials(int userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/users/$userId/materials'),
-      );
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load user materials');
-      }
-    } catch (e) {
-      print('Error loading user materials: $e');
-      throw Exception('Failed to load user materials: $e');
-    }
-  }
-
-  // Get material by ID
-  static Future<dynamic> getMaterialById(String materialId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/materials/$materialId'),
-      );
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load material details');
-      }
-    } catch (e) {
-      print('Error loading material details: $e');
-      throw Exception('Failed to load material details: $e');
-    }
-  }
-
-  // Delete material
-  static Future<bool> deleteMaterial(String materialId) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/materials/$materialId'),
-      );
-
-      if (response.statusCode == 200) {
-        return true;
-      } else {
-        throw Exception('Failed to delete material');
-      }
-    } catch (e) {
-      print('Error deleting material: $e');
-      throw Exception('Failed to delete material: $e');
     }
   }
 }
