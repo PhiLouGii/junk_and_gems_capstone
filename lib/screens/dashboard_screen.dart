@@ -6,7 +6,6 @@ import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/screens/other_user_profile_screen.dart';
-import 'package:junk_and_gems/utils/session_manager.dart';
 import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
@@ -40,99 +39,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadData() async {
-  try {
-    print('🚀 Starting to load dashboard data...');
-    
-      await _loadCachedData();
-    
-    final List<Future<dynamic>> futures = [
-      UserService.getArtisans(),
-      UserService.getContributors(),
-      UserService.getUserImpact(widget.userId),
-    ];
-
-    final results = await Future.wait(futures);
-
-    
-    final artisansData = results[0] as List<dynamic>;
-    final contributorsData = results[1] as List<dynamic>;
-    final impactData = results[2] as Map<String, dynamic>;
-
-    print('📊 Artisans data received: ${artisansData.length} items');
-    print('📊 Contributors data received: ${contributorsData.length} items');
-    print('📊 Impact data received: $impactData');
-    
-    if (artisansData.isNotEmpty) {
-      print('👨‍🎨 First artisan: ${artisansData[0]}');
-    } else {
-      print('❌ No artisans found!');
-    }
-    
-    if (contributorsData.isNotEmpty) {
-      print('👥 First contributor: ${contributorsData[0]}');
-    } else {
-      print('❌ No contributors found!');
-    }
-
-    setState(() {
-      artisans = artisansData;
-      contributors = contributorsData;
-      userImpact = impactData;
-      isLoading = false;
-    });
-    
-    await _saveDataToCache(artisansData, contributorsData, impactData);
-    
-    print('✅ Dashboard data loaded successfully');
-    
-  } catch (e) {
-    print('❌ Error loading dashboard data: $e');
-    setState(() {
-      isLoading = false;
-    });
-  }
-}
-
-Future<void> _loadCachedData() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    
-    final cachedArtisans = prefs.getString('cachedArtisans');
-    final cachedContributors = prefs.getString('cachedContributors');
-    final cachedImpact = prefs.getString('cachedImpact');
-    
-    if (cachedArtisans != null && cachedContributors != null && cachedImpact != null) {
-      print('📚 Loading cached dashboard data...');
+    try {
+      print('🚀 Starting to load dashboard data...');
       
+      await _loadCachedData();
+      
+      final List<Future<dynamic>> futures = [
+        UserService.getArtisans(),
+        UserService.getContributors(),
+        UserService.getUserImpact(widget.userId),
+      ];
+
+      final results = await Future.wait(futures);
+
+      final artisansData = results[0] as List<dynamic>;
+      final contributorsData = results[1] as List<dynamic>;
+      final impactData = results[2] as Map<String, dynamic>;
+
+      print('📊 Artisans data received: ${artisansData.length} items');
+      print('📊 Contributors data received: ${contributorsData.length} items');
+      print('📊 Impact data received: $impactData');
+
       setState(() {
-        artisans = List<dynamic>.from(json.decode(cachedArtisans));
-        contributors = List<dynamic>.from(json.decode(cachedContributors));
-        userImpact = Map<String, dynamic>.from(json.decode(cachedImpact));
+        artisans = artisansData;
+        contributors = contributorsData;
+        userImpact = impactData;
+        isLoading = false;
       });
       
-      print('📚 Cached artisans: ${artisans.length}');
-      print('📚 Cached contributors: ${contributors.length}');
-      print('📚 Cached impact: $userImpact');
+      await _saveDataToCache(artisansData, contributorsData, impactData);
+      
+      print('✅ Dashboard data loaded successfully');
+      
+    } catch (e) {
+      print('❌ Error loading dashboard data: $e');
+      setState(() {
+        isLoading = false;
+      });
     }
-  } catch (e) {
-    print('❌ Error loading cached data: $e');
   }
-}
 
-// NEW: Save data to SharedPreferences for persistence
-Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contributorsData, Map<String, dynamic> impactData) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    
-    await prefs.setString('cachedArtisans', json.encode(artisansData));
-    await prefs.setString('cachedContributors', json.encode(contributorsData));
-    await prefs.setString('cachedImpact', json.encode(impactData));
-    
-    print('💾 Dashboard data saved to cache');
-  } catch (e) {
-    print('❌ Error saving data to cache: $e');
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      final cachedArtisans = prefs.getString('cachedArtisans');
+      final cachedContributors = prefs.getString('cachedContributors');
+      final cachedImpact = prefs.getString('cachedImpact');
+      
+      if (cachedArtisans != null && cachedContributors != null && cachedImpact != null) {
+        print('📚 Loading cached dashboard data...');
+        
+        setState(() {
+          artisans = List<dynamic>.from(json.decode(cachedArtisans));
+          contributors = List<dynamic>.from(json.decode(cachedContributors));
+          userImpact = Map<String, dynamic>.from(json.decode(cachedImpact));
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading cached data: $e');
+    }
   }
-}
+
+  Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contributorsData, Map<String, dynamic> impactData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      await prefs.setString('cachedArtisans', json.encode(artisansData));
+      await prefs.setString('cachedContributors', json.encode(contributorsData));
+      await prefs.setString('cachedImpact', json.encode(impactData));
+      
+      print('💾 Dashboard data saved to cache');
+    } catch (e) {
+      print('❌ Error saving data to cache: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -319,7 +300,6 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
-            // Fallback if image doesn't exist
             Image.asset(
               imagePath,
               width: double.infinity,
@@ -393,7 +373,6 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
 
   // Impact Section
   Widget _buildImpactSection() {
-    // Use real data if available, otherwise fallback to demo data
     final piecesDonated = userImpact['pieces_donated']?.toString() ?? '0';
     final upcycledItems = userImpact['upcycled_items']?.toString() ?? '0';
     final gemsEarned = userImpact['gems_earned']?.toString() ?? '0';
@@ -482,15 +461,18 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
           ),
         ),
         const SizedBox(height: 12),
-        cs.CarouselSlider(
-          items: artisans.map((artisan) => _buildUserCard(artisan, true)).toList(),
-          options: cs.CarouselOptions(
-            height: 200,
-            autoPlay: true,
-            autoPlayInterval: const Duration(seconds: 4),
-            enlargeCenterPage: true,
-            viewportFraction: 0.45,
-            enableInfiniteScroll: true,
+        SizedBox(
+          height: 190, // Increased height to prevent overflow
+          child: cs.CarouselSlider(
+            items: artisans.map((artisan) => _buildUserCard(artisan, true)).toList(),
+            options: cs.CarouselOptions(
+              height: 190, // Increased height
+              autoPlay: true,
+              autoPlayInterval: const Duration(seconds: 4),
+              enlargeCenterPage: true,
+              viewportFraction: 0.45,
+              enableInfiniteScroll: true,
+            ),
           ),
         ),
       ],
@@ -519,23 +501,26 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
           ),
         ),
         const SizedBox(height: 12),
-        cs.CarouselSlider(
-          items: contributors.map((contributor) => _buildUserCard(contributor, false)).toList(),
-          options: cs.CarouselOptions(
-            height: 200,
-            autoPlay: true,
-            autoPlayInterval: const Duration(seconds: 4),
-            enlargeCenterPage: true,
-            viewportFraction: 0.45,
-            enableInfiniteScroll: true,
+        SizedBox(
+          height: 190, // Increased height to prevent overflow
+          child: cs.CarouselSlider(
+            items: contributors.map((contributor) => _buildUserCard(contributor, false)).toList(),
+            options: cs.CarouselOptions(
+              height: 190, // Increased height
+              autoPlay: true,
+              autoPlayInterval: const Duration(seconds: 4),
+              enlargeCenterPage: true,
+              viewportFraction: 0.45,
+              enableInfiniteScroll: true,
+            ),
           ),
         ),
       ],
     );
   }
 
-  // Build user card for both artisans and contributors
- Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
+  // Build user card for both artisans and contributors - FIXED OVERFLOW
+  Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
     final name = user['name'] ?? 'Unknown User';
     final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
     final profileImage = user['profile_image_url'];
@@ -551,6 +536,7 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
       child: Container(
         width: 140,
         height: 180, 
+        margin: const EdgeInsets.only(bottom: 8), // Added margin to prevent overflow
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
@@ -562,101 +548,122 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 12), 
-            Container(
-              width: 60, 
-              height: 60, 
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: const Color(0xFFBEC092),
-                  width: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(12.0), // Added padding to contain content
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Profile Image
+              Container(
+                width: 60, 
+                height: 60, 
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: const Color(0xFFBEC092),
+                    width: 2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(30),
+                  child: profileImage != null 
+                      ? Image.network(
+                          profileImage,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildProfilePlaceholder();
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return _buildProfilePlaceholder();
+                          },
+                        )
+                      : _buildProfilePlaceholder(),
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: profileImage != null 
-                    ? Image.network(
-                        profileImage,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildProfilePlaceholder();
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return _buildProfilePlaceholder();
-                        },
-                      )
-                    : _buildProfilePlaceholder(),
-              ),
-            ),
-            const SizedBox(height: 8), 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                _getDisplayName(name),
-                style: TextStyle(
-                  fontSize: 14, 
-                  fontWeight: FontWeight.w600, 
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+              const SizedBox(height: 8),
+              
+              // Name
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  _getDisplayName(name),
+                  style: TextStyle(
+                    fontSize: 14, 
+                    fontWeight: FontWeight.w600, 
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                specialty,
-                style: TextStyle(
-                  fontSize: 12, 
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                  fontWeight: FontWeight.w500,
+              
+              // Specialty
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  specialty,
+                  style: TextStyle(
+                    fontSize: 12, 
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 4),
-            if (donationCount > 0) ...[
-              const SizedBox(height: 2),
-              Text(
-                '$donationCount donations',
-                style: TextStyle(
-                  fontSize: 10, 
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                  fontWeight: FontWeight.w500,
+              
+              const SizedBox(height: 6),
+              
+              // Stats - Using Flexible to prevent overflow
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (donationCount > 0) 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          '$donationCount donations',
+                          style: TextStyle(
+                            fontSize: 10, 
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                    if (materialCount > 0) 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          '$materialCount materials',
+                          style: TextStyle(
+                            fontSize: 10, 
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                    if (availableGems > 0) 
+                      Text(
+                        '$availableGems gems',
+                        style: TextStyle(
+                          fontSize: 10, 
+                          color: const Color(0xFF88844D),
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                      ),
+                  ].where((child) => child != null).cast<Widget>().toList(),
                 ),
               ),
             ],
-             if (materialCount > 0) ...[
-              Text(
-                '$materialCount materials',
-                style: TextStyle(
-                  fontSize: 10, 
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-            if (availableGems > 0) ...[
-              Text(
-                '$availableGems gems',
-                style: TextStyle(
-                  fontSize: 10, 
-                  color: const Color(0xFF88844D),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-             const SizedBox(height: 8), 
-          ],
+          ),
         ),
       ),
     );
@@ -721,7 +728,7 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
         ),
         const SizedBox(height: 12),
         Container(
-          height: 200,
+          height: 190,
           child: const Center(
             child: CircularProgressIndicator(color: Color(0xFF88844D)),
           ),
@@ -744,7 +751,7 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
         ),
         const SizedBox(height: 12),
         Container(
-          height: 200,
+          height: 190,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),

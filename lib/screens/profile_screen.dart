@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
@@ -9,9 +10,9 @@ import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/settings_screen.dart';
 import 'package:junk_and_gems/screens/login_screen.dart';
+import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
-
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -28,16 +29,19 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String bioText = "";
+  // State variables
   Map<String, dynamic> userData = {}; 
   bool isLoading = true;
   bool isSavingBio = false;
   bool isSavingProfilePicture = false;
-  final ImagePicker _imagePicker = ImagePicker();
-  final TextEditingController _bioController = TextEditingController();
   int userGems = 0;
+  
+  // Controllers and pickers
+  final TextEditingController _bioController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+  File? _profileImage;
 
-    @override
+  @override
   void initState() {
     super.initState();
     _loadUserData();
@@ -49,55 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  Future<String?> _getAuthToken() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      
-      if (token == null || token.isEmpty) {
-        print('❌ No auth token found in SharedPreferences');
-        return null;
-      }
-      
-      print('✅ Auth token found, length: ${token.length}');
-      return token;
-    } catch (e) {
-      print('❌ Error getting auth token: $e');
-      return null;
-    }
-  }
-
-  Future<void> _loadUserGems() async {
-    try {
-      print('💰 Loading user gems for user: ${widget.userId}');
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/users/${widget.userId}/profile'),
-      );
-      
-      if (response.statusCode == 200) {
-        final userProfile = json.decode(response.body);
-        final gems = userProfile['available_gems'] ?? 0;
-        print('💰 User gems loaded: $gems');
-        
-        setState(() {
-          userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
-        });
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('userGems', userGems);
-      } else {
-        print('❌ Failed to load user gems: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error loading user gems: $e');
-      // Try to load from SharedPreferences as fallback
-      final prefs = await SharedPreferences.getInstance();
-      final cachedGems = prefs.getInt('userGems') ?? 0;
-      setState(() {
-        userGems = cachedGems;
-      });
-    }
-  }
+  // ========== DATA LOADING METHODS ==========
 
   Future<void> _loadUserData() async {
     try {
@@ -111,14 +67,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'bio': prefs.getString('userBio') ?? '',
           'profilePicture': prefs.getString('profilePicture') ?? '',
         };
-        bioText = userData['bio'] ?? '';
-        _bioController.text = bioText;
+        _bioController.text = userData['bio'] ?? '';
       });
 
-      // Load gems after basic user data
       await _loadUserGems();
     } catch (e) {
-      print('Error loading user data: $e');
+      print('❌ Error loading user data: $e');
     } finally {
       setState(() {
         isLoading = false;
@@ -126,106 +80,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _updateProfilePicture() async {
+  Future<void> _loadUserGems() async {
     try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 512, // Reduced size to prevent issues
-        maxHeight: 512,
-        imageQuality: 75, // Reduced quality
+      print('💰 Loading user gems for user: ${widget.userId}');
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/users/${widget.userId}/profile'),
       );
-
-      if (image != null) {
+      
+      if (response.statusCode == 200) {
+        final userProfile = json.decode(response.body);
+        final gems = userProfile['available_gems'] ?? 0;
+        
         setState(() {
-          isSavingProfilePicture = true;
+          userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
         });
-
-        // Get auth token first
-        final token = await _getAuthToken();
-        if (token == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please log in again to update your profile picture.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          setState(() {
-            isSavingProfilePicture = false;
-          });
-          return;
-        }
-
-        // Read image as bytes and convert to base64
-        final bytes = await image.readAsBytes();
-        final base64Image = base64Encode(bytes);
-
-        // Get user ID
-        final userId = userData['id'];
-        if (userId == null || userId.isEmpty) {
-          throw Exception('User ID not found');
-        }
-
-        print('🖼️ Sending profile picture update for user: $userId');
-        print('📸 Base64 image length: ${base64Image.length}');
-        print('📸 Image size: ${bytes.length} bytes');
-
-        // FIX: Try different base64 formats that might work with your backend
-        final Map<String, dynamic> payload = {
-          'image_data_base64': base64Image,
-          // Alternative: try with data URL format
-          // 'image_data_base64': 'data:image/jpeg;base64,$base64Image',
-        };
-
-        print('📦 Payload keys: ${payload.keys}');
-        print('📦 Payload image_data_base64 type: ${payload['image_data_base64'].runtimeType}');
-
-        // Call API to update profile picture with authentication
-        final response = await http.post(
-          Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile-picture'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: json.encode(payload),
-        );
-
-        print('📡 Response status: ${response.statusCode}');
-        print('📡 Response headers: ${response.headers}');
-        print('📡 Response body: ${response.body}');
-
-        if (response.statusCode == 200) {
-          final responseData = json.decode(response.body);
-          
-          // Update local storage
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('profilePicture', responseData['profile_image_url']);
-          
-          // Update state
-          setState(() {
-            userData['profilePicture'] = responseData['profile_image_url'];
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile picture updated successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else if (response.statusCode == 401) {
-          throw Exception('Authentication failed. Please log in again.');
-        } else if (response.statusCode == 500) {
-          // More detailed error for 500
-          final errorBody = json.decode(response.body);
-          throw Exception('Server error: ${errorBody['error'] ?? 'Unknown server error'}');
-        } else {
-          throw Exception('Failed to update profile picture: ${response.statusCode} - ${response.body}');
-        }
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('userGems', userGems);
+      } else {
+        print('❌ Failed to load user gems: ${response.statusCode}');
+        _loadCachedGems();
       }
     } catch (e) {
-      print('❌ Error updating profile picture: $e');
+      print('❌ Error loading user gems: $e');
+      _loadCachedGems();
+    }
+  }
+
+  Future<void> _loadCachedGems() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedGems = prefs.getInt('userGems') ?? 0;
+    setState(() {
+      userGems = cachedGems;
+    });
+  }
+
+  // ========== AUTH METHODS ==========
+
+  Future<String?> _getAuthToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      
+      if (token == null || token.isEmpty) {
+        print('❌ No auth token found');
+        return null;
+      }
+      
+      return token;
+    } catch (e) {
+      print('❌ Error getting auth token: $e');
+      return null;
+    }
+  }
+
+  // ========== PROFILE PICTURE METHODS ==========
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 80,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _profileImage = File(pickedFile.path);
+        });
+        
+        await _uploadProfilePicture();
+      }
+    } catch (e) {
+      print('❌ Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick image: $e')),
+      );
+    }
+  }
+
+  Future<void> _uploadProfilePicture() async {
+    if (_profileImage == null) return;
+
+    try {
+      setState(() {
+        isSavingProfilePicture = true;
+      });
+
+      final String? imageUrl = await UserService.uploadProfilePicture(
+        int.parse(widget.userId),
+        _profileImage!
+      );
+
+      if (imageUrl != null) {
+        // Update local storage
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('profilePicture', imageUrl);
+        
+        // Update state
+        setState(() {
+          userData['profilePicture'] = imageUrl;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error uploading profile picture: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error updating profile picture: $e'),
+          content: Text('Failed to upload profile picture: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -235,6 +204,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     }
   }
+
+  Widget _buildProfilePicture() {
+    final profilePicture = userData['profilePicture'];
+    
+    return GestureDetector(
+      onTap: isSavingProfilePicture ? null : _pickProfileImage,
+      child: Stack(
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFBEC092), width: 3),
+            ),
+            child: ClipOval(
+              child: _buildProfileImageContent(profilePicture),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF88844D),
+                shape: BoxShape.circle,
+              ),
+              child: isSavingProfilePicture
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileImageContent(String? profilePicture) {
+    if (_profileImage != null) {
+      return Image.file(_profileImage!, fit: BoxFit.cover);
+    } else if (profilePicture != null && profilePicture.isNotEmpty) {
+      return Image.network(
+        profilePicture,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / 
+                    loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _buildProfilePlaceholder();
+        },
+      );
+    } else {
+      return _buildProfilePlaceholder();
+    }
+  }
+
+  Widget _buildProfilePlaceholder() {
+    return Container(
+      color: const Color(0xFFE4E5C2),
+      child: const Icon(
+        Icons.person,
+        size: 50,
+        color: Color(0xFF88844D),
+      ),
+    );
+  }
+
+  // ========== BIO METHODS ==========
 
   Future<void> _updateBio() async {
     try {
@@ -252,7 +305,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         throw Exception('User ID not found');
       }
 
-      // Call API to update profile
       final response = await http.put(
         Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
         headers: {
@@ -262,15 +314,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: json.encode({
           'name': userData['name'],
           'specialty': '',
-          'bio': bioText,
+          'bio': _bioController.text,
           'user_type': 'user',
         }),
       );
 
       if (response.statusCode == 200) {
-        // Update local storage
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userBio', bioText);
+        await prefs.setString('userBio', _bioController.text);
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -279,10 +330,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       } else {
-        throw Exception('Failed to update bio: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to update bio: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error updating bio: $e');
+      print('❌ Error updating bio: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error updating bio: $e'),
@@ -296,38 +347,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Test the profile picture endpoint specifically
-  Future<void> _testProfilePictureEndpoint() async {
+  // ========== LOGOUT METHODS ==========
+
+  void _handleLogout() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          title: Text(
+            'Logout',
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+          ),
+          content: Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performLogout();
+              },
+              child: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performLogout() async {
     try {
-      final token = await _getAuthToken();
-      if (token == null) {
-        print('❌ No token for endpoint test');
-        return;
-      }
-
-      final userId = userData['id'];
-      print('🔍 Testing profile picture endpoint for user: $userId');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('userId');
+      await prefs.remove('userName');
+      await prefs.remove('userEmail');
+      await prefs.remove('username');
+      await prefs.remove('userBio');
+      await prefs.remove('profilePicture');
+      await prefs.remove('userGems');
       
-      // Test with a small payload
-      final testPayload = {
-        'image_data_base64': 'test_base64_string'
-      };
-
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile-picture'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode(testPayload),
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
       );
-
-      print('🔍 Test response status: ${response.statusCode}');
-      print('🔍 Test response body: ${response.body}');
     } catch (e) {
-      print('❌ Endpoint test failed: $e');
+      print('❌ Error during logout: $e');
     }
   }
+
+  // ========== UI BUILDING METHODS ==========
 
   @override
   Widget build(BuildContext context) {
@@ -362,18 +444,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             MaterialPageRoute(
               builder: (context) => DashboardScreen(
                 userName: userName, 
-                userId: userData['userId'] ?? ''
+                userId: widget.userId
               ),
             ),
           ),
         ),
         actions: [
-          // Test profile picture endpoint
-          IconButton(
-            icon: Icon(Icons.photo_library, color: Theme.of(context).iconTheme.color),
-            onPressed: _testProfilePictureEndpoint,
-          ),
-          // Logout button
           IconButton(
             icon: Icon(Icons.logout, color: Theme.of(context).iconTheme.color),
             onPressed: _handleLogout,
@@ -383,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset("assets/images/logo.png", height: 64), 
+            Image.asset("assets/images/logo.png", height: 32),
             const SizedBox(width: 8),
             Text(
               "Profile",
@@ -406,10 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 32),
               _buildBioSection(),
               const SizedBox(height: 32),
-              Divider(
-                color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.3),
-                thickness: 1,
-              ),
+              _buildDivider(),
               const SizedBox(height: 32),
               _buildContactInformation(userEmail),
               const SizedBox(height: 32),
@@ -422,205 +495,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // In your ProfileScreen, add these methods:
-
-File? _profileImage;
-final ImagePicker _picker = ImagePicker();
-
-Future<void> _pickProfileImage() async {
-  try {
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 400,
-      maxHeight: 400,
-      imageQuality: 80,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
-      
-      // Upload to Cloudinary
-      await _uploadProfilePicture();
-    }
-  } catch (e) {
-    print('❌ Error picking image: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to pick image: $e')),
-    );
-  }
-}
-
-Future<void> _uploadProfilePicture() async {
-  if (_profileImage == null) return;
-
-  try {
-    final String? imageUrl = await UserService.uploadProfilePicture(
-      int.parse(widget.userId),
-      _profileImage!
-    );
-
-    if (imageUrl != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Profile picture updated successfully!')),
-      );
-      
-      // Update the local state with the new image URL
-      setState(() {
-        // You might want to store this in your user state management
-      });
-    }
-  } catch (e) {
-    print('❌ Error uploading profile picture: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to upload profile picture: $e')),
-    );
-  }
-}
-
-// In your build method, update the profile picture section:
-Widget _buildProfilePicture() {
-  return GestureDetector(
-    onTap: _pickProfileImage,
-    child: Stack(
+  Widget _buildProfileHeader(String userName, String username) {
+    return Column(
       children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFBEC092), width: 3),
-          ),
-          child: ClipOval(
-            child: _profileImage != null
-                ? Image.file(_profileImage!, fit: BoxFit.cover)
-                : (userData['profile_image_url'] != null && 
-                    userData['profile_image_url'].isNotEmpty)
-                    ? Image.network(
-                        userData['profile_image_url'],
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / 
-                                    loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildProfilePlaceholder();
-                        },
-                      )
-                    : _buildProfilePlaceholder(),
-          ),
-        ),
-        Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Color(0xFF88844D),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildProfilePlaceholder() {
-  return Container(
-    color: const Color(0xFFE4E5C2),
-    child: const Icon(
-      Icons.person,
-      size: 50,
-      color: Color(0xFF88844D),
-    ),
-  );
-}
-
-   Widget _buildProfileHeader(String userName, String username) {
-    final profilePicture = userData['profilePicture'];
-    
-     return Column(
-      children: [
-        Stack(
-          children: [
-            // Profile Picture
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(60),
-              ),
-              child: profilePicture != null && profilePicture.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(60),
-                      child: Image.network(
-                        profilePicture,
-                        width: 120,
-                        height: 120,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.person,
-                            size: 60,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                          );
-                        },
-                      ),
-                    )
-                  : Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: GestureDetector(
-                onTap: isSavingProfilePicture ? null : _updateProfilePicture,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Theme.of(context).cardColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(6),
-                  child: isSavingProfilePicture
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                          ),
-                        )
-                      : Icon(
-                          Icons.edit, 
-                          size: 18, 
-                          color: Theme.of(context).textTheme.bodyLarge?.color
-                        ),
-                ),
-              ),
-            ),
-          ],
-        ),
+        _buildProfilePicture(),
         const SizedBox(height: 16),
         Text(
           userName,
@@ -640,29 +518,32 @@ Widget _buildProfilePlaceholder() {
           ),
         ),
         const SizedBox(height: 8),
-        // Gems counter
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.star, color: Colors.green, size: 18),
-              const SizedBox(width: 4),
-              Text(
-                "$userGems Gems", 
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildGemsCounter(),
       ],
+    );
+  }
+
+  Widget _buildGemsCounter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.star, color: Colors.green, size: 18),
+          const SizedBox(width: 4),
+          Text(
+            "$userGems Gems", 
+            style: TextStyle(
+              color: Colors.green,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -685,11 +566,6 @@ Widget _buildProfilePlaceholder() {
               maxLength: 120,
               maxLines: 3,
               controller: _bioController,
-              onChanged: (value) {
-                setState(() {
-                  bioText = value;
-                });
-              },
               style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.all(20),
@@ -702,7 +578,7 @@ Widget _buildProfilePlaceholder() {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: const Color(0xFFBEC092)),
+                  borderSide: const BorderSide(color: Color(0xFFBEC092)),
                 ),
                 counterText: "",
               ),
@@ -711,7 +587,7 @@ Widget _buildProfilePlaceholder() {
               bottom: 8,
               right: 16,
               child: Text(
-                "${bioText.length}/120",
+                "${_bioController.text.length}/120",
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
@@ -756,6 +632,13 @@ Widget _buildProfilePlaceholder() {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildDivider() {
+    return Divider(
+      color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.3),
+      thickness: 1,
     );
   }
 
@@ -811,11 +694,7 @@ Widget _buildProfilePlaceholder() {
                 color: const Color(0xFFBEC092),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                icon, 
-                color: const Color(0xFF88844D), 
-                size: 20
-              ),
+              child: Icon(icon, color: const Color(0xFF88844D), size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -902,11 +781,7 @@ Widget _buildProfilePlaceholder() {
             color: const Color(0xFFBEC092),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon, 
-            color: const Color(0xFF88844D), 
-            size: 20
-          ),
+          child: Icon(icon, color: const Color(0xFF88844D), size: 20),
         ),
         title: Text(
           label,
@@ -949,7 +824,7 @@ Widget _buildProfilePlaceholder() {
               MaterialPageRoute(
                 builder: (context) => DashboardScreen(
                   userName: userName, 
-                  userId: userData['userId'] ?? ''
+                  userId: widget.userId
                 ),
               ),
               (route) => false,
@@ -958,9 +833,7 @@ Widget _buildProfilePlaceholder() {
           _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const BrowseMaterialsScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
             );
           }),
           _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
@@ -969,7 +842,7 @@ Widget _buildProfilePlaceholder() {
               MaterialPageRoute(
                 builder: (context) => MarketplaceScreen(
                   userName: userName, 
-                  userId: userData['userId'] ?? ''
+                  userId: widget.userId
                 ),
               ),
             );
@@ -980,9 +853,7 @@ Widget _buildProfilePlaceholder() {
               MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
             );
           }),
-          _navItem(Icons.person_outline, true, 'Profile', onTap: () {
-            // Already on profile screen
-          }),
+          _navItem(Icons.person_outline, true, 'Profile', onTap: () {}),
         ],
       ),
     );
@@ -1014,64 +885,5 @@ Widget _buildProfilePlaceholder() {
         ),
       ),
     );
-  }
-
-  void _handleLogout() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).cardColor,
-          title: Text(
-            'Logout',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-          ),
-          content: Text(
-            'Are you sure you want to logout?',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performLogout();
-              },
-              child: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _performLogout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('userId');
-      await prefs.remove('userName');
-      await prefs.remove('userEmail');
-      await prefs.remove('username');
-      await prefs.remove('userBio');
-      await prefs.remove('profilePicture');
-      
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      print('❌ Error during logout: $e');
-    }
   }
 }
