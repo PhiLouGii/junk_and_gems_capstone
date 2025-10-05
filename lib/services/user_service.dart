@@ -121,6 +121,8 @@ static Future<List<dynamic>> getProductsByUserId(String userId) async {
   }
 }
 
+
+
   // Upload profile picture
   static Future<String> uploadProfilePicture(File imageFile, String userId) async {
     try {
@@ -188,4 +190,59 @@ static Future<List<dynamic>> getProductsByUserId(String userId) async {
       throw Exception('Failed to update profile: $e');
     }
   }
+
+  static Future<Map<String, dynamic>> getUserImpact(String userId) async {
+  try {
+    print('🔍 Fetching user impact for: $userId');
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/users/$userId/impact'),
+    );
+    
+    print('📡 Impact response status: ${response.statusCode}');
+    print('📡 Impact response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      print('✅ User impact data: $data');
+      return data;
+    } else {
+      print('❌ Failed to load user impact - Status: ${response.statusCode}');
+      // Return default impact data if API fails
+      return {
+        'pieces_donated': 0,
+        'upcycled_items': 0,
+        'gems_earned': 0
+      };
+    }
+  } catch (e) {
+    print('❌ Error fetching user impact: $e');
+    // Return default impact data on error
+    return {
+      'pieces_donated': 0,
+      'upcycled_items': 0,
+      'gems_earned': 0
+    };
+  }
+  }
+
+  static Future<void> debugEndpoints() async {
+  try {
+    print('🧪 Testing all endpoints...');
+    
+    // Test artisans endpoint
+    final artisansResponse = await http.get(Uri.parse('$baseUrl/api/debug/artisans'));
+    print('🎨 Debug artisans: ${artisansResponse.body}');
+    
+    // Test contributors endpoint  
+    final contributorsResponse = await http.get(Uri.parse('$baseUrl/api/debug/contributors'));
+    print('👥 Debug contributors: ${contributorsResponse.body}');
+    
+    // Test impact endpoint (use user ID 1 for testing)
+    final impactResponse = await http.get(Uri.parse('$baseUrl/api/users/1/impact'));
+    print('📊 Debug impact: ${impactResponse.body}');
+    
+  } catch (e) {
+    print('❌ Debug endpoint test failed: $e');
+  }
+}
 }

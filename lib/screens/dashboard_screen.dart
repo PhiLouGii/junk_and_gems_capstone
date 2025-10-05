@@ -27,6 +27,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> artisans = [];
   List<dynamic> contributors = [];
+  Map<String, dynamic> userImpact = {};
   bool isLoading = true;
 
   @override
@@ -39,25 +40,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   try {
     print('🚀 Starting to load dashboard data...');
     
-    final [artisansData, contributorsData] = await Future.wait([
+     final List<Future<dynamic>> futures = [
       UserService.getArtisans(),
       UserService.getContributors(),
-    ]);
+      UserService.getUserImpact(widget.userId),
+    ];
+
+    final results = await Future.wait(futures);
+
+    // Now cast the results to their proper types
+    final artisansData = results[0] as List<dynamic>;
+    final contributorsData = results[1] as List<dynamic>;
+    final impactData = results[2] as Map<String, dynamic>;
 
     print('📊 Artisans data received: ${artisansData.length} items');
     print('📊 Contributors data received: ${contributorsData.length} items');
+    print('📊 Impact data received: $impactData');
     
     if (artisansData.isNotEmpty) {
       print('👨‍🎨 First artisan: ${artisansData[0]}');
+    } else {
+      print('❌ No artisans found!');
     }
     
     if (contributorsData.isNotEmpty) {
       print('👥 First contributor: ${contributorsData[0]}');
+    } else {
+      print('❌ No contributors found!');
     }
 
     setState(() {
       artisans = artisansData;
       contributors = contributorsData;
+      userImpact = impactData;
       isLoading = false;
     });
     
@@ -91,7 +106,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 24),
                 _buildQuickActions(context),
                 const SizedBox(height: 24),
-                _buildImpactSection(),
+                _buildImpactSection(), // UPDATED: Now uses real data
                 const SizedBox(height: 24),
                 _buildArtisanCarousel(),
                 const SizedBox(height: 24),
@@ -328,11 +343,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Impact Section
   Widget _buildImpactSection() {
+    // Use real data if available, otherwise fallback to demo data
+    final piecesDonated = userImpact['pieces_donated']?.toString() ?? '0';
+    final upcycledItems = userImpact['upcycled_items']?.toString() ?? '0';
+    final gemsEarned = userImpact['gems_earned']?.toString() ?? '0';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Impact',
+          'Your Impact',
           style: TextStyle(
             fontSize: 20, 
             fontWeight: FontWeight.bold, 
@@ -356,9 +376,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildImpactCell('150', 'pieces donated'),
-              _buildImpactCell('4', 'upcycled items'),
-              _buildImpactCell('2500', 'gems earned'),
+              _buildImpactCell(piecesDonated, 'pieces donated'),
+              _buildImpactCell(upcycledItems, 'upcycled items'),
+              _buildImpactCell(gemsEarned, 'gems earned'),
             ],
           ),
         ),
@@ -465,13 +485,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Build user card for both artisans and contributors
-  Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
+ Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
     final name = user['name'] ?? 'Unknown User';
     final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
     final profileImage = user['profile_image_url'];
     final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
     final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
     final userId = user['id']?.toString() ?? '0';
+    final availableGems = int.tryParse(user['available_gems']?.toString() ?? '0') ?? 0;
 
     return GestureDetector(
       onTap: () {
@@ -513,41 +534,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         profileImage,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: Theme.of(context).brightness == Brightness.dark 
-                                ? const Color(0xFF3A3A3A) 
-                                : const Color(0xFFE4E5C2),
-                            child: Icon(
-                              Icons.person,
-                              size: 24,
-                              color: const Color(0xFF88844D),
-                            ),
-                          );
+                          return _buildProfilePlaceholder();
                         },
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
-                          return Container(
-                            color: Theme.of(context).brightness == Brightness.dark 
-                                ? const Color(0xFF3A3A3A) 
-                                : const Color(0xFFE4E5C2),
-                            child: Icon(
-                              Icons.person,
-                              size: 24,
-                              color: const Color(0xFF88844D),
-                            ),
-                          );
+                          return _buildProfilePlaceholder();
                         },
                       )
-                    : Container(
-                        color: Theme.of(context).brightness == Brightness.dark 
-                            ? const Color(0xFF3A3A3A) 
-                            : const Color(0xFFE4E5C2),
-                        child: Icon(
-                          Icons.person,
-                          size: 24,
-                          color: const Color(0xFF88844D),
-                        ),
-                      ),
+                    : _buildProfilePlaceholder(),
               ),
             ),
             const SizedBox(height: 8), 
@@ -579,12 +573,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (donationCount > 0 || materialCount > 0) ...[
+            const SizedBox(height: 4),
+            if (donationCount > 0) ...[
               const SizedBox(height: 2),
               Text(
-                isArtisan 
-                    ? '$donationCount donations'
-                    : '$materialCount materials',
+                '$donationCount donations',
                 style: TextStyle(
                   fontSize: 10, 
                   color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -592,7 +585,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 12), 
+             if (materialCount > 0) ...[
+              Text(
+                '$materialCount materials',
+                style: TextStyle(
+                  fontSize: 10, 
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            if (availableGems > 0) ...[
+              Text(
+                '$availableGems gems',
+                style: TextStyle(
+                  fontSize: 10, 
+                  color: const Color(0xFF88844D),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+             const SizedBox(height: 8), 
           ],
         ),
       ),

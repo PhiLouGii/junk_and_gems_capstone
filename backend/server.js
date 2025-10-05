@@ -1587,6 +1587,126 @@ app.get("/api/users/:userId/products", async (req, res) => {
   }
 });
 
+app.get("/api/users/:userId/impact", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const userResult = await pool.query(`
+      SELECT 
+        donation_count,
+        available_gems
+      FROM users 
+      WHERE id = $1
+    `, [userId]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userResult.rows[0];
+    const upcycledItems = Math.floor(user.donation_count * 0.1);
+
+    res.json({
+      pieces_donated: user.donation_count,
+      upcycled_items: upcycledItems,
+      gems_earned: user.available_gems
+    });
+  } catch (err) {
+    console.error("Get user impact error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.get("/api/debug/artisans", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        id, name, username, profile_image_url, specialty, bio,
+        donation_count::integer, created_at, user_type
+      FROM users 
+      WHERE user_type IN ('artisan', 'both')
+      ORDER BY donation_count::integer DESC, created_at DESC
+      LIMIT 10
+    `);
+    
+    console.log('🔍 Debug artisans query result:', result.rows);
+    res.json({
+      query: 'artisans',
+      count: result.rows.length,
+      data: result.rows
+    });
+  } catch (err) {
+    console.error("Debug artisans error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Debug endpoint to check contributors
+app.get("/api/debug/contributors", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        u.id, u.name, u.username, u.profile_image_url, 
+        u.specialty, u.bio, u.donation_count::integer, u.created_at, u.user_type,
+        COUNT(m.id)::integer as material_count,
+        COALESCE(STRING_AGG(DISTINCT m.category, ', '), 'Various') as top_categories
+      FROM users u
+      LEFT JOIN materials m ON u.id = m.uploader_id
+      WHERE u.user_type IN ('contributor', 'both') OR m.id IS NOT NULL
+      GROUP BY u.id, u.name, u.username, u.profile_image_url, 
+               u.specialty, u.bio, u.donation_count, u.created_at, u.user_type
+      ORDER BY u.donation_count::integer DESC, material_count DESC
+      LIMIT 10
+    `);
+    
+    console.log('🔍 Debug contributors query result:', result.rows);
+    res.json({
+      query: 'contributors',
+      count: result.rows.length,
+      data: result.rows
+    });
+  } catch (err) {
+    console.error("Debug contributors error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Make sure you have the impact endpoint
+app.get("/api/users/:userId/impact", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const userResult = await pool.query(`
+      SELECT 
+        donation_count,
+        available_gems
+      FROM users 
+      WHERE id = $1
+    `, [userId]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userResult.rows[0];
+    
+    // For now, we'll estimate upcycled items as 10% of donations
+    const upcycledItems = Math.floor(user.donation_count * 0.1);
+
+    const impactData = {
+      pieces_donated: user.donation_count,
+      upcycled_items: upcycledItems,
+      gems_earned: user.available_gems
+    };
+
+    console.log('🔍 Impact data for user', userId, ':', impactData);
+    res.json(impactData);
+  } catch (err) {
+    console.error("Get user impact error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
 });
