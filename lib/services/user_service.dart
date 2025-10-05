@@ -51,55 +51,75 @@ class UserService {
   }
 
    static Future<Map<String, dynamic>> getOtherUserProfile(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/$userId/profile'),
-      );
-      
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load user profile');
-      }
-    } catch (e) {
-      print('Error fetching user profile: $e');
-      throw e;
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/users/$userId/profile'),
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      // Return empty profile if user not found
+      return {
+        'user_type': 'member',
+        'specialty': '',
+        'bio': '',
+        'total_donations': 0,
+        'total_products': 0,
+        'donation_count': 0,
+        'available_gems': 0,
+        'profile_image_url': ''
+      };
     }
+  } catch (e) {
+    print('Error fetching user profile: $e');
+    // Return default profile on error
+    return {
+      'user_type': 'member',
+      'specialty': '',
+      'bio': '',
+      'total_donations': 0,
+      'total_products': 0,
+      'donation_count': 0,
+      'available_gems': 0,
+      'profile_image_url': ''
+    };
   }
+}
 
-  static Future<List<dynamic>> getDonationsByUserId(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/$userId/donations'),
-      );
-      
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load user donations');
-      }
-    } catch (e) {
-      print('Error fetching user donations: $e');
-      throw e;
+static Future<List<dynamic>> getDonationsByUserId(String userId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/users/$userId/donations'),
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      return [];
     }
+  } catch (e) {
+    print('Error fetching user donations: $e');
+    return [];
   }
+}
 
-  static Future<List<dynamic>> getProductsByUserId(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/$userId/products'),
-      );
-      
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      } else {
-        throw Exception('Failed to load user products');
-      }
-    } catch (e) {
-      print('Error fetching user products: $e');
-      throw e;
+static Future<List<dynamic>> getProductsByUserId(String userId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/users/$userId/products'),
+    );
+    
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      return [];
     }
+  } catch (e) {
+    print('Error fetching user products: $e');
+    return [];
   }
+}
 
   // Upload profile picture
   static Future<String> uploadProfilePicture(File imageFile, String userId) async {

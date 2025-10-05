@@ -1477,12 +1477,11 @@ app.get("/api/users/:userId/products", async (req, res) => {
   }
 });
 
-// Get user profile details
 app.get("/api/users/:userId/profile", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const result = await pool.query(`
+    const userResult = await pool.query(`
       SELECT 
         id, name, username, profile_image_url, 
         user_type, specialty, bio, donation_count,
@@ -1491,22 +1490,28 @@ app.get("/api/users/:userId/profile", async (req, res) => {
       WHERE id = $1
     `, [userId]);
 
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = result.rows[0];
+    const user = userResult.rows[0];
     
-    // Get user stats
+    // Get user stats from materials table
     const donationsCount = await pool.query(
       'SELECT COUNT(*) FROM materials WHERE uploader_id = $1',
       [userId]
     );
     
-    const productsCount = await pool.query(
-      'SELECT COUNT(*) FROM products WHERE creator_id = $1',
-      [userId]
-    );
+    // Get products count (if products table exists with creator_id)
+    let productsCount = { rows: [{ count: '0' }] };
+    try {
+      productsCount = await pool.query(
+        'SELECT COUNT(*) FROM products WHERE creator_id = $1',
+        [userId]
+      );
+    } catch (err) {
+      console.log('Products table might not exist yet, using 0');
+    }
 
     res.json({
       ...user,
@@ -1516,6 +1521,79 @@ app.get("/api/users/:userId/profile", async (req, res) => {
   } catch (err) {
     console.error("Get user profile error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user's donations (materials they uploaded)
+app.get("/api/users/:userId/donations", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name,
+        u.profile_image_url as uploader_avatar
+      FROM materials m
+      JOIN users u ON m.uploader_id = u.id
+      WHERE m.uploader_id = $1
+      ORDER BY m.created_at DESC
+    `, [userId]);
+
+    const donations = result.rows.map(material => ({
+      id: material.id,
+      title: material.title,
+      description: material.description,
+      category: material.category,
+      quantity: material.quantity,
+      location: material.location,
+      image_urls: material.image_data_base64 ? 
+        material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
+      created_at: material.created_at,
+      time: formatTimeAgo(material.created_at),
+      is_claimed: material.is_claimed
+    }));
+
+    res.json(donations);
+  } catch (err) {
+    console.error("Get user donations error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get user's products (if products table exists)
+app.get("/api/users/:userId/products", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Check if products table exists and has creator_id column
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'products'
+      );
+    `);
+
+    if (!tableCheck.rows[0].exists) {
+      return res.json([]);
+    }
+
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar
+      FROM products p
+      JOIN users u ON p.creator_id = u.id
+      WHERE p.creator_id = $1
+      ORDER BY p.created_at DESC
+    `, [userId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get user products error:", err);
+    // Return empty array if products table doesn't exist or has issues
+    res.json([]);
   }
 });
 

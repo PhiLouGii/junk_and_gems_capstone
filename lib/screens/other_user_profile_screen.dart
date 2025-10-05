@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
-import 'package:junk_and_gems/services/user_service.dart';
 
 class OtherUserProfileScreen extends StatefulWidget {
   final String userName;
@@ -34,16 +33,14 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      final [profileData, donationsData, productsData] = await Future.wait([
-        UserService.getOtherUserProfile(widget.userId),
-        UserService.getDonationsByUserId(widget.userId),
-        UserService.getProductsByUserId(widget.userId),
-      ]);
+      final profileData = await UserService.getOtherUserProfile(widget.userId);
+      final donationsData = await UserService.getDonationsByUserId(widget.userId);
+      final productsData = await UserService.getProductsByUserId(widget.userId);
 
       setState(() {
-        userProfile = profileData as Map<String, dynamic>;
-        donations = donationsData as List<dynamic>;
-        products = productsData as List<dynamic>;
+        userProfile = profileData;
+        donations = donationsData;
+        products = productsData;
         isLoading = false;
       });
     } catch (e) {
@@ -90,7 +87,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                     const SizedBox(height: 24),
                     _buildUserStats(context),
                     const SizedBox(height: 24),
-                    _buildMessageButton(context),
+                    _buildActionButtons(context), // Updated to include both message and report
                     const SizedBox(height: 32),
                     _buildRecentDonations(context),
                     const SizedBox(height: 32),
@@ -265,35 +262,166 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
-  Widget _buildMessageButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          _showMessageDialog(context);
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF88844D),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+  Widget _buildActionButtons(BuildContext context) {
+    return Row(
+      children: [
+        // Message Button
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              _showMessageDialog(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF88844D),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.message, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Message User',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
-          elevation: 2,
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.message, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'Message User',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+        const SizedBox(width: 12),
+        
+        // Report Button
+        Container(
+          width: 60,
+          child: ElevatedButton(
+            onPressed: () {
+              _showReportDialog(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).brightness == Brightness.dark 
+                  ? const Color(0xFF3A3A3A) 
+                  : const Color(0xFFE4E5C2),
+              foregroundColor: const Color(0xFF88844D),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+            child: const Icon(Icons.flag, size: 20),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Add this new method for the report dialog
+  void _showReportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Report ${widget.userName}',
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Please select a reason for reporting:',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildReportOption('Inappropriate content', context),
+              _buildReportOption('Harassment or bullying', context),
+              _buildReportOption('Spam or misleading information', context),
+              _buildReportOption('Impersonation', context),
+              _buildReportOption('Other', context),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                ),
               ),
             ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _showReportSubmittedSnackbar(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF88844D),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Submit Report'),
+            ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReportOption(String text, BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(
+            Icons.radio_button_unchecked,
+            size: 20,
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportSubmittedSnackbar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF88844D),
+        content: Text(
+          'Report submitted for ${widget.userName}',
+          style: const TextStyle(color: Colors.white),
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
