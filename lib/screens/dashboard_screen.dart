@@ -154,7 +154,7 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
                 const SizedBox(height: 24),
                 _buildQuickActions(context),
                 const SizedBox(height: 24),
-                _buildImpactSection(), // UPDATED: Now uses real data
+                _buildImpactSection(), 
                 const SizedBox(height: 24),
                 _buildArtisanCarousel(),
                 const SizedBox(height: 24),
@@ -246,6 +246,8 @@ Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contribu
             }),
             _buildUpcycledCard('Denim Handbag', 'assets/images/upcycled1.jpg'),
             _buildUpcycledCard('Beer Bottle Wall Art', 'assets/images/upcycled2.jpg'),
+            _buildUpcycledCard('Buttons Woman Figure', 'assets/images/upcycled3.jpg'),
+            _buildUpcycledCard('Wine corks Coasters', 'assets/images/upcycled4.jpg'),
           ],
         ),
       ],
