@@ -33,9 +33,15 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
 
   Future<void> _loadUserData() async {
     try {
+      print('🔄 Loading user data for user ID: ${widget.userId}');
+      
       final profileData = await UserService.getOtherUserProfile(widget.userId);
       final donationsData = await UserService.getDonationsByUserId(widget.userId);
       final productsData = await UserService.getProductsByUserId(widget.userId);
+
+      print('📊 Profile data: $profileData');
+      print('📦 Donations data: $donationsData');
+      print('🛍️ Products data: $productsData');
 
       setState(() {
         userProfile = profileData;
@@ -44,7 +50,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading user data: $e');
+      print('❌ Error loading user data: $e');
       setState(() {
         isLoading = false;
       });
@@ -87,7 +93,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                     const SizedBox(height: 24),
                     _buildUserStats(context),
                     const SizedBox(height: 24),
-                    _buildActionButtons(context), // Updated to include both message and report
+                    _buildActionButtons(context),
                     const SizedBox(height: 32),
                     _buildRecentDonations(context),
                     const SizedBox(height: 32),
@@ -126,7 +132,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     return Center(
       child: Column(
         children: [
-          // Profile Picture
           Container(
             width: 100,
             height: 100,
@@ -162,8 +167,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                   ),
           ),
           const SizedBox(height: 16),
-          
-          // User Name
           Text(
             widget.userName,
             style: TextStyle(
@@ -173,8 +176,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          
-          // User Type and Specialty
           if (userType.isNotEmpty || specialty.isNotEmpty) ...[
             Text(
               _getUserTypeDisplay(userType, specialty),
@@ -186,8 +187,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
             ),
             const SizedBox(height: 8),
           ],
-          
-          // Bio
           if (bio.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -262,6 +261,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
+  // NEW: Combined action buttons with message and report
   Widget _buildActionButtons(BuildContext context) {
     return Row(
       children: [
@@ -274,7 +274,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF88844D),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -298,7 +298,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         ),
         const SizedBox(width: 12),
         
-        // Report Button
+        // Report Button (Flag Icon)
         Container(
           width: 60,
           child: ElevatedButton(
@@ -310,7 +310,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                   ? const Color(0xFF3A3A3A) 
                   : const Color(0xFFE4E5C2),
               foregroundColor: const Color(0xFF88844D),
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -323,7 +323,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
-  // Add this new method for the report dialog
+  // NEW: Report dialog method
   void _showReportDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -463,6 +463,9 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   Widget _buildDonationCard(Map<String, dynamic> donation) {
+    // Debug print to see what data we're receiving
+    print('🎁 Donation data: $donation');
+    
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -482,7 +485,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Donation Image
             Container(
               width: 60,
               height: 60,
@@ -492,36 +494,15 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                     ? const Color(0xFF3A3A3A) 
                     : const Color(0xFFE4E5C2),
               ),
-              child: donation['image_urls'] != null && donation['image_urls'].isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        donation['image_urls'][0],
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.recycling,
-                            size: 24,
-                            color: const Color(0xFF88844D),
-                          );
-                        },
-                      ),
-                    )
-                  : Icon(
-                      Icons.recycling,
-                      size: 24,
-                      color: const Color(0xFF88844D),
-                    ),
+              child: _buildDonationImage(donation),
             ),
             const SizedBox(width: 12),
-            
-            // Donation Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    donation['title'] ?? 'Untitled Donation',
+                    donation['title']?.toString() ?? 'Untitled Donation',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -530,7 +511,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    donation['description'] ?? 'No description',
+                    donation['description']?.toString() ?? 'No description',
                     style: TextStyle(
                       fontSize: 14,
                       color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
@@ -540,18 +521,61 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Quantity: ${donation['quantity'] ?? 'N/A'}',
+                    'Quantity: ${donation['quantity']?.toString() ?? 'N/A'}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                     ),
                   ),
+                  if (donation['category'] != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Category: ${donation['category']}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDonationImage(Map<String, dynamic> donation) {
+    // Handle different possible image field names
+    final imageUrls = donation['image_urls'] ?? donation['image_data_base64'] ?? [];
+    final firstImage = imageUrls is List && imageUrls.isNotEmpty ? imageUrls[0] : null;
+    
+    if (firstImage != null && firstImage.toString().isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          firstImage.toString(),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildDonationPlaceholder();
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _buildDonationPlaceholder();
+          },
+        ),
+      );
+    }
+    
+    return _buildDonationPlaceholder();
+  }
+
+  Widget _buildDonationPlaceholder() {
+    return Icon(
+      Icons.recycling,
+      size: 24,
+      color: const Color(0xFF88844D),
     );
   }
 
@@ -617,7 +641,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Product Image
           Container(
             height: 100,
             width: double.infinity,
@@ -637,7 +660,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                       topRight: Radius.circular(12),
                     ),
                     child: Image.network(
-                      product['image_url'],
+                      product['image_url'].toString(),
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Icon(
@@ -654,15 +677,13 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                     color: const Color(0xFF88844D),
                   ),
           ),
-          
-          // Product Details
           Padding(
             padding: const EdgeInsets.all(8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  product['title'] ?? 'Untitled Product',
+                  product['title']?.toString() ?? 'Untitled Product',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

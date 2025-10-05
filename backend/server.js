@@ -1496,27 +1496,17 @@ app.get("/api/users/:userId/profile", async (req, res) => {
 
     const user = userResult.rows[0];
     
-    // Get user stats from materials table
+    // Get user's materials count
     const donationsCount = await pool.query(
       'SELECT COUNT(*) FROM materials WHERE uploader_id = $1',
       [userId]
     );
     
-    // Get products count (if products table exists with creator_id)
-    let productsCount = { rows: [{ count: '0' }] };
-    try {
-      productsCount = await pool.query(
-        'SELECT COUNT(*) FROM products WHERE creator_id = $1',
-        [userId]
-      );
-    } catch (err) {
-      console.log('Products table might not exist yet, using 0');
-    }
-
+    // For now, return 0 for products until we have a products table
     res.json({
       ...user,
       total_donations: parseInt(donationsCount.rows[0].count),
-      total_products: parseInt(productsCount.rows[0].count)
+      total_products: 0 // Default to 0 for now
     });
   } catch (err) {
     console.error("Get user profile error:", err);
