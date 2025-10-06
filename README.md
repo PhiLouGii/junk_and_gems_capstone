@@ -31,7 +31,7 @@ git clone https://github.com/PhiLouGii/junk_and_gems_capstone.git
 cd junk_and_gems/backend
 ```
 
-2. Intall dependencies:
+2. Install dependencies:
 ```bash
 npm install
 ```
@@ -94,6 +94,9 @@ Figma design includes:
 - Chat, Notifications and Messages screens
 - Cart and Checkout screens
 
+*Figma prototype can be found in the ```designs_screenshots``` folder
+
+### Style Guide
 <img src="designs_screenshots/junk_and_gems_style_guide.png" alt="Style Guide" width="200">
 
 
