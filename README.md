@@ -84,7 +84,7 @@ flutter run
 - **Authentication**: JWT & bcrypt
 
 ### UI/UX Designs
-Figma was used to design the screens and the prototype as well as a style guide to envision what colours and theme will be utilised/ 
+Figma was used to design the screens and the prototype as well as a style guide to envision what colours and theme will be utilised
 
 Figma design includes: 
 - Onboarding screens
@@ -93,6 +93,9 @@ Figma design includes:
 - Upcycled artwork and listing screens
 - Chat, Notifications and Messages screens
 - Cart and Checkout screens
+
+<img src="design_screenshots/junk_and_gems_style_guide.png" alt="Style Guide" width="400">
+
 
 ## Deployment Plan
 ```markdown
