@@ -100,7 +100,19 @@ Figma design includes:
 |--------------------|--------------------|---------------------------|----------------|
 | Mobile App         | Android & iOS      | Google Play & App Store   | 🟡 In Progress |
 | Backend API        | Node.js            | Render                    | 🟡 In Progress |
-| Database           | PostgreSQL         | Render                    | ✅             |
-| Image Storage      | Cloudinary         | Cloudinary                | ✅             | 
+| Database           | PostgreSQL         | Render                    | ✅ Okay        |
+| Image Storage      | Cloudinary         | Cloudinary                | ✅ Okay        | 
 | Web Dashboard      | React + TypeScript | Vercel                    | 🟡 In Progress |
 ```
+
+## Video Demo
+
+## Project Structure
+
+## Screenshots
+
+## Author
+Philippa Louise Giibwa
+Bsc. Software Engineering, ALU (2025)
+📧 p.giibwa@alustudent.com
+Supervisor: Pelin Mutanguha
