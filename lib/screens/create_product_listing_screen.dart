@@ -325,31 +325,31 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 
   Future<void> _submitProduct() async {
-    // Validate required fields
-    if (_titleController.text.isEmpty) {
-      _showErrorDialog('Please enter a product name');
-      return;
-    }
+  // Validate required fields
+  if (_titleController.text.isEmpty) {
+    _showErrorDialog('Please enter a product name');
+    return;
+  }
 
-    if (_descriptionController.text.isEmpty) {
-      _showErrorDialog('Please enter a product description');
-      return;
-    }
+  if (_descriptionController.text.isEmpty) {
+    _showErrorDialog('Please enter a product description');
+    return;
+  }
 
-    if (_selectedCategory == null) {
-      _showErrorDialog('Please select a product category');
-      return;
-    }
+  if (_selectedCategory == null) {
+    _showErrorDialog('Please select a product category');
+    return;
+  }
 
-    if (_selectedCondition == null) {
-      _showErrorDialog('Please select the product condition');
-      return;
-    }
+  if (_selectedCondition == null) {
+    _showErrorDialog('Please select the product condition');
+    return;
+  }
 
-    if (_price <= 0) {
-      _showErrorDialog('Please enter a valid price');
-      return;
-    }
+  if (_price <= 0) {
+    _showErrorDialog('Please enter a valid price');
+    return;
+  }
 
     setState(() {
       _isSubmitting = true;
@@ -367,6 +367,19 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         });
         return;
       }
+
+      final setupResponse = await http.post(
+      Uri.parse('http://10.0.2.2:3003/api/setup-products-table'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (setupResponse.statusCode != 200) {
+      _showErrorDialog('Failed to setup products table. Please try again.');
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
 
       // Prepare the product data
       final productData = {
@@ -397,21 +410,21 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       print('Response body: ${response.body}');
 
       if (response.statusCode == 201) {
-        _showSuccessDialog();
-      } else {
-        final errorData = json.decode(response.body);
-        final errorMessage = errorData['error'] ?? 'Failed to create product (Status: ${response.statusCode})';
-        _showErrorDialog(errorMessage);
-      }
-    } catch (error) {
-      print('Error submitting product: $error');
-      _showErrorDialog('Network error: $error');
-    } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      _showSuccessDialog();
+    } else {
+      final errorData = json.decode(response.body);
+      final errorMessage = errorData['error'] ?? 'Failed to create product (Status: ${response.statusCode})';
+      _showErrorDialog(errorMessage);
     }
+    } catch (error) {
+    print('Error submitting product: $error');
+    _showErrorDialog('Network error: $error');
+  } finally {
+    setState(() {
+      _isSubmitting = false;
+    });
   }
+}
 
   void _showErrorDialog(String message) {
     showDialog(

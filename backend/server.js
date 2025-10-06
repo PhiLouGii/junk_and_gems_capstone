@@ -12,7 +12,7 @@ const app = express();
 const port = 3003;
 
 app.use(cors({
-  origin: ['http://localhost:3003', 'http://10.0.2.2:3003', 'http://127.0.0.1:3003', 'http://localhost:3003'],
+  origin: ['http://localhost:3003', 'http://10.0.2.2:3003', 'http://127.0.0.1:3003', 'http://localhost:3000'],
   credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -521,7 +521,7 @@ app.post("/api/fix-user-profile-pictures", async (req, res) => {
   }
 });
 
-// --- CHAT ENDPOINTS (keep existing) ---
+// --- CHAT ENDPOINTS ---
 app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, res) => {
   const { userId1, userId2 } = req.params;
   
@@ -603,26 +603,6 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
 
     console.log(`✅ Found ${result.rows.length} conversations for user ${userId}`);
     
-    // Debug: log the actual conversations found
-    if (result.rows.length > 0) {
-      console.log('🎯 Conversations found:', result.rows);
-    } else {
-      console.log('❌ No conversations found with current query');
-      
-      // Let's try a simpler query to debug
-      const debugResult = await pool.query(`
-        SELECT 
-          c.id as conversation_id,
-          cp.user_id,
-          (SELECT COUNT(*) FROM conversation_participants WHERE conversation_id = c.id) as participant_count
-        FROM conversations c
-        JOIN conversation_participants cp ON c.id = cp.conversation_id
-        WHERE cp.user_id = $1
-      `, [userId]);
-      
-      console.log('🔍 Debug query result:', debugResult.rows);
-    }
-    
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Get conversations error:", err);
@@ -633,52 +613,25 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
   }
 });
 
-app.get("/api/debug/user-conversations/:userId", async (req, res) => {
-  const { userId } = req.params;
-  
-  try {
-    console.log(`🔍 Debug: Checking conversations for user ${userId}`);
-    
-    // Check conversation participants
-    const participants = await pool.query(`
-      SELECT cp.*, u.name as user_name
-      FROM conversation_participants cp
-      JOIN users u ON cp.user_id = u.id
-      WHERE cp.conversation_id IN (
-        SELECT conversation_id FROM conversation_participants WHERE user_id = $1
-      )
-      ORDER BY cp.conversation_id, cp.user_id
-    `, [userId]);
-    
-    // Check messages
-    const messages = await pool.query(`
-      SELECT m.*, u.name as sender_name
-      FROM messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.conversation_id IN (
-        SELECT conversation_id FROM conversation_participants WHERE user_id = $1
-      )
-      ORDER BY m.conversation_id, m.sent_at
-    `, [userId]);
-    
-    res.json({
-      user_id: userId,
-      participant_data: participants.rows,
-      message_data: messages.rows,
-      summary: {
-        total_conversations: new Set(participants.rows.map(p => p.conversation_id)).size,
-        total_messages: messages.rows.length
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   
+  console.log(`📨 Loading messages for conversation: ${conversationId}`);
+  
   try {
+    // First check if user has access to this conversation
+    const accessCheck = await pool.query(`
+      SELECT 1 FROM conversation_participants 
+      WHERE conversation_id = $1 AND user_id = $2
+    `, [conversationId, req.user.id]);
+
+    if (accessCheck.rows.length === 0) {
+      console.log(`❌ User ${req.user.id} doesn't have access to conversation ${conversationId}`);
+      return res.status(403).json({ error: "Access denied to this conversation" });
+    }
+
+    console.log(`✅ User ${req.user.id} has access to conversation ${conversationId}`);
+
     const result = await pool.query(`
       SELECT 
         m.*,
@@ -690,10 +643,15 @@ app.get("/api/conversations/:conversationId/messages", authenticateToken, async 
       ORDER BY m.sent_at ASC
     `, [conversationId]);
 
+    console.log(`✅ Found ${result.rows.length} messages for conversation ${conversationId}`);
+    
     res.json(result.rows);
   } catch (err) {
-    console.error("Get messages error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Get messages error:", err);
+    res.status(500).json({ 
+      error: "Server error: " + err.message,
+      details: "Check server logs for more information"
+    });
   }
 });
 
@@ -939,406 +897,61 @@ app.post("/api/setup-messaging", async (req, res) => {
   }
 });
 
-
-app.get("/api/debug/users", async (req, res) => {
+// Setup products table
+app.post("/api/setup-products-table", async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, email FROM users ORDER BY id');
-    res.json({
-      total_users: result.rows.length,
-      users: result.rows
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    console.log('Creating products table...');
 
-// Test if specific users exist
-app.get("/api/debug/users/:id", async (req, res) => {
-  try {
-    const result = await pool.query('SELECT id, name, email FROM users WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: `User ${req.params.id} not found` });
-    }
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10,2) NOT NULL,
+        category VARCHAR(100),
+        condition VARCHAR(50),
+        materials_used TEXT,
+        dimensions VARCHAR(100),
+        location VARCHAR(255),
+        image_url VARCHAR(500),
+        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✓ Created products table');
 
-// Helper function to format time ago
-function formatTimeAgo(date) {
-  const now = new Date();
-  const diffMs = now - new Date(date);
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} mins ago`;
-  if (diffHours < 24) return `${diffHours} hrs ago`;
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return new Date(date).toLocaleDateString();
-}
-
-app.get("/api/debug/all-users", async (req, res) => {
-  try {
-    const result = await pool.query('SELECT id, name, email FROM users ORDER BY id');
-    res.json({
-      total_users: result.rows.length,
-      users: result.rows
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get user's cart
-app.get("/api/cart", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-
-  try {
-    // Get or create cart for user
-    let cart = await pool.query(
-      "SELECT * FROM carts WHERE user_id = $1",
-      [userId]
-    );
-
-    if (cart.rows.length === 0) {
-      const newCart = await pool.query(
-        "INSERT INTO carts (user_id) VALUES ($1) RETURNING *",
-        [userId]
-      );
-      cart = newCart;
-    }
-
-    const cartId = cart.rows[0].id;
-
-    // Get cart items with product details
-    const cartItems = await pool.query(`
-      SELECT 
-        ci.*,
-        p.title,
-        p.price,
-        p.image_url,
-        p.description
-      FROM cart_items ci
-      JOIN products p ON ci.product_id = p.id
-      WHERE ci.cart_id = $1
-    `, [cartId]);
-
-    res.json({
-      cartId: cartId,
-      items: cartItems.rows,
-      totalItems: cartItems.rows.reduce((sum, item) => sum + item.quantity, 0)
-    });
-  } catch (err) {
-    console.error("Get cart error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Add item to cart
-app.post("/api/cart/items", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-  const { productId, quantity = 1 } = req.body;
-
-  try {
-    // Get user's cart
-    let cart = await pool.query(
-      "SELECT * FROM carts WHERE user_id = $1",
-      [userId]
-    );
-
-    if (cart.rows.length === 0) {
-      const newCart = await pool.query(
-        "INSERT INTO carts (user_id) VALUES ($1) RETURNING *",
-        [userId]
-      );
-      cart = newCart;
-    }
-
-    const cartId = cart.rows[0].id;
-
-    // Check if item already exists in cart
-    const existingItem = await pool.query(
-      "SELECT * FROM cart_items WHERE cart_id = $1 AND product_id = $2",
-      [cartId, productId]
-    );
-
-    if (existingItem.rows.length > 0) {
-      // Update quantity if item exists
-      const updatedItem = await pool.query(
-        "UPDATE cart_items SET quantity = quantity + $1, updated_at = NOW() WHERE cart_id = $2 AND product_id = $3 RETURNING *",
-        [quantity, cartId, productId]
-      );
-      res.json(updatedItem.rows[0]);
-    } else {
-      // Add new item to cart
-      const newItem = await pool.query(
-        "INSERT INTO cart_items (cart_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
-        [cartId, productId, quantity]
-      );
-      res.status(201).json(newItem.rows[0]);
-    }
-  } catch (err) {
-    console.error("Add to cart error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Update cart item quantity
-app.put("/api/cart/items/:itemId", authenticateToken, async (req, res) => {
-  const { itemId } = req.params;
-  const { quantity } = req.body;
-  const userId = req.user.id;
-
-  try {
-    // Verify user owns this cart item
-    const cartItem = await pool.query(`
-      SELECT ci.* FROM cart_items ci
-      JOIN carts c ON ci.cart_id = c.id
-      WHERE ci.id = $1 AND c.user_id = $2
-    `, [itemId, userId]);
-
-    if (cartItem.rows.length === 0) {
-      return res.status(404).json({ error: "Cart item not found" });
-    }
-
-    if (quantity <= 0) {
-      // Remove item if quantity is 0 or less
-      await pool.query("DELETE FROM cart_items WHERE id = $1", [itemId]);
-      res.json({ message: "Item removed from cart" });
-    } else {
-      // Update quantity
-      const updatedItem = await pool.query(
-        "UPDATE cart_items SET quantity = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
-        [quantity, itemId]
-      );
-      res.json(updatedItem.rows[0]);
-    }
-  } catch (err) {
-    console.error("Update cart item error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Remove item from cart
-app.delete("/api/cart/items/:itemId", authenticateToken, async (req, res) => {
-  const { itemId } = req.params;
-  const userId = req.user.id;
-
-  try {
-    // Verify user owns this cart item
-    const cartItem = await pool.query(`
-      SELECT ci.* FROM cart_items ci
-      JOIN carts c ON ci.cart_id = c.id
-      WHERE ci.id = $1 AND c.user_id = $2
-    `, [itemId, userId]);
-
-    if (cartItem.rows.length === 0) {
-      return res.status(404).json({ error: "Cart item not found" });
-    }
-
-    await pool.query("DELETE FROM cart_items WHERE id = $1", [itemId]);
-    res.json({ message: "Item removed from cart" });
-  } catch (err) {
-    console.error("Remove cart item error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Clear entire cart
-app.delete("/api/cart", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-
-  try {
-    const cart = await pool.query(
-      "SELECT * FROM carts WHERE user_id = $1",
-      [userId]
-    );
-
-    if (cart.rows.length === 0) {
-      return res.status(404).json({ error: "Cart not found" });
-    }
-
-    const cartId = cart.rows[0].id;
-    await pool.query("DELETE FROM cart_items WHERE cart_id = $1", [cartId]);
-    
-    res.json({ message: "Cart cleared successfully" });
-  } catch (err) {
-    console.error("Clear cart error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// --- CHECKOUT ENDPOINTS ---
-
-// Create order from cart
-app.post("/api/orders", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-  const { appliedGems = 0, shippingAddress, paymentMethod } = req.body;
-
-  try {
-    // Get user's cart with items
-    const cart = await pool.query(`
-      SELECT 
-        c.id as cart_id,
-        ci.product_id,
-        ci.quantity,
-        p.title,
-        p.price,
-        p.image_url,
-        u.available_gems
-      FROM carts c
-      JOIN cart_items ci ON c.id = ci.cart_id
-      JOIN products p ON ci.product_id = p.id
-      JOIN users u ON c.user_id = u.id
-      WHERE c.user_id = $1
-    `, [userId]);
-
-    if (cart.rows.length === 0) {
-      return res.status(400).json({ error: "Cart is empty" });
-    }
-
-    // Calculate totals
-    const subtotal = cart.rows.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    // Validate applied gems
-    const availableGems = cart.rows[0].available_gems || 0;
-    const actualAppliedGems = Math.min(appliedGems, availableGems, subtotal);
-    
-    const total = subtotal - actualAppliedGems;
-
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Start transaction
-    const client = await pool.connect();
+    // Create index for better performance
     try {
-      await client.query('BEGIN');
-
-      // Create order
-      const orderResult = await client.query(`
-        INSERT INTO orders (user_id, order_number, subtotal, gems_discount, total_amount, shipping_address, payment_method)
-        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-      `, [userId, orderNumber, subtotal, actualAppliedGems, total, shippingAddress, paymentMethod]);
-
-      const order = orderResult.rows[0];
-
-      // Create order items
-      for (const item of cart.rows) {
-        await client.query(`
-          INSERT INTO order_items (order_id, product_id, quantity, price_at_time)
-          VALUES ($1, $2, $3, $4)
-        `, [order.id, item.product_id, item.quantity, item.price]);
-      }
-
-      // Update user's gems if any were applied
-      if (actualAppliedGems > 0) {
-        await client.query(
-          "UPDATE users SET available_gems = available_gems - $1 WHERE id = $2",
-          [actualAppliedGems, userId]
-        );
-      }
-
-      // Clear the cart
-      await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cart.rows[0].cart_id]);
-
-      await client.query('COMMIT');
-
-      // Get complete order details
-      const orderDetails = await pool.query(`
-        SELECT 
-          o.*,
-          json_agg(
-            json_build_object(
-              'product_id', oi.product_id,
-              'title', p.title,
-              'price', oi.price_at_time,
-              'quantity', oi.quantity,
-              'image_url', p.image_url
-            )
-          ) as items
-        FROM orders o
-        JOIN order_items oi ON o.id = oi.order_id
-        JOIN products p ON oi.product_id = p.id
-        WHERE o.id = $1
-        GROUP BY o.id
-      `, [order.id]);
-
-      res.status(201).json({
-        success: true,
-        order: orderDetails.rows[0],
-        message: "Order created successfully"
-      });
-
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC)`);
+      console.log('✓ Created index on created_at');
+    } catch (indexErr) {
+      console.log('Index creation for created_at failed:', indexErr.message);
     }
 
+    res.json({ 
+      success: true, 
+      message: "Products table setup completed successfully" 
+    });
   } catch (err) {
-    console.error("Create order error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
+    console.error("Setup products table error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
 
-// Get user's orders
-app.get("/api/orders", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-
+// Get all products
+app.get("/api/products", async (req, res) => {
   try {
-    const orders = await pool.query(`
-      SELECT 
-        o.*,
-        json_agg(
-          json_build_object(
-            'product_id', oi.product_id,
-            'title', p.title,
-            'price', oi.price_at_time,
-            'quantity', oi.quantity,
-            'image_url', p.image_url
-          )
-        ) as items
-      FROM orders o
-      JOIN order_items oi ON o.id = oi.order_id
-      JOIN products p ON oi.product_id = p.id
-      WHERE o.user_id = $1
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
-    `, [userId]);
-
-    res.json(orders.rows);
+    const result = await pool.query(`
+      SELECT * FROM products 
+      ORDER BY created_at DESC
+    `);
+    res.json(result.rows);
   } catch (err) {
-    console.error("Get orders error:", err);
+    console.error("Get products error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
-
-// Get user's available gems
-app.get("/api/user/gems", authenticateToken, async (req, res) => {
-  const userId = req.user.id;
-
-  try {
-    const result = await pool.query(
-      "SELECT available_gems FROM users WHERE id = $1",
-      [userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({ available_gems: result.rows[0].available_gems });
-  } catch (err) {
-    console.error("Get user gems error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// --- PRODUCTS ENDPOINTS ---
 
 // Create new product listing
 app.post("/api/products", async (req, res) => {
@@ -1426,315 +1039,7 @@ app.post("/api/products", async (req, res) => {
   }
 });
 
-// Setup products table
-app.post("/api/setup-products-table", async (req, res) => {
-  try {
-    console.log('Creating products table...');
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        description TEXT,
-        price DECIMAL(10,2) NOT NULL,
-        category VARCHAR(100),
-        condition VARCHAR(50),
-        materials_used TEXT,
-        dimensions VARCHAR(100),
-        location VARCHAR(255),
-        image_url VARCHAR(500),
-        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    console.log('✓ Created products table');
-
-     res.json({ 
-      success: true, 
-      message: "Products table setup completed successfully" 
-    });
-  } catch (err) {
-    console.error("Setup products table error:", err);
-    res.status(500).json({ error: "Setup failed: " + err.message });
-  }
-});
-
-    // Create index for better performance
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_products_creator_id ON products(creator_id);
-      CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC);
-    `);
-    console.log('✓ Created indexes for products table');
-
-    res.json({ 
-      success: true, 
-      message: "Products table setup completed successfully" 
-    });
-
-// Get all products
-app.get("/api/products", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT * FROM products 
-      ORDER BY created_at DESC
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Get products error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Add some sample products (run this once)
-app.post("/api/setup-products", async (req, res) => {
-  try {
-    // Insert sample products
-    const sampleProducts = [
-      {
-        title: 'Sta-Soft Lamp',
-        description: 'Beautiful lamp made from recycled materials',
-        price: 400,
-        image_url: 'assets/images/featured3.jpg',
-        category: 'lighting'
-      },
-      {
-        title: 'Can Tab Lamp',
-        description: 'Creative lamp made from can tabs',
-        price: 650,
-        image_url: 'assets/images/featured6.jpg',
-        category: 'lighting'
-      },
-      {
-        title: 'Denim Patchwork Bag',
-        description: 'Unique bag made from denim patches',
-        price: 330,
-        image_url: 'assets/images/upcycled1.jpg',
-        category: 'accessories'
-      }
-    ];
-
-    for (const product of sampleProducts) {
-      await pool.query(
-        `INSERT INTO products (title, description, price, image_url, category) 
-         VALUES ($1, $2, $3, $4, $5)`,
-        [product.title, product.description, product.price, product.image_url, product.category]
-      );
-    }
-
-    res.json({ message: "Sample products added successfully" });
-  } catch (err) {
-    console.error("Setup products error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-app.get("/api/conversations/users/:userId1/:userId2", authenticateToken, async (req, res) => {
-  const { userId1, userId2 } = req.params;
-  
-  try {
-    const result = await pool.query(`
-      SELECT c.* 
-      FROM conversations c
-      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
-      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
-      WHERE cp1.user_id = $1 AND cp2.user_id = $2
-      LIMIT 1
-    `, [userId1, userId2]);
-
-    if (result.rows.length > 0) {
-      res.json(result.rows[0]);
-    } else {
-      res.status(404).json({ error: "Conversation not found" });
-    }
-  } catch (err) {
-    console.error("Get conversation between users error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-app.get("/api/debug/conversations/:conversationId/messages", async (req, res) => {
-  const { conversationId } = req.params;
-  
-  console.log(`🔍 DEBUG: Checking messages for conversation ${conversationId}`);
-  
-  try {
-    // First check if conversation exists
-    const conversationCheck = await pool.query(
-      'SELECT * FROM conversations WHERE id = $1',
-      [conversationId]
-    );
-    
-    if (conversationCheck.rows.length === 0) {
-      return res.json({ 
-        error: 'Conversation not found',
-        conversationId: conversationId 
-      });
-    }
-    
-    console.log(`✅ Conversation ${conversationId} exists`);
-    
-    // Check participants
-    const participants = await pool.query(
-      'SELECT * FROM conversation_participants WHERE conversation_id = $1',
-      [conversationId]
-    );
-    
-    console.log(`✅ Participants: ${participants.rows.length}`);
-    
-    // Get messages
-    const messages = await pool.query(`
-      SELECT 
-        m.*,
-        u.name as sender_name,
-        u.profile_image_url as sender_avatar
-      FROM messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.conversation_id = $1
-      ORDER BY m.sent_at ASC
-    `, [conversationId]);
-    
-    console.log(`✅ Found ${messages.rows.length} messages`);
-    
-    res.json({
-      conversation_exists: true,
-      participant_count: participants.rows.length,
-      message_count: messages.rows.length,
-      participants: participants.rows,
-      messages: messages.rows
-    });
-    
-  } catch (err) {
-    console.error("Debug conversation error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
-  const { conversationId } = req.params;
-  
-  console.log(`📨 Loading messages for conversation: ${conversationId}`);
-  
-  try {
-    // First check if user has access to this conversation
-    const accessCheck = await pool.query(`
-      SELECT 1 FROM conversation_participants 
-      WHERE conversation_id = $1 AND user_id = $2
-    `, [conversationId, req.user.id]);
-
-    if (accessCheck.rows.length === 0) {
-      console.log(`❌ User ${req.user.id} doesn't have access to conversation ${conversationId}`);
-      return res.status(403).json({ error: "Access denied to this conversation" });
-    }
-
-    console.log(`✅ User ${req.user.id} has access to conversation ${conversationId}`);
-
-    const result = await pool.query(`
-      SELECT 
-        m.*,
-        u.name as sender_name,
-        u.profile_image_url as sender_avatar
-      FROM messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.conversation_id = $1
-      ORDER BY m.sent_at ASC
-    `, [conversationId]);
-
-    console.log(`✅ Found ${result.rows.length} messages for conversation ${conversationId}`);
-    
-    res.json(result.rows);
-  } catch (err) {
-    console.error("❌ Get messages error:", err);
-    res.status(500).json({ 
-      error: "Server error: " + err.message,
-      details: "Check server logs for more information"
-    });
-  }
-});
-
-app.get("/api/test-messages/:conversationId", async (req, res) => {
-  const { conversationId } = req.params;
-  
-  try {
-    const result = await pool.query(`
-      SELECT 
-        m.*,
-        u.name as sender_name
-      FROM messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.conversation_id = $1
-      ORDER BY m.sent_at ASC
-    `, [conversationId]);
-
-    res.json({
-      conversation_id: conversationId,
-      message_count: result.rows.length,
-      messages: result.rows
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Get user's donations
-app.get("/api/users/:userId/donations", async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const result = await pool.query(`
-      SELECT 
-        m.*,
-        u.name as uploader_name,
-        u.profile_image_url as uploader_avatar
-      FROM materials m
-      JOIN users u ON m.uploader_id = u.id
-      WHERE m.uploader_id = $1
-      ORDER BY m.created_at DESC
-    `, [userId]);
-
-    const donations = result.rows.map(material => ({
-      id: material.id,
-      title: material.title,
-      description: material.description,
-      category: material.category,
-      quantity: material.quantity,
-      location: material.location,
-      image_urls: material.image_data_base64 ? material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
-      created_at: material.created_at,
-      time: formatTimeAgo(material.created_at),
-      is_claimed: material.is_claimed
-    }));
-
-    res.json(donations);
-  } catch (err) {
-    console.error("Get user donations error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Get user's upcycled products
-app.get("/api/users/:userId/products", async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const result = await pool.query(`
-      SELECT 
-        p.*,
-        u.name as creator_name,
-        u.profile_image_url as creator_avatar
-      FROM products p
-      JOIN users u ON p.creator_id = u.id
-      WHERE p.creator_id = $1
-      ORDER BY p.created_at DESC
-    `, [userId]);
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Get user products error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
+// Get user's profile
 app.get("/api/users/:userId/profile", async (req, res) => {
   const { userId } = req.params;
 
@@ -1782,7 +1087,7 @@ app.get("/api/users/:userId/profile", async (req, res) => {
   }
 });
 
-// Get user's donations (materials they uploaded)
+// Get user's donations
 app.get("/api/users/:userId/donations", async (req, res) => {
   const { userId } = req.params;
 
@@ -1819,7 +1124,7 @@ app.get("/api/users/:userId/donations", async (req, res) => {
   }
 });
 
-// Get user's products (if products table exists)
+// Get user's products
 app.get("/api/users/:userId/products", async (req, res) => {
   const { userId } = req.params;
 
@@ -1855,6 +1160,7 @@ app.get("/api/users/:userId/products", async (req, res) => {
   }
 });
 
+// Get user's impact
 app.get("/api/users/:userId/impact", async (req, res) => {
   const { userId } = req.params;
 
@@ -1885,96 +1191,7 @@ app.get("/api/users/:userId/impact", async (req, res) => {
   }
 });
 
-app.get("/api/debug/artisans", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        id, name, username, profile_image_url, specialty, bio,
-        donation_count::integer, created_at, user_type
-      FROM users 
-      WHERE user_type IN ('artisan', 'both')
-      ORDER BY donation_count::integer DESC, created_at DESC
-      LIMIT 10
-    `);
-    
-    console.log('🔍 Debug artisans query result:', result.rows);
-    res.json({
-      query: 'artisans',
-      count: result.rows.length,
-      data: result.rows
-    });
-  } catch (err) {
-    console.error("Debug artisans error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Debug endpoint to check contributors
-app.get("/api/debug/contributors", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        u.id, u.name, u.username, u.profile_image_url, 
-        u.specialty, u.bio, u.donation_count::integer, u.created_at, u.user_type,
-        COUNT(m.id)::integer as material_count,
-        COALESCE(STRING_AGG(DISTINCT m.category, ', '), 'Various') as top_categories
-      FROM users u
-      LEFT JOIN materials m ON u.id = m.uploader_id
-      WHERE u.user_type IN ('contributor', 'both') OR m.id IS NOT NULL
-      GROUP BY u.id, u.name, u.username, u.profile_image_url, 
-               u.specialty, u.bio, u.donation_count, u.created_at, u.user_type
-      ORDER BY u.donation_count::integer DESC, material_count DESC
-      LIMIT 10
-    `);
-    
-    console.log('🔍 Debug contributors query result:', result.rows);
-    res.json({
-      query: 'contributors',
-      count: result.rows.length,
-      data: result.rows
-    });
-  } catch (err) {
-    console.error("Debug contributors error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Make sure you have the impact endpoint
-app.get("/api/users/:userId/impact", async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const userResult = await pool.query(`
-      SELECT 
-        donation_count,
-        available_gems
-      FROM users 
-      WHERE id = $1
-    `, [userId]);
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const user = userResult.rows[0];
-    
-    // For now, we'll estimate upcycled items as 10% of donations
-    const upcycledItems = Math.floor(user.donation_count * 0.1);
-
-    const impactData = {
-      pieces_donated: user.donation_count,
-      upcycled_items: upcycledItems,
-      gems_earned: user.available_gems
-    };
-
-    console.log('🔍 Impact data for user', userId, ':', impactData);
-    res.json(impactData);
-  } catch (err) {
-    console.error("Get user impact error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
+// Upload image to Cloudinary
 app.post("/api/upload-image", async (req, res) => {
   const { image_data_base64 } = req.body;
 
@@ -2000,278 +1217,7 @@ app.post("/api/upload-image", async (req, res) => {
   }
 });
 
-// Debug endpoint to check materials table structure
-app.get("/api/debug/materials-schema", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        column_name, 
-        data_type, 
-        is_nullable,
-        column_default
-      FROM information_schema.columns 
-      WHERE table_name = 'materials' 
-      ORDER BY ordinal_position;
-    `);
-    
-    res.json({
-      table: 'materials',
-      columns: result.rows
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/test-material", async (req, res) => {
-  try {
-    const testData = {
-      title: "Test Material",
-      description: "Test description",
-      category: "Plastic", 
-      quantity: "5 items",
-      location: "Test Location",
-      delivery_option: "Needs Pickup",
-      is_fragile: false,
-      contact_preferences: {"In-app Chat": true},
-      image_urls: ["https://example.com/test.jpg"],
-      uploader_id: 1
-    };
-
-    const result = await pool.query(
-      `INSERT INTO materials 
-       (title, description, category, quantity, location, delivery_option, 
-        is_fragile, contact_preferences, image_data_base64, uploader_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-       RETURNING *`,
-      [
-        testData.title,
-        testData.description, 
-        testData.category,
-        testData.quantity,
-        testData.location,
-        testData.delivery_option,
-        testData.is_fragile,
-        testData.contact_preferences,
-        testData.image_urls,
-        testData.uploader_id
-      ]
-    );
-
-    res.json({ success: true, material: result.rows[0] });
-  } catch (err) {
-    console.error("Test material error:", err);
-    res.status(500).json({ error: "Test failed: " + err.message });
-  }
-});
-
-app.get("/api/debug/materials-images", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        id,
-        title,
-        image_data_base64,
-        image_urls,
-        created_at
-      FROM materials 
-      ORDER BY created_at DESC
-      LIMIT 10
-    `);
-    
-    res.json({
-      materials: result.rows,
-      summary: {
-        total: result.rows.length,
-        with_image_data: result.rows.filter(m => m.image_data_base64 && m.image_data_base64.length > 0).length,
-        with_image_urls: result.rows.filter(m => m.image_urls && m.image_urls.length > 0).length
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Fix existing materials to have proper image URLs
-app.post("/api/fix-existing-images", async (req, res) => {
-  try {
-    console.log('🔄 Fixing existing materials images...');
-    
-    // Get all materials with image_data_base64 that contains Cloudinary URLs
-    const materials = await pool.query(`
-      SELECT id, image_data_base64, image_urls 
-      FROM materials 
-      WHERE image_data_base64 IS NOT NULL AND array_length(image_data_base64, 1) > 0
-    `);
-    
-    console.log(`📝 Found ${materials.rows.length} materials with image_data_base64`);
-    
-    let fixedCount = 0;
-    
-    for (const material of materials.rows) {
-      // Check if image_data_base64 contains Cloudinary URLs
-      const hasCloudinaryUrls = material.image_data_base64 && 
-                               material.image_data_base64.some(url => 
-                                 url && url.includes('cloudinary.com')
-                               );
-      
-      if (hasCloudinaryUrls) {
-        // Convert array to JSONB format for image_urls column
-        const cloudinaryUrls = material.image_data_base64.filter(url => 
-          url && url.includes('cloudinary.com')
-        );
-
-
-       await pool.query(
-          'UPDATE materials SET image_urls = $1::jsonb WHERE id = $2',
-          [JSON.stringify(cloudinaryUrls), material.id]
-        );
-        
-        console.log(`✅ Fixed material ${material.id} - copied ${cloudinaryUrls.length} Cloudinary URLs to image_urls`);
-        fixedCount++;
-      }
-    }
-    
-    res.json({
-      success: true,
-      message: `Fixed ${fixedCount} materials with Cloudinary URLs`,
-      details: 'Copied Cloudinary URLs from image_data_base64 to image_urls column'
-    });
-    
-  } catch (err) {
-    console.error("Fix images error:", err);
-    res.status(500).json({ error: "Fix failed: " + err.message });
-  }
-});
-
-// Add sample images to materials without any images
-app.post("/api/add-sample-images-to-empty", async (req, res) => {
-  try {
-    // Use jsonb_array_length for JSONB columns and array_length for array columns
-    const materials = await pool.query(`
-      SELECT id, title, category FROM materials 
-      WHERE (image_urls IS NULL OR jsonb_array_length(image_urls) = 0)
-        AND (image_data_base64 IS NULL OR array_length(image_data_base64, 1) = 0)
-    `);
-    
-    console.log(`📝 Found ${materials.rows.length} materials without any images`);
-    
-    const sampleImages = {
-      'plastic': [
-        'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1585518419759-7fe2e0fbf8a6?w=400&h=300&fit=crop'
-      ],
-      'fabric': [
-        'https://images.unsplash.com/photo-1520006403909-838d6b92c22e?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=300&fit=crop'
-      ],
-      'glass': [
-        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1544144433-d50aff500b91?w=400&h=300&fit=crop'
-      ],
-      'wood': [
-        'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1562778612-e1e0cda9915c?w=400&h=300&fit=crop'
-      ],
-      'metal': [
-        'https://images.unsplash.com/photo-1565373679108-41aac54c36a8?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1577023311546-18e2ac6e13a8?w=400&h=300&fit=crop'
-      ],
-      'electronics': [
-        'https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=400&h=300&fit=crop',
-        'https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=400&h=300&fit=crop'
-      ],
-      'ceramics': [
-        'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&h=300&fit=crop'
-      ]
-    };
-    
-    for (const material of materials.rows) {
-      const category = material.category?.toLowerCase() || 'general';
-      const categoryKey = Object.keys(sampleImages).find(key => category.includes(key)) || 'general';
-      const images = sampleImages[categoryKey] || ['https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400&h=300&fit=crop'];
-      
-      // Add 1-2 sample images
-       const randomImages = [images[0]];
-      if (images.length > 1 && Math.random() > 0.5) {
-        randomImages.push(images[1]);
-      }
-      
-      await pool.query(
-        'UPDATE materials SET image_urls = $1::jsonb, image_data_base64 = $2 WHERE id = $3',
-        [JSON.stringify(randomImages), randomImages, material.id]
-      );
-      
-      console.log(`✅ Added ${randomImages.length} sample images to material ${material.id} (${material.category})`);
-    }
-    
-    res.json({
-      success: true,
-      message: `Added sample images to ${materials.rows.length} materials`
-    });
-    
-  } catch (err) {
-    console.error("Add sample images error:", err);
-    res.status(500).json({ error: "Failed to add sample images: " + err.message });
-  }
-});
-
-app.post("/api/simple-image-fix", async (req, res) => {
-  try {
-    console.log('🔄 Simple image fix...');
-    
-    // Get all materials
-    const materials = await pool.query(`
-      SELECT id, image_data_base64, image_urls 
-      FROM materials 
-      ORDER BY id
-    `);
-    
-    let fixedCount = 0;
-    
-    for (const material of materials.rows) {
-      // If image_data_base64 is empty but image_urls has data, copy it over
-      if ((!material.image_data_base64 || material.image_data_base64.length === 0) && 
-          material.image_urls && material.image_urls.length > 0) {
-        
-        await pool.query(
-          'UPDATE materials SET image_data_base64 = $1 WHERE id = $2',
-          [material.image_urls, material.id]
-        );
-        
-        console.log(`✅ Fixed material ${material.id} - copied image_urls to image_data_base64`);
-        fixedCount++;
-      }
-    }
-    
-    res.json({
-      success: true,
-      message: `Fixed ${fixedCount} materials`,
-      details: 'Copied image_urls to image_data_base64 for empty materials'
-    });
-    
-  } catch (err) {
-    console.error("Simple fix error:", err);
-    res.status(500).json({ error: "Fix failed: " + err.message });
-  }
-});
-
-// Debug endpoint to see exact request format
-app.post("/api/debug-request", async (req, res) => {
-  console.log('=== DEBUG REQUEST BODY ===');
-  console.log('Headers:', req.headers);
-  console.log('Body:', JSON.stringify(req.body, null, 2));
-  console.log('Body type:', typeof req.body);
-  console.log('Contact preferences:', req.body.contact_preferences, 'type:', typeof req.body.contact_preferences);
-  console.log('Image URLs:', req.body.image_urls, 'type:', typeof req.body.image_urls);
-  
-  res.json({
-    received: true,
-    body: req.body,
-    body_type: typeof req.body
-  });
-});
-
+// Quick fix for empty materials images
 app.post("/api/quick-fix-empty-materials", async (req, res) => {
   try {
     // Get materials with no images
@@ -2317,6 +1263,138 @@ app.post("/api/quick-fix-empty-materials", async (req, res) => {
     res.status(500).json({ error: "Quick fix failed: " + err.message });
   }
 });
+
+app.post("/api/reset-products-table", async (req, res) => {
+  try {
+    console.log('🔄 Resetting products table...');
+
+    // Drop the table if it exists
+    await pool.query('DROP TABLE IF EXISTS products');
+    console.log('✓ Dropped products table');
+
+    // Create the table with correct schema
+    await pool.query(`
+      CREATE TABLE products (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        price DECIMAL(10,2) NOT NULL,
+        category VARCHAR(100),
+        condition VARCHAR(50),
+        materials_used TEXT,
+        dimensions VARCHAR(100),
+        location VARCHAR(255),
+        image_url VARCHAR(500),
+        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✓ Created products table with correct schema');
+
+    // Create index
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_products_created_at ON products(created_at DESC)`);
+    console.log('✓ Created index on created_at');
+
+    res.json({ 
+      success: true, 
+      message: "Products table reset and created successfully" 
+    });
+  } catch (err) {
+    console.error("Reset products table error:", err);
+    res.status(500).json({ error: "Reset failed: " + err.message });
+  }
+});
+
+app.post("/api/fix-products-table", async (req, res) => {
+  try {
+    console.log('🔧 Fixing products table...');
+
+    // Check if category column exists
+    const checkResult = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'products' AND column_name = 'category'
+    `);
+
+    if (checkResult.rows.length === 0) {
+      // Add the missing category column
+      await pool.query('ALTER TABLE products ADD COLUMN category VARCHAR(100)');
+      console.log('✓ Added category column');
+    } else {
+      console.log('✓ Category column already exists');
+    }
+
+    // Similarly check and add other missing columns
+    const columnsToCheck = ['condition', 'materials_used', 'dimensions', 'location', 'creator_id'];
+    
+    for (const column of columnsToCheck) {
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'products' AND column_name = $1
+      `, [column]);
+
+      if (columnCheck.rows.length === 0) {
+        let columnType = 'VARCHAR(255)';
+        if (column === 'condition') columnType = 'VARCHAR(50)';
+        if (column === 'materials_used') columnType = 'TEXT';
+        if (column === 'dimensions') columnType = 'VARCHAR(100)';
+        if (column === 'creator_id') columnType = 'INTEGER REFERENCES users(id) ON DELETE CASCADE';
+        
+        await pool.query(`ALTER TABLE products ADD COLUMN ${column} ${columnType}`);
+        console.log(`✓ Added ${column} column`);
+      } else {
+        console.log(`✓ ${column} column already exists`);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Products table fixed successfully" 
+    });
+  } catch (err) {
+    console.error("Fix products table error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
+  }
+});
+
+app.get("/api/debug/products-schema", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        column_name, 
+        data_type, 
+        is_nullable,
+        column_default
+      FROM information_schema.columns 
+      WHERE table_name = 'products' 
+      ORDER BY ordinal_position;
+    `);
+    
+    res.json({
+      table: 'products',
+      columns: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper function to format time ago
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - new Date(date);
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} mins ago`;
+  if (diffHours < 24) return `${diffHours} hrs ago`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return new Date(date).toLocaleDateString();
+}
 
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);

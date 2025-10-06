@@ -463,11 +463,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 220, // INCREASED HEIGHT SIGNIFICANTLY
+          height: 240, 
           child: cs.CarouselSlider(
             items: artisans.map((artisan) => _buildUserCard(artisan, true)).toList(),
             options: cs.CarouselOptions(
-              height: 220, // INCREASED HEIGHT SIGNIFICANTLY
+              height: 240, 
               autoPlay: true,
               autoPlayInterval: const Duration(seconds: 4),
               enlargeCenterPage: true,
@@ -503,11 +503,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 220, // INCREASED HEIGHT SIGNIFICANTLY
+          height: 240, 
           child: cs.CarouselSlider(
             items: contributors.map((contributor) => _buildUserCard(contributor, false)).toList(),
             options: cs.CarouselOptions(
-              height: 220, // INCREASED HEIGHT SIGNIFICANTLY
+              height: 240, 
               autoPlay: true,
               autoPlayInterval: const Duration(seconds: 4),
               enlargeCenterPage: true,
@@ -528,15 +528,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
   final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
   final userId = user['id']?.toString() ?? '0';
-  // Removed availableGems since we're not displaying it
 
   return GestureDetector(
     onTap: () {
       _showUserProfileModal(context, name, userId);
     },
     child: Container(
-      width: 150,
-      height: 180, // Reduced height since we removed gems
+      width: 160,
+      height: 220, // Reduced height since we removed gems
       margin: const EdgeInsets.only(bottom: 8, right: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
@@ -552,7 +551,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Profile Image
@@ -625,7 +624,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 if (donationCount > 0) 
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
                       '$donationCount donations',
                       style: TextStyle(
@@ -714,7 +713,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         Container(
-          height: 220, // Increased to match new height
+          height: 240, 
           child: const Center(
             child: CircularProgressIndicator(color: Color(0xFF88844D)),
           ),
@@ -737,7 +736,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         Container(
-          height: 220, // Increased to match new height
+          height: 240, 
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
