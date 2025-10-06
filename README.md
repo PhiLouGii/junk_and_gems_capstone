@@ -106,8 +106,64 @@ Figma design includes:
 ```
 
 ## Video Demo
+- https://youtu.be/P59IOvT2Nb0 - YouTube Link
+- https://drive.google.com/file/d/1r-Ot0Vp1mtyxKzj-KHjuED-4P8NNOdtz/view?usp=sharing - Google Drive link
 
 ## Project Structure
+```bash
+junk_and_gems/
+├── README.md
+├── .gitignore
+│
+├── lib/                         # Flutter Mobile App
+│   ├── main.dart
+│   ├── providers/
+│   ├── screens/
+│   │   ├── login_screen.dart
+│   │   ├── dashboard_screen.dart
+│   │   ├── chat_screen.dart
+│   │   ├── profile_screen.dart
+│   │   └── ...
+│   ├── services/
+│   └── utils/
+│
+├── pubspec.yaml
+├── android/
+├── ios/
+│
+├── backend/                     # Node.js Backend
+│   ├── server.js
+│   ├── .env
+│   ├── package.json
+│   ├── package-lock.json
+│   └── config/
+│       └── cloudinary.js
+│
+└── web/                         # React Web App (Minimal Version)
+    ├── public/
+    │   ├── index.html
+    │   └── favicon.ico
+    │
+    ├── src/
+    │   ├── assets/
+    │   ├── components/
+    │   │   ├── LearnMore/
+    │   │   │   ├── learnmore.module.css
+    │   │   │   └── learnmore.tsx
+    │   │   ├── UpcycledProductsGallery/
+    │   │   │   ├── upcycledproductsgallery.module.css
+    │   │   │   └── upcycledproductsgallery.tsx
+    │   │   └── ...
+    │   ├── app.css
+    │   ├── app.tsx
+    │   ├── index.css
+    │   └── index.tsx
+    │
+    ├── package.json
+    ├── tsconfig.json
+    ├── vite.config.js (or webpack.config.js)
+    └── .gitignore
+```
 
 ## Screenshots
 
