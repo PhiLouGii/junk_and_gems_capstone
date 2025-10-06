@@ -923,7 +923,7 @@ app.post("/api/setup-products-table", async (req, res) => {
         dimensions VARCHAR(100),
         location VARCHAR(255),
         image_url VARCHAR(500),
-        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        artisan_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -965,7 +965,7 @@ app.get("/api/products", async (req, res) => {
 // Create new product listing
 app.post("/api/products", async (req, res) => {
   console.log('📝 Received product creation request');
-  console.log('Request body:', req.body);
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
   
   const { 
     title, 
@@ -976,15 +976,15 @@ app.post("/api/products", async (req, res) => {
     materials_used, 
     dimensions, 
     location,
-    creator_id,
-    image_url
+    artisan_id,
+    image_data_base64
   } = req.body;
 
   try {
     // Basic validation
-    if (!title || !description || !price || !creator_id) {
+    if (!title || !description || !price || !artisan_id) {
       return res.status(400).json({ 
-        error: "Missing required fields: title, description, price, and creator_id are required" 
+        error: "Missing required fields: title, description, price, and artisan_id are required" 
       });
     }
 
@@ -993,13 +993,13 @@ app.post("/api/products", async (req, res) => {
       price,
       category,
       condition,
-      creator_id
+      artisan_id
     });
 
     // Insert the new product
     const result = await pool.query(
       `INSERT INTO products 
-       (title, description, price, category, condition, materials_used, dimensions, location, creator_id, image_url) 
+       (title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_data_base64) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
        RETURNING *`,
       [
@@ -1007,12 +1007,12 @@ app.post("/api/products", async (req, res) => {
         description,
         price,
         category,
-        condition,
-        materials_used,
-        dimensions,
-        location,
-        creator_id,
-        image_url
+        condition || null,
+        materials_used || null,
+        dimensions || null,
+        location || null,
+        artisan_id,
+        image_data_base64 || []
       ]
     );
 
@@ -1026,7 +1026,7 @@ app.post("/api/products", async (req, res) => {
         u.name as creator_name,
         u.profile_image_url as creator_avatar
       FROM products p
-      JOIN users u ON p.creator_id = u.id
+      JOIN users u ON p.artisan_id = u.id
       WHERE p.id = $1
     `, [product.id]);
 
@@ -1074,11 +1074,11 @@ app.get("/api/users/:userId/profile", async (req, res) => {
       [userId]
     );
     
-    // Get products count (if products table exists with creator_id)
+    // Get products count (if products table exists with artisan_id)
     let productsCount = { rows: [{ count: '0' }] };
     try {
       productsCount = await pool.query(
-        'SELECT COUNT(*) FROM products WHERE creator_id = $1',
+        'SELECT COUNT(*) FROM products WHERE artisan_id = $1',
         [userId]
       );
     } catch (err) {
@@ -1138,7 +1138,7 @@ app.get("/api/users/:userId/products", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Check if products table exists and has creator_id column
+    // Check if products table exists and has artisan_id column
     const tableCheck = await pool.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -1156,8 +1156,8 @@ app.get("/api/users/:userId/products", async (req, res) => {
         u.name as creator_name,
         u.profile_image_url as creator_avatar
       FROM products p
-      JOIN users u ON p.creator_id = u.id
-      WHERE p.creator_id = $1
+      JOIN users u ON p.artisan_id = u.id
+      WHERE p.artisan_id = $1
       ORDER BY p.created_at DESC
     `, [userId]);
 
@@ -1294,7 +1294,7 @@ app.post("/api/reset-products-table", async (req, res) => {
         dimensions VARCHAR(100),
         location VARCHAR(255),
         image_url VARCHAR(500),
-        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        artisan_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
       )
@@ -1335,7 +1335,7 @@ app.post("/api/fix-products-table", async (req, res) => {
     }
 
     // Similarly check and add other missing columns
-    const columnsToCheck = ['condition', 'materials_used', 'dimensions', 'location', 'creator_id'];
+    const columnsToCheck = ['condition', 'materials_used', 'dimensions', 'location', 'artisan_id'];
     
     for (const column of columnsToCheck) {
       const columnCheck = await pool.query(`
@@ -1349,7 +1349,7 @@ app.post("/api/fix-products-table", async (req, res) => {
         if (column === 'condition') columnType = 'VARCHAR(50)';
         if (column === 'materials_used') columnType = 'TEXT';
         if (column === 'dimensions') columnType = 'VARCHAR(100)';
-        if (column === 'creator_id') columnType = 'INTEGER REFERENCES users(id) ON DELETE CASCADE';
+        if (column === 'artisan_id') columnType = 'INTEGER REFERENCES users(id) ON DELETE CASCADE';
         
         await pool.query(`ALTER TABLE products ADD COLUMN ${column} ${columnType}`);
         console.log(`✓ Added ${column} column`);

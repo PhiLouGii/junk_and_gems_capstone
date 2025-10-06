@@ -210,7 +210,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3003/api/products'),
+        Uri.parse('http://10.0.2.2:3003/api/products'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -660,7 +660,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       'artisan': product['creator_name'] ?? 'Unknown Artisan',
                       'price': 'M${product['price']?.toString() ?? '0'}',
                       'image': product['image_url'] ?? 'assets/images/placeholder.jpg',
-                      'artisan_id': product['creator_id']?.toString() ?? '',
+                      'artisan_id': product['artisan_id']?.toString() ?? '',
                       'id': product['id']?.toString() ?? '',
                       'description': product['description'] ?? '',
                     },

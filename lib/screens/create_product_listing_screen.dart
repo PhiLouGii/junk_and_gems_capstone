@@ -356,17 +356,17 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     });
 
     try {
-      // Get user ID from shared preferences
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId');
+    // Get user ID from shared preferences
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
       
-      if (userId == null) {
-        _showErrorDialog('Please login to list a product');
-        setState(() {
-          _isSubmitting = false;
-        });
-        return;
-      }
+     if (userId == null) {
+      _showErrorDialog('Please login to list a product');
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
 
       final setupResponse = await http.post(
       Uri.parse('http://10.0.2.2:3003/api/setup-products-table'),
@@ -391,8 +391,8 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         'materials_used': _materialsController.text.isEmpty ? null : _materialsController.text,
         'dimensions': _dimensionsController.text.isEmpty ? null : _dimensionsController.text,
         'location': _locationController.text.isEmpty ? null : _locationController.text,
-        'creator_id': int.parse(userId),
-        'image_url': _images.isNotEmpty ? _images[0].path : null,
+        'artisan_id': int.parse(userId),
+        'image_data_base64': _images.isNotEmpty ? _images[0].path : null,
       };
 
       print('Submitting product: $productData');
