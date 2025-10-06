@@ -83,8 +83,8 @@ flutter run
 - **Media Storage**: Cloudinary 
 - **Authentication**: JWT & bcrypt
 
-<img src="designs_screenshots/system_architecture.png" alt="Junk & Gems System Architecture" width="150">
-<img src="designs_screenshots/use_case_diagram.png" alt="Junk & Gems Use Case Diagram" width="150">
+<img src="designs_screenshots/system_architecture.png" alt="Junk & Gems System Architecture" width="600">
+<img src="designs_screenshots/use_case_diagram.png" alt="Junk & Gems Use Case Diagram" width="250">
 
 ### UI/UX Designs
 Figma was used to design the screens and the prototype as well as a style guide to envision what colours and theme will be utilised
