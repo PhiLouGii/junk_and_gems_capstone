@@ -96,11 +96,11 @@ Figma design includes:
 
 ## Deployment Plan
 ```markdown
-| **Component**     | **Platform**       | **Hosting Service**      | **Status** |
-|--------------------|--------------------|---------------------------|-------------|
+| **Component**      | **Platform**       | **Hosting Service**       | **Status**     |
+|--------------------|--------------------|---------------------------|----------------|
 | Mobile App         | Android & iOS      | Google Play & App Store   | 🟡 In Progress |
-| Backend API        | Node.js            | Render                    | ✅ |
-| Database           | PostgreSQL         | Render                    | ✅ |
-| Image Storage      | Cloudinary         | Cloudinary                | ✅ |
-| Web Dashboard      | React + TypeScript | Vercel                    | ✅ |
+| Backend API        | Node.js            | Render                    | 🟡 In Progress |
+| Database           | PostgreSQL         | Render                    | ✅             |
+| Image Storage      | Cloudinary         | Cloudinary                | ✅             | 
+| Web Dashboard      | React + TypeScript | Vercel                    | 🟡 In Progress |
 ```
