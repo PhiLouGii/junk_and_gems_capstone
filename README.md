@@ -94,9 +94,9 @@ Figma design includes:
 - Chat, Notifications and Messages screens
 - Cart and Checkout screens
 
-Figma Dev Mode: https://www.figma.com/design/AqZ8CWOhF8oJXGAHxK5sFE/Junk-and-Gems-Prototype?node-id=0-1&m=dev&t=dp3YKVdOms4HANn4-1 
-Figma Prototype: https://www.figma.com/proto/AqZ8CWOhF8oJXGAHxK5sFE/Junk-and-Gems-Prototype?node-id=0-1&t=R11EvJN283hIJr0l-1
-*Figma prototype can also be found in the ```designs_screenshots``` folder
+- Figma Dev Mode: https://www.figma.com/design/AqZ8CWOhF8oJXGAHxK5sFE/Junk-and-Gems-Prototype?node-id=0-1&m=dev&t=dp3YKVdOms4HANn4-1 
+- Figma Prototype: https://www.figma.com/proto/AqZ8CWOhF8oJXGAHxK5sFE/Junk-and-Gems-Prototype?node-id=0-1&t=R11EvJN283hIJr0l-1
+- *Figma prototype can also be found in the ```designs_screenshots``` folder
 
 ### Style Guide
 <img src="designs_screenshots/junk_and_gems_style_guide.png" alt="Style Guide" width="200">
