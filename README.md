@@ -175,7 +175,5 @@ junk_and_gems/
 <img src="designs_screenshots/onboarding_screen.png" alt="Onboarding Screen" width="150"> <img src="designs_screenshots/browse_screen.png" alt="Browse Screen" width="150"> <img src="designs_screenshots/marketplace_screen.png" alt="Marketplace Screen" width="150"> <img src="designs_screenshots/checkout_screen.png" alt="Checkout Screen" width="150"> <img src="designs_screenshots/upload_materials_screen.png" alt="Upload Materials Screen" width="150">
 
 ## Author
-Philippa Louise Giibwa
-Bsc. Software Engineering, ALU (2025)
-📧 p.giibwa@alustudent.com
-Supervisor: Pelin Mutanguha
+- Philippa Louise Giibwa. Bsc. Software Engineering, ALU (2025). 📧 p.giibwa@alustudent.com
+- Supervisor: Pelin Mutanguha
