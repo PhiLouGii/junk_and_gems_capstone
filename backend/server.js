@@ -248,6 +248,15 @@ const {
 
     console.log('✅ Material created successfully with ID:', result.rows[0].id);
 
+    await pool.query(
+  "UPDATE users SET available_gems = available_gems + 5 WHERE id = $1",
+  [uploader_id]
+);
+await pool.query(
+  "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+  [uploader_id, 5, `Earned for donating material: ${title}`]
+);
+
     // Get the created material with uploader info
     const materialWithUploader = await pool.query(`
       SELECT 
@@ -1378,6 +1387,137 @@ app.get("/api/debug/products-schema", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/debug/products-dependencies", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        tc.table_schema, 
+        tc.table_name, 
+        tc.constraint_name,
+        tc.constraint_type,
+        kcu.column_name,
+        ccu.table_schema AS foreign_table_schema,
+        ccu.table_name AS foreign_table_name,
+        ccu.column_name AS foreign_column_name
+      FROM information_schema.table_constraints AS tc 
+      JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name
+        AND ccu.table_schema = tc.table_schema
+      WHERE ccu.table_name = 'products' OR tc.table_name = 'products'
+    `);
+    
+    res.json({
+      dependencies: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- ORDERS & GEM SYSTEM ---
+app.post("/api/orders", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { totalAmount, appliedGems = 0, shippingAddress, paymentMethod } = req.body;
+
+  try {
+    // Basic validation
+    if (!totalAmount || totalAmount <= 0) {
+      return res.status(400).json({ error: "Invalid total amount" });
+    }
+
+    // Fetch user's gem balance
+    const userResult = await pool.query(
+      "SELECT available_gems FROM users WHERE id = $1",
+      [userId]
+    );
+
+    const availableGems = parseInt(userResult.rows[0].available_gems || 0);
+    const actualAppliedGems = Math.min(appliedGems, availableGems);
+
+    // Calculate final amount
+    const gemValue = 1; // 1 gem = 1 LSL
+    const finalAmount = Math.max(0, totalAmount - actualAppliedGems * gemValue);
+
+    // Create new order
+    const orderResult = await pool.query(
+      `INSERT INTO orders (user_id, total_amount, applied_gems, final_amount, shipping_address, payment_method, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'completed') RETURNING *`,
+      [userId, totalAmount, actualAppliedGems, finalAmount, shippingAddress, paymentMethod]
+    );
+
+    // Update gems & transactions
+    if (actualAppliedGems > 0) {
+      await pool.query(
+        "UPDATE users SET available_gems = available_gems - $1 WHERE id = $2",
+        [actualAppliedGems, userId]
+      );
+      await pool.query(
+        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'spend', $3)",
+        [userId, -actualAppliedGems, "Used gems for discount on order"]
+      );
+    }
+
+    // Reward small gem bonus for completing an order
+    await pool.query(
+      "UPDATE users SET available_gems = available_gems + 2 WHERE id = $1",
+      [userId]
+    );
+    await pool.query(
+      "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', 'Bonus for completing an order')",
+      [userId, 2]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Order created successfully",
+      order: orderResult.rows[0],
+      applied_gems: actualAppliedGems,
+      final_amount: finalAmount,
+    });
+  } catch (err) {
+    console.error("Create order error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Fetch user's gem balance and history
+app.get("/api/users/:userId/gems", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const gems = await pool.query(
+      "SELECT available_gems FROM users WHERE id = $1",
+      [userId]
+    );
+    const history = await pool.query(
+      "SELECT * FROM gem_transactions WHERE user_id = $1 ORDER BY created_at DESC",
+      [userId]
+    );
+    res.json({
+      available_gems: gems.rows[0].available_gems,
+      transactions: history.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/orders/:userId", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC",
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Get user orders error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 

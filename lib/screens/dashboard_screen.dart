@@ -713,7 +713,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         Container(
-          height: 240, 
+          height: 300,
           child: const Center(
             child: CircularProgressIndicator(color: Color(0xFF88844D)),
           ),
@@ -736,7 +736,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const SizedBox(height: 12),
         Container(
-          height: 240, 
+          height: 280,
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
