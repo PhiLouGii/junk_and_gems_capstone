@@ -289,6 +289,69 @@ await pool.query(
   }
 });
 
+// Search materials by category or title
+app.get("/materials/search", async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: "Search query required" });
+    }
+
+    console.log(`🔍 Searching materials for: "${query}"`);
+
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name,
+        u.email as uploader_email,
+        u.profile_image_url as uploader_avatar
+      FROM materials m
+      JOIN users u ON m.uploader_id = u.id
+      WHERE m.is_claimed = false 
+        AND (
+          LOWER(m.title) LIKE LOWER($1) 
+          OR LOWER(m.description) LIKE LOWER($1)
+          OR LOWER(m.category) LIKE LOWER($1)
+        )
+      ORDER BY m.created_at DESC
+    `, [`%${query}%`]);
+
+    console.log(`✅ Found ${result.rows.length} materials matching "${query}"`);
+
+    // Convert database results to frontend format
+    const materials = result.rows.map(material => {
+      const imageUrls = material.image_data_base64 || [];
+      
+      const materialData = {
+        id: material.id,
+        title: material.title,
+        description: material.description,
+        category: material.category,
+        quantity: material.quantity,
+        location: material.location,
+        delivery_option: material.delivery_option,
+        available_from: material.available_from,
+        available_until: material.available_until,
+        is_fragile: material.is_fragile,
+        contact_preferences: material.contact_preferences,
+        image_urls: imageUrls,
+        uploader: material.uploader_name,
+        amount: material.quantity,
+        created_at: material.created_at,
+        time: formatTimeAgo(material.created_at)
+      };
+
+      return materialData;
+    });
+
+    res.json(materials);
+  } catch (err) {
+    console.error("Search materials error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Claim a material
 app.put("/materials/:id/claim", authenticateToken, async (req, res) => {
   const { id } = req.params;

@@ -17,13 +17,39 @@ class BrowseMaterialsScreen extends StatefulWidget {
 
 class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   List<dynamic> _materials = [];
+  List<dynamic> _filteredMaterials = [];
   bool _isLoading = true;
   bool _hasError = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  String? _selectedCategory;
+
+  // Common material categories
+  final List<String> _categories = [
+    'All',
+    'Plastic',
+    'Fabric',
+    'Glass',
+    'Wood',
+    'Metal',
+    'Electronics',
+    'Cans',
+    'Cables',
+    'Paper',
+    'Ceramics',
+    'Other'
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadMaterials();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMaterials() async {
@@ -41,6 +67,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         
         setState(() {
           _materials = materials;
+          _filteredMaterials = materials;
           _isLoading = false;
           _hasError = false;
         });
@@ -62,6 +89,56 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         ),
       );
     }
+  }
+
+  void _filterMaterials() {
+    if (_searchQuery.isEmpty && _selectedCategory == null) {
+      setState(() {
+        _filteredMaterials = _materials;
+      });
+      return;
+    }
+
+    final filtered = _materials.where((material) {
+      final matchesSearch = _searchQuery.isEmpty ? true : 
+          material['title']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) == true ||
+          material['description']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) == true ||
+          material['category']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) == true ||
+          material['location']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) == true;
+
+      final matchesCategory = _selectedCategory == null || 
+                             _selectedCategory == 'All' ? true : 
+          material['category']?.toString().toLowerCase() == _selectedCategory!.toLowerCase();
+
+      return matchesSearch && matchesCategory;
+    }).toList();
+
+    setState(() {
+      _filteredMaterials = filtered;
+    });
+  }
+
+  void _handleSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+    _filterMaterials();
+  }
+
+  void _handleCategorySelect(String category) {
+    setState(() {
+      _selectedCategory = category == 'All' ? null : category;
+    });
+    _filterMaterials();
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _searchQuery = '';
+      _selectedCategory = null;
+      _searchController.clear();
+    });
+    _filterMaterials();
   }
 
   Future<void> _claimMaterial(String materialId, String title) async {
@@ -102,34 +179,13 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           children: [
             _buildHeader(context),
             _buildSearchBar(),
+            _buildActiveFilters(),
             _buildCategoryChips(),
+            _buildResultsInfo(),
             Expanded(child: _buildMaterialsList(context)),
             _buildDonateButton(context),
           ],
         ),
-      ),
-    );
-  }
-
-   Widget _buildDemoBanner() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.amber[100],
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.info_outline, size: 16, color: Colors.amber[800]),
-          SizedBox(width: 8),
-          Text(
-            'Demo Mode - Using sample materials',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.amber[800],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -184,14 +240,24 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
+                  controller: _searchController,
                   style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                   decoration: InputDecoration(
                     hintText: 'Search for plastics, cans, fabrics...',
                     hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
                     border: InputBorder.none,
                   ),
+                  onChanged: _handleSearch,
                 ),
               ),
+              if (_searchQuery.isNotEmpty)
+                IconButton(
+                  icon: Icon(Icons.clear, size: 20, color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6)),
+                  onPressed: () {
+                    _searchController.clear();
+                    _handleSearch('');
+                  },
+                ),
             ],
           ),
         ),
@@ -199,27 +265,135 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     );
   }
 
-  Widget _buildCategoryChips() {
-    final categories = ['Plastic', 'Fabric', 'Glass', 'Wood', 'Cans', 'Cables'];
+  Widget _buildActiveFilters() {
+    final hasActiveFilters = _searchQuery.isNotEmpty || _selectedCategory != null;
+    
+    if (!hasActiveFilters) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Text(
+            'Filters:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (_searchQuery.isNotEmpty)
+            _buildFilterChip(
+              label: 'Search: "$_searchQuery"',
+              onTap: () {
+                _searchController.clear();
+                _handleSearch('');
+              },
+            ),
+          if (_selectedCategory != null)
+            _buildFilterChip(
+              label: 'Category: $_selectedCategory',
+              onTap: () => _handleCategorySelect('All'),
+            ),
+          const Spacer(),
+          TextButton(
+            onPressed: _clearFilters,
+            child: Text(
+              'Clear All',
+              style: TextStyle(
+                color: const Color(0xFF88844D),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({required String label, required VoidCallback onTap}) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: Chip(
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFF88844D),
+        deleteIcon: const Icon(Icons.close, size: 16, color: Colors.white),
+        onDeleted: onTap,
+      ),
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: SizedBox(
-        height: 36,
+        height: 40,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: categories.length,
+          itemCount: _categories.length,
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (context, index) {
-            return Chip(
-              label: Text(
-                categories[index],
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            final category = _categories[index];
+            final isSelected = _selectedCategory == category || 
+                              (category == 'All' && _selectedCategory == null);
+            
+            return GestureDetector(
+              onTap: () => _handleCategorySelect(category),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF88844D) : const Color(0xFFBEC092).withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF88844D) : const Color(0xFFBEC092),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF88844D),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
               ),
-              backgroundColor: const Color(0xFFBEC092),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildResultsInfo() {
+    if (_isLoading || _hasError) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        children: [
+          Text(
+            '${_filteredMaterials.length} material${_filteredMaterials.length == 1 ? '' : 's'} found',
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const Spacer(),
+          if (_searchQuery.isNotEmpty || _selectedCategory != null)
+            Text(
+              '${_materials.length} total',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -272,36 +446,54 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       );
     }
 
-    if (_materials.isEmpty) {
+    if (_filteredMaterials.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 64, color: Theme.of(context).textTheme.bodyLarge?.color),
+            Icon(
+              _searchQuery.isNotEmpty || _selectedCategory != null ? 
+                Icons.search_off : Icons.inventory_2_outlined, 
+              size: 64, 
+              color: Theme.of(context).textTheme.bodyLarge?.color
+            ),
             const SizedBox(height: 16),
             Text(
-              'No materials available yet',
+              _searchQuery.isNotEmpty || _selectedCategory != null ? 
+                'No materials found' : 'No materials available yet',
               style: TextStyle(fontSize: 18, color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
             const SizedBox(height: 8),
             Text(
-              'Be the first to donate materials!',
+              _searchQuery.isNotEmpty || _selectedCategory != null ? 
+                'Try adjusting your search or filters' : 'Be the first to donate materials!',
               style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CreateListingScreen()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF88844D),
-                foregroundColor: const Color(0xFFF7F2E4),
+            if (_searchQuery.isNotEmpty || _selectedCategory != null)
+              ElevatedButton(
+                onPressed: _clearFilters,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFBEC092),
+                  foregroundColor: const Color(0xFF88844D),
+                ),
+                child: const Text('Clear Filters'),
+              )
+            else
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CreateListingScreen()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF88844D),
+                  foregroundColor: const Color(0xFFF7F2E4),
+                ),
+                child: const Text('Donate Now'),
               ),
-              child: const Text('Donate Now'),
-            ),
           ],
         ),
       );
@@ -311,164 +503,193 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       onRefresh: _loadMaterials,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        itemCount: _materials.length,
+        itemCount: _filteredMaterials.length,
         itemBuilder: (context, index) {
-          final material = _materials[index];
-          return _buildMaterialCard(
-            context,
-            material: material,
-          );
+          final material = _filteredMaterials[index];
+          return _buildMaterialCard(context, material: material);
         },
       ),
     );
   }
 
-Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
-  final bool hasImages = material['image_urls'] != null && 
+  Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
+    final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
-  
-  final String imageUrl = hasImages ? material['image_urls'][0] : '';
-
+    final String imageUrl = hasImages ? material['image_urls'][0] : '';
     final bool isClaimed = material['claimed_by'] != null;
 
-    // Debug logging
-  if (hasImages) {
-    print('📸 Material ${material['id']} has ${material['image_urls'].length} images');
-    print('📸 First image URL: $imageUrl');
-  }
-
     return Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    decoration: BoxDecoration(
-      color: Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
-    ),
-    child: Column(
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          child: Container(
-            height: 140,
-            width: double.infinity,
-            child: hasImages 
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: Colors.grey[200],
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      print('❌ Error loading image for material ${material['id']}: $error');
-                      print('❌ Image URL: $imageUrl');
-                      return _buildCategoryPlaceholder(material['category'] ?? 'General');
-                    },
-                  )
-                : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2)
           ),
-        ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Image Section
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Container(
+              height: 160,
+              width: double.infinity,
+              child: hasImages 
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildCategoryPlaceholder(material['category'] ?? 'General');
+                      },
+                    )
+                  : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+            ),
+          ),
+          
+          // Content Section
           Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                material['title'] ?? 'No Title',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                material['description'] ?? 'No description',
-                style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
-              ),
-                const SizedBox(height: 6),
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and Category
                 Row(
                   children: [
-                    Icon(Icons.location_on, size: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
-                    const SizedBox(width: 4),
-                    Text(
-                      material['location'] ?? 'Unknown location',
-                      style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
+                    Expanded(
+                      child: Text(
+                        material['title'] ?? 'No Title',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
                     ),
-                    const Spacer(),
-                    Icon(Icons.access_time, size: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
-                    const SizedBox(width: 4),
-                    Text(
-                      material['time'] ?? 'Recently',
-                      style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBEC092).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        material['category'] ?? 'General',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF88844D),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                // Show quantity if available
+                
+                const SizedBox(height: 8),
+                
+                // Description
+                Text(
+                  material['description'] ?? 'No description',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Location and Time
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        material['location'] ?? 'Unknown location',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.access_time, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
+                    const SizedBox(width: 4),
+                    Text(
+                      material['time'] ?? 'Recently',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Quantity
                 if (material['quantity'] != null) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.inventory_2, size: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
+                      Icon(Icons.inventory_2, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                       const SizedBox(width: 4),
                       Text(
-                        material['quantity']!,
-                        style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
+                        'Quantity: ${material['quantity']!}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                        ),
                       ),
                     ],
                   ),
                 ],
-                const SizedBox(height: 12),
+                
+                const SizedBox(height: 16),
+                
+                // Action Buttons
                 Row(
                   children: [
                     Expanded(
-                      child: GestureDetector(
-                        onTap: isClaimed ? null : () {
+                      child: ElevatedButton(
+                        onPressed: isClaimed ? null : () {
                           _claimMaterial(material['id'].toString(), material['title']);
                         },
-                        child: Container(
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: isClaimed ? Colors.grey : const Color(0xFFBEC092),
-                            borderRadius: BorderRadius.circular(8)
-                          ),
-                          child: Center(
-                            child: Text(
-                              isClaimed ? 'Claimed' : 'Claim',
-                              style: TextStyle(
-                                color: isClaimed ? Colors.white : const Color(0xFF88844D),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14
-                              ),
-                            ),
-                          ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isClaimed ? Colors.grey : const Color(0xFFBEC092),
+                          foregroundColor: isClaimed ? Colors.white : const Color(0xFF88844D),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
+                        child: Text(isClaimed ? 'Claimed' : 'Claim'),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => _showMaterialDetails(context, material: material),
-                        child: Container(
-                          height: 36,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFBEC092), width: 2),
-                            borderRadius: BorderRadius.circular(8)
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Details',
-                              style: TextStyle(
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14
-                              ),
-                            ),
+                      child: OutlinedButton(
+                        onPressed: () => _showMaterialDetails(context, material: material),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: Text(
+                          'Details',
+                          style: TextStyle(
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                       ),
@@ -484,59 +705,26 @@ Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
   }
 
   Widget _buildCategoryPlaceholder(String category) {
-    // Define colors and icons for each category
     Map<String, Map<String, dynamic>> categoryStyles = {
-      'plastic': {
-        'icon': Icons.recycling,
-        'color': Colors.green,
-        'name': 'Plastic',
-      },
-      'fabric': {
-        'icon': Icons.curtains,
-        'color': Colors.purple,
-        'name': 'Fabric',
-      },
-      'glass': {
-        'icon': Icons.wine_bar,
-        'color': Colors.blue,
-        'name': 'Glass',
-      },
-      'metal': {
-        'icon': Icons.build,
-        'color': Colors.grey,
-        'name': 'Metal',
-      },
-      'wood': {
-        'icon': Icons.forest,
-        'color': Colors.brown,
-        'name': 'Wood',
-      },
-      'electronics': {
-        'icon': Icons.electrical_services,
-        'color': Colors.orange,
-        'name': 'Electronics',
-      },
-      'cans': {
-        'icon': Icons.local_drink,
-        'color': Colors.blueGrey,
-        'name': 'Cans',
-      },
-      'cables': {
-        'icon': Icons.cable,
-        'color': Colors.deepOrange,
-        'name': 'Cables',
-      },
+      'plastic': {'icon': Icons.recycling, 'color': Colors.green},
+      'fabric': {'icon': Icons.curtains, 'color': Colors.purple},
+      'glass': {'icon': Icons.wine_bar, 'color': Colors.blue},
+      'metal': {'icon': Icons.build, 'color': Colors.grey},
+      'wood': {'icon': Icons.forest, 'color': Colors.brown},
+      'electronics': {'icon': Icons.electrical_services, 'color': Colors.orange},
+      'cans': {'icon': Icons.local_drink, 'color': Colors.blueGrey},
+      'cables': {'icon': Icons.cable, 'color': Colors.deepOrange},
+      'paper': {'icon': Icons.description, 'color': Colors.blue},
+      'ceramics': {'icon': Icons.celebration, 'color': Colors.red},
     };
 
-    // Get the style for the category, or use default
     final style = categoryStyles[category.toLowerCase()] ?? {
       'icon': Icons.category,
       'color': const Color(0xFFBEC092),
-      'name': category,
     };
 
     return Container(
-      height: 140,
+      height: 160,
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -558,7 +746,7 @@ Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
           ),
           const SizedBox(height: 8),
           Text(
-            style['name'] as String,
+            category,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -581,110 +769,238 @@ Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
   void _showMaterialDetails(BuildContext context, {required dynamic material}) {
     final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
-  
-    final String imageUrl = hasImages 
-        ? material['image_urls'][0] 
-        : '';
+    final String imageUrl = hasImages ? material['image_urls'][0] : '';
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Header with close button
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: hasImages && imageUrl.startsWith('data:image')
-                        ? Image.network(
-                            imageUrl,
-                            height: 140,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _buildCategoryPlaceholder(material['category'] ?? 'General');
-                            },
-                          )
-                        : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(width: 8),
                   Text(
-                    material['title'] ?? 'No Title',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    material['description'] ?? 'No description',
-                    style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Uploaded by: ${material['uploader'] ?? 'Unknown'}",
-                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Amount: ${material['quantity'] ?? 'Not specified'}",
-                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Location: ${material['location'] ?? 'Unknown location'}",
-                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Uploaded: ${material['time'] ?? 'Recently'}",
-                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _claimMaterial(material['id'].toString(), material['title']);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFBEC092),
-                            foregroundColor: const Color(0xFF88844D),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text("Claim"),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Message sent to uploader of ${material['title']}')),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFBEC092), width: 2),
-                            backgroundColor: Theme.of(context).cardColor,
-                            foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text("Message"),
-                        ),
-                      ),
-                    ],
+                    'Material Details',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
+            
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Image
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: hasImages
+                          ? Image.network(
+                              imageUrl,
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildCategoryPlaceholder(material['category'] ?? 'General');
+                              },
+                            )
+                          : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Title
+                    Text(
+                      material['title'] ?? 'No Title',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 8),
+                    
+                    // Category
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBEC092).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        material['category'] ?? 'General',
+                        style: const TextStyle(
+                          color: Color(0xFF88844D),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Description
+                    Text(
+                      material['description'] ?? 'No description',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        height: 1.4,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Details Grid
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildDetailRow(
+                            icon: Icons.person,
+                            label: 'Uploaded by',
+                            value: material['uploader'] ?? 'Unknown',
+                          ),
+                          _buildDetailRow(
+                            icon: Icons.location_on,
+                            label: 'Location',
+                            value: material['location'] ?? 'Unknown location',
+                          ),
+                          _buildDetailRow(
+                            icon: Icons.inventory_2,
+                            label: 'Quantity',
+                            value: material['quantity'] ?? 'Not specified',
+                          ),
+                          _buildDetailRow(
+                            icon: Icons.access_time,
+                            label: 'Posted',
+                            value: material['time'] ?? 'Recently',
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _claimMaterial(material['id'].toString(), material['title']);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFBEC092),
+                              foregroundColor: const Color(0xFF88844D),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text(
+                              'Claim Material',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Message sent to ${material['uploader'] ?? 'uploader'}')),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: Text(
+                              'Message',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow({required IconData icon, required String label, required String value}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: const Color(0xFF88844D)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -697,7 +1013,10 @@ Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
         height: 56,
         child: ElevatedButton(
           onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateListingScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreateListingScreen()),
+            );
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF88844D),
@@ -705,13 +1024,22 @@ Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
             elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: const Text('Donate Materials', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_circle_outline, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Donate Materials',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Bottom Nav Bar
   Widget _buildBottomNavBar(BuildContext context) {
     return Container(
       height: 70,
@@ -752,8 +1080,8 @@ Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
           }),
           _navItem(Icons.person_outline, false, 'Profile', onTap: () {
             Navigator.push(
- context,
- MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')),
+              context,
+              MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')),
             );
           }),
         ],
