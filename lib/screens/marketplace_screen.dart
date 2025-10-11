@@ -25,62 +25,68 @@ class MarketplaceScreen extends StatefulWidget {
 
 class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTickerProviderStateMixin {
   final ScrollController _featuredController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  
   late AnimationController _animationController;
   late Animation<double> _animation;
   Map<String, String> _userData = {};
   int _cartItemCount = 1; 
   List<dynamic> _newProducts = [];
   bool _isLoadingNewProducts = false;
+  String _searchQuery = '';
+  bool _isSearching = false;
+  List<dynamic> _searchResults = [];
 
   final List<Map<String, String>> _featuredProducts = [
     {
-    'title': 'Fabric and Denim Patchwork Jacket',
-    'artisan': 'Lexie Grey',
-    'price': 'M450',
-    'image': 'assets/images/featured1.jpg',
-    'artisan_id': '2', 
-    'id': '1', 
-  },
+      'title': 'Fabric and Denim Patchwork Jacket',
+      'artisan': 'Lexie Grey',
+      'price': 'M450',
+      'image': 'assets/images/featured1.jpg',
+      'artisan_id': '2', 
+      'id': '1', 
+    },
     {
-    'title': 'Beer Bottle Lamp',
-    'artisan': 'Philippa Giibwa', 
-    'price': 'M380',
-    'image': 'assets/images/featured2.jpg',
-    'artisan_id': '3', 
-    'id': '2',
-  },
+      'title': 'Beer Bottle Lamp',
+      'artisan': 'Philippa Giibwa', 
+      'price': 'M380',
+      'image': 'assets/images/featured2.jpg',
+      'artisan_id': '3', 
+      'id': '2',
+    },
     {
-    'title': 'Sta-Soft Lamp',
-    'artisan': 'Nthati Radiapole',
-    'price': 'M300',
-    'image': 'assets/images/featured3.jpg',
-    'artisan_id': '10', 
-    'id': '3',
-  },
+      'title': 'Sta-Soft Lamp',
+      'artisan': 'Nthati Radiapole',
+      'price': 'M300',
+      'image': 'assets/images/featured3.jpg',
+      'artisan_id': '10', 
+      'id': '3',
+    },
     {
-    'title': 'Belt Patchwork Bag',
-    'artisan': 'Mark Sloan',
-    'price': 'M200',
-    'image': 'assets/images/featured4.jpg',
-    'artisan_id': '5', 
-    'id': '4',
-  },
+      'title': 'Belt Patchwork Bag',
+      'artisan': 'Mark Sloan',
+      'price': 'M200',
+      'image': 'assets/images/featured4.jpg',
+      'artisan_id': '5', 
+      'id': '4',
+    },
     {
-    'title': 'Denim Patchwork Bag',
-    'artisan': 'Maya Bishop',
-    'price': 'M330',
-    'image': 'assets/images/upcycled1.jpg',
-    'artisan_id': '7', 
-    'id': '5',
-  },
+      'title': 'Denim Patchwork Bag',
+      'artisan': 'Maya Bishop',
+      'price': 'M330',
+      'image': 'assets/images/upcycled1.jpg',
+      'artisan_id': '7', 
+      'id': '5',
+    },
     {
-    'title': 'Shoelace Table Coasters',
-    'artisan': 'Arizona Robbins',
-    'price': 'M250',
-    'image': 'assets/images/featured6.jpg',
-    'artisan_id': '11', 
-    'id': '6',
-  },
+      'title': 'Shoelace Table Coasters',
+      'artisan': 'Arizona Robbins',
+      'price': 'M250',
+      'image': 'assets/images/featured6.jpg',
+      'artisan_id': '11', 
+      'id': '6',
+    },
   ];
 
   final List<Map<String, String>> _categories = [
@@ -93,69 +99,69 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
   final List<Map<String, String>> _products = [
     {
-    'title': 'Sta-Soft Lamp',
-    'artisan': 'Nthati Radiapole',
-    'price': 'M300',
-    'image': 'assets/images/featured3.jpg',
-    'artisan_id': '10', 
-    'id': '3',
-  },
+      'title': 'Sta-Soft Lamp',
+      'artisan': 'Nthati Radiapole',
+      'price': 'M300',
+      'image': 'assets/images/featured3.jpg',
+      'artisan_id': '10', 
+      'id': '3',
+    },
     {
-    'title': 'Belt Patchwork Bag',
-    'artisan': 'Mark Sloan',
-    'price': 'M200',
-    'image': 'assets/images/featured4.jpg',
-    'artisan_id': '5', 
-    'id': '4',
-  },
+      'title': 'Belt Patchwork Bag',
+      'artisan': 'Mark Sloan',
+      'price': 'M200',
+      'image': 'assets/images/featured4.jpg',
+      'artisan_id': '5', 
+      'id': '4',
+    },
     {
-    'title': 'Denim Patchwork Bag',
-    'artisan': 'Maya Bishop',
-    'price': 'M330',
-    'image': 'assets/images/upcycled1.jpg',
-    'artisan_id': '7',
-    'id': '5',
-  },
+      'title': 'Denim Patchwork Bag',
+      'artisan': 'Maya Bishop',
+      'price': 'M330',
+      'image': 'assets/images/upcycled1.jpg',
+      'artisan_id': '7',
+      'id': '5',
+    },
     {
-    'title': 'Shoelace Table Coasters',
-    'artisan': 'Arizona Robbins',
-    'price': 'M250',
-    'image': 'assets/images/featured6.jpg',
-    'artisan_id': '11', 
-    'id': '6',
-  },
-  {
-    'title': 'Broken China Mosaic',
-    'artisan': 'Mahloli Makhetha',
-    'price': 'M250',
-    'image': 'assets/images/featured5.jpg',
-    'artisan_id': '12', 
-    'id': '13',
-  },
-  {
-    'title': 'Bottle Cap Soap Dish',
-    'artisan': 'Deborah Pholo',
-    'price': 'M200',
-    'image': 'assets/images/featured7.jpg',
-    'artisan_id': '12', 
-    'id': '14',
-  },
-  {
-    'title': 'Shoprite Shower curtain',
-    'artisan': 'Limakatso Liphoto',
-    'price': 'M200',
-    'image': 'assets/images/featured8.jpg',
-    'artisan_id': '12', 
-    'id': '15',
-  },
-  {
-    'title': 'Cassette Wall Art',
-    'artisan': 'Angharad West',
-    'price': 'M650',
-    'image': 'assets/images/featured9.jpg',
-    'artisan_id': '12', 
-    'id': '16',
-  },
+      'title': 'Shoelace Table Coasters',
+      'artisan': 'Arizona Robbins',
+      'price': 'M250',
+      'image': 'assets/images/featured6.jpg',
+      'artisan_id': '11', 
+      'id': '6',
+    },
+    {
+      'title': 'Broken China Mosaic',
+      'artisan': 'Mahloli Makhetha',
+      'price': 'M250',
+      'image': 'assets/images/featured5.jpg',
+      'artisan_id': '12', 
+      'id': '13',
+    },
+    {
+      'title': 'Bottle Cap Soap Dish',
+      'artisan': 'Deborah Pholo',
+      'price': 'M200',
+      'image': 'assets/images/featured7.jpg',
+      'artisan_id': '12', 
+      'id': '14',
+    },
+    {
+      'title': 'Shoprite Shower curtain',
+      'artisan': 'Limakatso Liphoto',
+      'price': 'M200',
+      'image': 'assets/images/featured8.jpg',
+      'artisan_id': '12', 
+      'id': '15',
+    },
+    {
+      'title': 'Cassette Wall Art',
+      'artisan': 'Angharad West',
+      'price': 'M650',
+      'image': 'assets/images/featured9.jpg',
+      'artisan_id': '12', 
+      'id': '16',
+    },
   ];
 
   @override
@@ -231,10 +237,88 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     }
   }
 
+  Future<void> _searchProducts(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchQuery = '';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+      _searchQuery = query;
+    });
+
+    try {
+      print('🔍 Searching products for: "$query"');
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/products/search?query=$query'),
+      );
+
+      print('📡 Search response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> products = json.decode(response.body);
+        print('✅ Found ${products.length} products matching "$query"');
+        
+        setState(() {
+          _searchResults = products;
+        });
+      } else {
+        print('❌ Search server error: ${response.statusCode}');
+        _searchLocally(query);
+      }
+    } catch (error) {
+      print('❌ Error searching products: $error');
+      _searchLocally(query);
+    }
+  }
+
+  void _searchLocally(String query) {
+    final lowercaseQuery = query.toLowerCase();
+    final allProducts = [..._newProducts, ..._products.map((p) => {
+      'title': p['title'],
+      'creator_name': p['artisan'],
+      'price': p['price']?.replaceAll('M', ''),
+      'image_url': p['image'],
+      'artisan_id': p['artisan_id'],
+      'id': p['id'],
+      'description': '',
+    })];
+    
+    final results = allProducts.where((product) {
+      final title = product['title']?.toString().toLowerCase() ?? '';
+      final description = product['description']?.toString().toLowerCase() ?? '';
+      final artisan = product['creator_name']?.toString().toLowerCase() ?? 
+                     product['artisan']?.toString().toLowerCase() ?? '';
+      
+      return title.contains(lowercaseQuery) ||
+             description.contains(lowercaseQuery) ||
+             artisan.contains(lowercaseQuery);
+    }).toList();
+
+    setState(() {
+      _searchResults = results;
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+    });
+    _searchFocusNode.unfocus();
+  }
+
   @override
   void dispose() {
     _featuredController.dispose();
     _animationController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -261,7 +345,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             context,
             MaterialPageRoute(builder: (context) => const CreateProductListingScreen()),
           ).then((_) {
-            // Refresh products when returning from creating a new product
             _fetchNewProducts();
           });
         },
@@ -347,13 +430,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             children: [
               _buildSearchBar(),
               const SizedBox(height: 24),
-              _buildFeaturedProducts(),
-              const SizedBox(height: 32),
-              _buildNewProductsSection(),
-              const SizedBox(height: 32),
-              _buildCategories(),
-              const SizedBox(height: 32),
-              _buildProductsGrid(),
+              if (_isSearching) ...[
+                _buildSearchResults(),
+              ] else ...[
+                _buildFeaturedProducts(),
+                const SizedBox(height: 32),
+                _buildNewProductsSection(),
+                const SizedBox(height: 32),
+                _buildCategories(),
+                const SizedBox(height: 32),
+                _buildProductsGrid(),
+              ],
             ],
           ),
         ),
@@ -383,6 +470,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
                 style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                 decoration: InputDecoration(
                   hintText: 'Search products, artisans...',
@@ -391,6 +480,270 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                   ),
                   border: InputBorder.none,
                 ),
+                onChanged: (value) {
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (value == _searchController.text) {
+                      _searchProducts(value);
+                    }
+                  });
+                },
+                onSubmitted: _searchProducts,
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              IconButton(
+                icon: Icon(Icons.clear, size: 20, color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6)),
+                onPressed: _clearSearch,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Search Results',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '(${_searchResults.length} found)',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: _clearSearch,
+              child: Text(
+                'Clear',
+                style: TextStyle(
+                  color: const Color(0xFF88844D),
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_searchResults.isEmpty)
+          _buildEmptySearchResults()
+        else
+          _buildSearchResultsGrid(),
+      ],
+    );
+  }
+
+  Widget _buildEmptySearchResults() {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFBEC092),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 50,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No products found',
+              style: TextStyle(
+                fontSize: 18,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try searching for something else',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResultsGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final product = _searchResults[index];
+        return _buildProductCard(product);
+      },
+    );
+  }
+
+  Widget _buildProductCard(dynamic product) {
+    final isFromServer = product.containsKey('creator_name');
+    final title = product['title'] ?? 'Untitled';
+    final artisan = isFromServer ? (product['creator_name'] ?? 'Unknown Artisan') : product['artisan']!;
+    final price = isFromServer ? 'M${product['price']?.toString() ?? '0'}' : product['price']!;
+    final image = isFromServer ? (product['image_url'] ?? 'assets/images/placeholder.jpg') : product['image']!;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailScreen(
+              product: {
+                'title': title,
+                'artisan': artisan,
+                'price': price,
+                'image': image,
+                'artisan_id': product['artisan_id']?.toString() ?? '',
+                'id': product['id']?.toString() ?? '',
+                'description': product['description'] ?? '',
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 120,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                color: Color(0xFFE4E5C2),
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+                child: image.startsWith('http')
+                    ? Image.network(
+                        image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: const Color(0xFFE4E5C2),
+                            child: Icon(
+                              Icons.recycling,
+                              size: 40,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
+                            ),
+                          );
+                        },
+                      )
+                    : Image.asset(
+                        image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: const Color(0xFFE4E5C2),
+                            child: Icon(
+                              Icons.recycling,
+                              size: 40,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'By $artisan',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        price,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBEC092),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.shopping_bag_outlined,
+                          size: 16,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -650,7 +1003,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           final product = _newProducts[index];
           return GestureDetector(
             onTap: () {
-              // Navigate to product details
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -687,7 +1039,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Image
                   Container(
                     height: 120,
                     width: double.infinity,
@@ -742,7 +1093,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Product Details
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Column(

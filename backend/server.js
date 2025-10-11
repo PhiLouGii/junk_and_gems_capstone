@@ -1025,6 +1025,43 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
+// Search products by title, description, category, or artisan name
+app.get("/api/products/search", async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: "Search query required" });
+    }
+
+    console.log(`🔍 Searching products for: "${query}"`);
+
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar
+      FROM products p
+      JOIN users u ON p.artisan_id = u.id
+      WHERE (
+        LOWER(p.title) LIKE LOWER($1) 
+        OR LOWER(p.description) LIKE LOWER($1)
+        OR LOWER(p.category) LIKE LOWER($1)
+        OR LOWER(p.materials_used) LIKE LOWER($1)
+        OR LOWER(u.name) LIKE LOWER($1)
+      )
+      ORDER BY p.created_at DESC
+    `, [`%${query}%`]);
+
+    console.log(`✅ Found ${result.rows.length} products matching "${query}"`);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Search products error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Create new product listing
 app.post("/api/products", async (req, res) => {
   console.log('📝 Received product creation request');
