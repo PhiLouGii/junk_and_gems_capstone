@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/screens/learn_more_screen.dart';
 import 'package:junk_and_gems/screens/welcome_screen.dart'; 
 
 class OnboardingScreen extends StatelessWidget {
@@ -107,12 +108,18 @@ const SizedBox(height: 16),
                     
                     // Learn More Button
                     SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: TextButton(
-                        onPressed: () {
-                          // Navigate to More information
-                        },
+  width: double.infinity,
+  height: 60,
+  child: TextButton(
+    onPressed: () {
+      // Navigate to LearnMoreScreen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LearnMoreScreen(),
+        ),
+      );
+    },
                         style: TextButton.styleFrom(
                           backgroundColor: const Color(0xFF88844D),
                           foregroundColor: Colors.white,
