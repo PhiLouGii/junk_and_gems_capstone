@@ -115,6 +115,10 @@ flutter:
     - assets/images/cans_placeholder.jpg
     - assets/images/cables_placeholder.jpg
     - assets/images/general_placeholder.jpg
+    - assets/images/mastercard_logo.png
+    - assets/images/visa_logo.png 
+    - assets/images/mpesa_logo.png
+    - assets/images/ecocash_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

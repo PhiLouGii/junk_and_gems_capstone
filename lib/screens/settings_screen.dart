@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/screens/payments_earnings_screen.dart';
 import 'package:junk_and_gems/providers/language_provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/screens/legal_webview_screen.dart';
@@ -55,7 +56,12 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 32),
             _buildSectionHeader('PREFERENCES'),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.payment_outlined, 'Payments & Earnings'),
+            _buildSettingItem(context, Icons.payment_outlined, 'Payments & Earnings', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PaymentsEarningsScreen()),
+        );
+      }),
             _buildSettingItem(context, Icons.settings_applications_outlined, 'App Preferences', onTap: () {
               Navigator.push(
                 context,
