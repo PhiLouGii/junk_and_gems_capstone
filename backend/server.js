@@ -129,6 +129,121 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// Daily login reward endpoint
+app.post("/api/daily-login-reward", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Check if user already claimed reward today
+    const today = new Date().toISOString().split('T')[0];
+    
+    const existingClaim = await pool.query(
+      "SELECT * FROM daily_login_rewards WHERE user_id = $1 AND claim_date = $2",
+      [userId, today]
+    );
+
+    if (existingClaim.rows.length > 0) {
+      return res.json({
+        success: false,
+        message: "Daily reward already claimed today",
+        gems_earned: 0,
+        streak: existingClaim.rows[0].current_streak
+      });
+    }
+
+    // Get user's current streak
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    const lastClaim = await pool.query(
+      "SELECT * FROM daily_login_rewards WHERE user_id = $1 ORDER BY claim_date DESC LIMIT 1",
+      [userId]
+    );
+
+    let currentStreak = 1;
+    if (lastClaim.rows.length > 0) {
+      const lastClaimDate = new Date(lastClaim.rows[0].claim_date).toISOString().split('T')[0];
+      if (lastClaimDate === yesterdayStr) {
+        currentStreak = lastClaim.rows[0].current_streak + 1;
+      }
+    }
+
+    // Calculate gems based on streak (5 gems base + bonus for streaks)
+    const baseGems = 5;
+    const streakBonus = Math.min(Math.floor(currentStreak / 7) * 2, 10); // +2 gems per week, max +10
+    const totalGems = baseGems + streakBonus;
+
+    // Start transaction
+    await pool.query('BEGIN');
+
+    // Add gems to user
+    await pool.query(
+      "UPDATE users SET available_gems = available_gems + $1 WHERE id = $2",
+      [totalGems, userId]
+    );
+
+    // Record gem transaction
+    await pool.query(
+      "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+      [userId, totalGems, `Daily login reward (${currentStreak} day streak)`]
+    );
+
+    // Record daily login
+    await pool.query(
+      "INSERT INTO daily_login_rewards (user_id, gems_earned, current_streak, claim_date) VALUES ($1, $2, $3, $4)",
+      [userId, totalGems, currentStreak, today]
+    );
+
+    await pool.query('COMMIT');
+
+    res.json({
+      success: true,
+      gems_earned: totalGems,
+      streak: currentStreak,
+      streak_bonus: streakBonus,
+      message: `You earned ${totalGems} gems today!`
+    });
+
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    console.error("Daily login reward error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// Create daily_login_rewards table setup endpoint
+app.post("/api/setup-daily-rewards-table", async (req, res) => {
+  try {
+    console.log('Creating daily_login_rewards table...');
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS daily_login_rewards (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        gems_earned INTEGER NOT NULL,
+        current_streak INTEGER NOT NULL,
+        claim_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, claim_date)
+      )
+    `);
+    console.log('✓ Created daily_login_rewards table');
+
+    // Create index for better performance
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_daily_rewards_user_date ON daily_login_rewards(user_id, claim_date DESC)`);
+    console.log('✓ Created index on daily_login_rewards');
+
+    res.json({ 
+      success: true, 
+      message: "Daily rewards table setup completed successfully" 
+    });
+  } catch (err) {
+    console.error("Setup daily rewards table error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
+  }
+});
+
 // Get all materials with real data
 app.get("/materials", async (req, res) => {
   try {

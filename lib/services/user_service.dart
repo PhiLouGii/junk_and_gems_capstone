@@ -237,4 +237,28 @@ static Future<List<dynamic>> getProductsByUserId(String userId) async {
     print('❌ Debug endpoint test failed: $e');
   }
 }
+
+// Claim daily reward
+static Future<Map<String, dynamic>> claimDailyReward(String userId) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final response = await http.post(
+      Uri.parse('http://10.0.2.2:3003/api/daily-login-reward'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to claim daily reward: ${response.body}');
+    }
+  } catch (e) {
+    print('Claim daily reward error: $e');
+    throw Exception('Failed to claim daily reward');
+  }
+}
 }

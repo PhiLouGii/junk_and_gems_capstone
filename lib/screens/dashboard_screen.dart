@@ -1,7 +1,7 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
+import 'package:junk_and_gems/components/daily_reward_popup.dart';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
@@ -31,11 +31,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> contributors = [];
   Map<String, dynamic> userImpact = {};
   bool isLoading = true;
+  bool showDailyReward = false;
+  Map<String, dynamic>? dailyRewardData;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _checkDailyReward();
+  }
+
+  Future<void> _checkDailyReward() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRewardCheck = prefs.getString('lastRewardCheck_${widget.userId}');
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      
+      // Only check once per day
+      if (lastRewardCheck != today) {
+        final rewardResponse = await UserService.claimDailyReward(widget.userId);
+        
+        if (rewardResponse['success'] == true) {
+          setState(() {
+            dailyRewardData = rewardResponse;
+            showDailyReward = true;
+          });
+          
+          // Update last check date
+          await prefs.setString('lastRewardCheck_${widget.userId}', today);
+        }
+      }
+    } catch (e) {
+      print('❌ Daily reward check error: $e');
+    }
   }
 
   Future<void> _loadData() async {
@@ -123,27 +151,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       bottomNavigationBar: _buildBottomNavBar(context),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildLogo(),
-                const SizedBox(height: 16),
-                _buildWelcomeCard(),
-                const SizedBox(height: 24),
-                _buildQuickActions(context),
-                const SizedBox(height: 24),
-                _buildImpactSection(), 
-                const SizedBox(height: 24),
-                _buildArtisanCarousel(),
-                const SizedBox(height: 24),
-                _buildContributorCarousel(),
-                const SizedBox(height: 20), // Extra bottom padding
-              ],
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLogo(),
+                    const SizedBox(height: 16),
+                    _buildWelcomeCard(),
+                    const SizedBox(height: 24),
+                    _buildQuickActions(context),
+                    const SizedBox(height: 24),
+                    _buildImpactSection(), 
+                    const SizedBox(height: 24),
+                    _buildArtisanCarousel(),
+                    const SizedBox(height: 24),
+                    _buildContributorCarousel(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             ),
-          ),
+            
+            // Daily Reward Popup
+            if (showDailyReward && dailyRewardData != null)
+              DailyRewardPopup(
+                gemsEarned: dailyRewardData!['gems_earned'] ?? 5,
+                currentStreak: dailyRewardData!['streak'] ?? 1,
+                streakBonus: dailyRewardData!['streak_bonus'] ?? 0,
+                onClose: () {
+                  setState(() {
+                    showDailyReward = false;
+                  });
+                  // Refresh user impact to show updated gems
+                  _loadData();
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -342,7 +389,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       alignment: Alignment.bottomRight,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Navigate to marketplace
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MarketplaceScreen(userName: widget.userName),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF88844D),
@@ -522,111 +574,122 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Build user card for both artisans and contributors - LARGER CONTAINER
   Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
-  final name = user['name'] ?? 'Unknown User';
-  final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
-  final profileImage = user['profile_image_url'];
-  final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
-  final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
-  final userId = user['id']?.toString() ?? '0';
+    final name = user['name'] ?? 'Unknown User';
+    final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
+    final profileImage = user['profile_image_url'];
+    final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
+    final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
+    final userId = user['id']?.toString() ?? '0';
 
-  return GestureDetector(
-    onTap: () {
-      _showUserProfileModal(context, name, userId);
-    },
-    child: Container(
-      width: 160,
-      height: 220, // Reduced height since we removed gems
-      margin: const EdgeInsets.only(bottom: 8, right: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Profile Image
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(35),
-                border: Border.all(
-                  color: const Color(0xFFBEC092),
-                  width: 2,
+    return GestureDetector(
+      onTap: () {
+        _showUserProfileModal(context, name, userId);
+      },
+      child: Container(
+        width: 160,
+        height: 220, // Reduced height since we removed gems
+        margin: const EdgeInsets.only(bottom: 8, right: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Profile Image
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(35),
+                  border: Border.all(
+                    color: const Color(0xFFBEC092),
+                    width: 2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(35),
+                  child: profileImage != null 
+                      ? Image.network(
+                          profileImage,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildProfilePlaceholder();
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return _buildProfilePlaceholder();
+                          },
+                        )
+                      : _buildProfilePlaceholder(),
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(35),
-                child: profileImage != null 
-                    ? Image.network(
-                        profileImage,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildProfilePlaceholder();
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return _buildProfilePlaceholder();
-                        },
-                      )
-                    : _buildProfilePlaceholder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            // Name
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                _getDisplayName(name),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600, 
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+              const SizedBox(height: 12),
+              
+              // Name
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  _getDisplayName(name),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600, 
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            
-            // Specialty
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                specialty,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                  fontWeight: FontWeight.w500,
+              
+              // Specialty
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  specialty,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Stats - Only donation and material counts, NO GEMS
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (donationCount > 0) 
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      '$donationCount donations',
+              
+              const SizedBox(height: 12),
+              
+              // Stats - Only donation and material counts, NO GEMS
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (donationCount > 0) 
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '$donationCount donations',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ),
+                  if (materialCount > 0) 
+                    Text(
+                      '$materialCount materials',
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -634,25 +697,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       maxLines: 1,
                     ),
-                  ),
-                if (materialCount > 0) 
-                  Text(
-                    '$materialCount materials',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                  ),
-              ].where((child) => child != null).cast<Widget>().toList(),
-            ),
-          ],
+                ].where((child) => child != null).cast<Widget>().toList(),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _showUserProfileModal(BuildContext context, String userName, String userId) {
     showModalBottomSheet(
