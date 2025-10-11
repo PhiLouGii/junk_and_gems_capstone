@@ -159,17 +159,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLogo(),
+                    // Logo with question mark button
+                    _buildHeaderWithHelp(),
                     const SizedBox(height: 16),
+                    
+                    // Welcome Card with Ring Cycle
                     _buildWelcomeCard(),
                     const SizedBox(height: 24),
-                    _buildQuickActions(context),
+                    
+                    // Donate & Browse Materials Buttons
+                    _buildActionButtons(),
                     const SizedBox(height: 24),
-                    _buildImpactSection(), 
+                    
+                    // Three Product Items
+                    _buildProductItems(),
                     const SizedBox(height: 24),
-                    _buildArtisanCarousel(),
+                    
+                    // Artisan Highlights
+                    _buildArtisanHighlights(),
                     const SizedBox(height: 24),
-                    _buildContributorCarousel(),
+                    
+                    // Frequent Contributors
+                    _buildFrequentContributors(),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -196,97 +207,157 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Logo
-  Widget _buildLogo() {
-    return Center(
-      child: Image.asset(
-        'assets/images/logo.png',
-        width: 150,
-        height: 150,
-        fit: BoxFit.contain,
-      ),
-    );
-  }
-
-  // Welcome Card
-  Widget _buildWelcomeCard() {
-    return Center(
-      child: Card(
-        color: Theme.of(context).cardColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Welcome, ${widget.userName}!',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'What will you do today?',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Quick Actions
-  Widget _buildQuickActions(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  // Header with Logo and Help Button
+  Widget _buildHeaderWithHelp() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+        Expanded(
+          child: Center(
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 150,
+              height: 150,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.2,
-          children: [
-            _buildSmallActionCard('Donate Materials', icon: Icons.recycling),
-            _buildSmallActionCard('Browse Materials', icon: Icons.search, onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
-              );
-            }),
-            _buildUpcycledCard('Denim Handbag', 'assets/images/upcycled1.jpg'),
-            _buildUpcycledCard('Beer Bottle Wall Art', 'assets/images/upcycled2.jpg'),
-            _buildUpcycledCard('Buttons Woman Figure', 'assets/images/upcycled3.jpg'),
-            _buildUpcycledCard('Wine corks Coasters', 'assets/images/upcycled4.jpg'),
-          ],
+        IconButton(
+          icon: Icon(
+            Icons.help_outline,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+            size: 28,
+          ),
+          onPressed: () {
+            // TODO: Add help functionality
+            print('Help button pressed');
+          },
         ),
       ],
     );
   }
 
-  Widget _buildSmallActionCard(String title, {IconData? icon, VoidCallback? onTap}) {
+  // Welcome Card with Ring Cycle
+  Widget _buildWelcomeCard() {
+    final gemsEarned = userImpact['gems_earned']?.toString() ?? '0';
+    
+    return Card(
+      color: Theme.of(context).cardColor,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Welcome, ${widget.userName}!',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'What will you do today?',
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Ring Cycle with Star Icon and Gems
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Outer Ring
+                  Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF88844D),
+                        width: 8,
+                      ),
+                    ),
+                  ),
+                  
+                  // Content inside ring
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.star,
+                        color: const Color(0xFF88844D),
+                        size: 32,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        gemsEarned,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      Text(
+                        'Gems',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Donate & Browse Materials Buttons
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMaterialButton(
+            'Donate Materials',
+            Icons.add_circle_outline,
+            onTap: () {
+              // TODO: Add donate materials functionality
+              print('Donate Materials pressed');
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildMaterialButton(
+            'Browse Materials',
+            Icons.search,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMaterialButton(String text, IconData icon, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 80,
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark 
               ? const Color(0xFF2A2A2A) 
@@ -300,24 +371,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon != null) 
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark 
-                      ? const Color(0xFF3A3A3A) 
-                      : const Color(0xFFBEC092),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 24, color: const Color(0xFF88844D)),
-              ),
+            Icon(
+              icon,
+              size: 32,
+              color: const Color(0xFF88844D),
+            ),
             const SizedBox(height: 8),
             Text(
-              title,
+              text,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -331,254 +395,178 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Upcycled Item Card with gradient and Shop Now button
-  Widget _buildUpcycledCard(String title, String imagePath) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+  // Three Product Items
+  Widget _buildProductItems() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Featured Items',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 3,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.8,
           children: [
-            Image.asset(
-              imagePath,
-              width: double.infinity,
-              height: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: const Color(0xFFBEC092),
-                  child: const Icon(Icons.recycling, size: 40, color: Color(0xFF88844D)),
-                );
-              },
+            _buildProductItem('Denim Handbag', 'assets/images/upcycled1.jpg'),
+            _buildProductItem('Bottle Wall Art', 'assets/images/upcycled2.jpg'),
+            _buildProductItem('Buttons Figure', 'assets/images/upcycled3.jpg'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductItem(String title, String imagePath) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MarketplaceScreen(userName: widget.userName),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
               child: Container(
-                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
+                  borderRadius: BorderRadius.circular(12),
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF3A3A3A) 
+                      : const Color(0xFFE4E5C2),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    imagePath,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          Icons.shopping_bag,
+                          size: 32,
+                          color: const Color(0xFF88844D),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MarketplaceScreen(userName: widget.userName),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF88844D),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          elevation: 2,
-                        ),
-                        child: const Text(
-                          'Shop Now',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            )
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Impact Section
-  Widget _buildImpactSection() {
-    final piecesDonated = userImpact['pieces_donated']?.toString() ?? '0';
-    final upcycledItems = userImpact['upcycled_items']?.toString() ?? '0';
-    final gemsEarned = userImpact['gems_earned']?.toString() ?? '0';
-
+  // Artisan Highlights - Horizontal Scroll with Cards
+  Widget _buildArtisanHighlights() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Your Impact',
+          'Artisan Highlights',
           style: TextStyle(
-            fontSize: 20, 
-            fontWeight: FontWeight.bold, 
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildImpactCell(piecesDonated, 'pieces donated'),
-              _buildImpactCell(upcycledItems, 'upcycled items'),
-              _buildImpactCell(gemsEarned, 'gems earned'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImpactCell(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 22,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12, 
-            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-            fontWeight: FontWeight.w500,
+        const SizedBox(height: 12),
+        
+        if (isLoading)
+          _buildLoadingSection()
+        else if (artisans.isEmpty)
+          _buildEmptySection('No artisans available')
+        else
+          SizedBox(
+            height: 140,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: artisans.length,
+              itemBuilder: (context, index) {
+                return _buildUserCard(artisans[index], true);
+              },
+            ),
           ),
-        ),
       ],
     );
   }
 
-  // Artisan Carousel with Real Data - INCREASED HEIGHT
-  Widget _buildArtisanCarousel() {
-    if (isLoading) {
-      return _buildLoadingCarousel("Artisan Highlights");
-    }
-
-    if (artisans.isEmpty) {
-      return _buildEmptyCarousel("Artisan Highlights", "No artisans yet");
-    }
-
+  // Frequent Contributors - Horizontal Scroll with Cards
+  Widget _buildFrequentContributors() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "Artisan Highlights",
+          'Frequent Contributors',
           style: TextStyle(
-            fontSize: 20, 
-            fontWeight: FontWeight.bold, 
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 240, 
-          child: cs.CarouselSlider(
-            items: artisans.map((artisan) => _buildUserCard(artisan, true)).toList(),
-            options: cs.CarouselOptions(
-              height: 240, 
-              autoPlay: true,
-              autoPlayInterval: const Duration(seconds: 4),
-              enlargeCenterPage: true,
-              viewportFraction: 0.45,
-              enableInfiniteScroll: true,
+        
+        if (isLoading)
+          _buildLoadingSection()
+        else if (contributors.isEmpty)
+          _buildEmptySection('No contributors available')
+        else
+          SizedBox(
+            height: 140,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: contributors.length,
+              itemBuilder: (context, index) {
+                return _buildUserCard(contributors[index], false);
+              },
             ),
           ),
-        ),
       ],
     );
   }
 
-  // Contributors Carousel with Real Data - INCREASED HEIGHT
-  Widget _buildContributorCarousel() {
-    if (isLoading) {
-      return _buildLoadingCarousel("Frequent Contributors");
-    }
-
-    if (contributors.isEmpty) {
-      return _buildEmptyCarousel("Frequent Contributors", "No contributors yet");
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Frequent Contributors",
-          style: TextStyle(
-            fontSize: 20, 
-            fontWeight: FontWeight.bold, 
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 240, 
-          child: cs.CarouselSlider(
-            items: contributors.map((contributor) => _buildUserCard(contributor, false)).toList(),
-            options: cs.CarouselOptions(
-              height: 240, 
-              autoPlay: true,
-              autoPlayInterval: const Duration(seconds: 4),
-              enlargeCenterPage: true,
-              viewportFraction: 0.45,
-              enableInfiniteScroll: true,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Build user card for both artisans and contributors - LARGER CONTAINER
+  // User Card for both Artisans and Contributors
   Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
     final name = user['name'] ?? 'Unknown User';
-    final specialty = user['specialty'] ?? (isArtisan ? 'Crafting' : 'Donating');
+    final specialty = user['specialty'] ?? (isArtisan ? 'Artisan' : 'Contributor');
     final profileImage = user['profile_image_url'];
-    final donationCount = int.tryParse(user['donation_count']?.toString() ?? '0') ?? 0;
-    final materialCount = int.tryParse(user['material_count']?.toString() ?? '0') ?? 0;
     final userId = user['id']?.toString() ?? '0';
 
     return GestureDetector(
@@ -586,39 +574,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _showUserProfileModal(context, name, userId);
       },
       child: Container(
-        width: 160,
-        height: 220, // Reduced height since we removed gems
-        margin: const EdgeInsets.only(bottom: 8, right: 8),
+        width: 120,
+        margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(12.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Profile Image
               Container(
-                width: 70,
-                height: 70,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(35),
+                  shape: BoxShape.circle,
                   border: Border.all(
                     color: const Color(0xFFBEC092),
                     width: 2,
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(35),
+                  borderRadius: BorderRadius.circular(25),
                   child: profileImage != null 
                       ? Image.network(
                           profileImage,
@@ -626,78 +612,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           errorBuilder: (context, error, stackTrace) {
                             return _buildProfilePlaceholder();
                           },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return _buildProfilePlaceholder();
-                          },
                         )
                       : _buildProfilePlaceholder(),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               
               // Name
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  _getDisplayName(name),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600, 
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                _getDisplayName(name),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               
               // Specialty
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  specialty,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                specialty,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 ),
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // Stats - Only donation and material counts, NO GEMS
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (donationCount > 0) 
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        '$donationCount donations',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                      ),
-                    ),
-                  if (materialCount > 0) 
-                    Text(
-                      '$materialCount materials',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                    ),
-                ].where((child) => child != null).cast<Widget>().toList(),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -737,8 +680,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : const Color(0xFFE4E5C2),
       child: Icon(
         Icons.person,
-        size: 30, // Larger icon
+        size: 24,
         color: const Color(0xFF88844D),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSection() {
+    return Container(
+      height: 100,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(color: Color(0xFF88844D)),
+      ),
+    );
+  }
+
+  Widget _buildEmptySection(String message) {
+    return Container(
+      height: 100,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: Text(
+          message,
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+          ),
+        ),
       ),
     );
   }
@@ -749,62 +723,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return '${parts[0]} ${parts[1][0]}.';
     }
     return fullName;
-  }
-
-  Widget _buildLoadingCarousel(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 20, 
-            fontWeight: FontWeight.bold, 
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          height: 300,
-          child: const Center(
-            child: CircularProgressIndicator(color: Color(0xFF88844D)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyCarousel(String title, String message) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 20, 
-            fontWeight: FontWeight.bold, 
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          height: 280,
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Center(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   // Bottom Nav Bar
