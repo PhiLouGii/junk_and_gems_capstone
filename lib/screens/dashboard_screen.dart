@@ -564,59 +564,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // User Card for both Artisans and Contributors
   Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan) {
-    final name = user['name'] ?? 'Unknown User';
-    final specialty = user['specialty'] ?? (isArtisan ? 'Artisan' : 'Contributor');
-    final profileImage = user['profile_image_url'];
-    final userId = user['id']?.toString() ?? '0';
+  final name = user['name'] ?? 'Unknown User';
+  final specialty = user['specialty'] ?? (isArtisan ? 'Artisan' : 'Contributor');
+  final profileImage = user['profile_image_url'];
+  final userId = user['id']?.toString() ?? '0';
+
+  print('🔄 Building user card for: $name');
+  print('📸 Profile image URL: $profileImage');
+
+  // Add cache busting
+  String getImageUrlWithCacheBust(String url) {
+    if (url.contains('?')) {
+      return '$url&t=${DateTime.now().millisecondsSinceEpoch}';
+    } else {
+      return '$url?t=${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+
 
     return GestureDetector(
-      onTap: () {
-        _showUserProfileModal(context, name, userId);
-      },
-      child: Container(
-        width: 120,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Profile Image
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFBEC092),
-                    width: 2,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(25),
-                  child: profileImage != null 
-                      ? Image.network(
-                          profileImage,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildProfilePlaceholder();
-                          },
-                        )
-                      : _buildProfilePlaceholder(),
+    onTap: () {
+      _showUserProfileModal(context, name, userId);
+    },
+    child: Container(
+      width: 120,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+         child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Profile Image with better error handling
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFBEC092),
+                  width: 2,
                 ),
               ),
-              const SizedBox(height: 8),
+                child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: profileImage != null && profileImage.isNotEmpty
+                    ? Image.network(
+                        getImageUrlWithCacheBust(profileImage),
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          print('🔄 Loading image for $name...');
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          print('❌ Error loading image for $name: $error');
+                          print('📸 Failed URL: $profileImage');
+                          return _buildProfilePlaceholder();
+                        },
+                      )
+                    : _buildProfilePlaceholder(),
+              ),
+            ),
+            const SizedBox(height: 8),
               
               // Name
               Text(
