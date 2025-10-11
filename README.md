@@ -31,7 +31,7 @@ git clone https://github.com/PhiLouGii/junk_and_gems_capstone.git
 cd junk_and_gems/backend
 ```
 
-2. Intall dependencies:
+2. Install dependencies:
 ```bash
 npm install
 ```
@@ -83,8 +83,11 @@ flutter run
 - **Media Storage**: Cloudinary 
 - **Authentication**: JWT & bcrypt
 
+<img src="designs_screenshots/system_architecture.png" alt="Junk & Gems System Architecture" width="600">
+<img src="designs_screenshots/use_case_diagram.png" alt="Junk & Gems Use Case Diagram" width="250">
+
 ### UI/UX Designs
-Figma was used to design the screens and the prototype as well as a style guide to envision what colours and theme will be utilised/ 
+Figma was used to design the screens and the prototype as well as a style guide to envision what colours and theme will be utilised
 
 Figma design includes: 
 - Onboarding screens
@@ -93,6 +96,14 @@ Figma design includes:
 - Upcycled artwork and listing screens
 - Chat, Notifications and Messages screens
 - Cart and Checkout screens
+
+- Figma Dev Mode: https://www.figma.com/design/AqZ8CWOhF8oJXGAHxK5sFE/Junk-and-Gems-Prototype?node-id=0-1&m=dev&t=dp3YKVdOms4HANn4-1 
+- Figma Prototype: https://www.figma.com/proto/AqZ8CWOhF8oJXGAHxK5sFE/Junk-and-Gems-Prototype?node-id=0-1&t=R11EvJN283hIJr0l-1
+- *Figma prototype can also be found in the ```designs_screenshots``` folder
+
+### Style Guide
+<img src="designs_screenshots/junk_and_gems_style_guide.png" alt="Style Guide" width="200">
+
 
 ## Deployment Plan
 ```markdown
@@ -106,13 +117,68 @@ Figma design includes:
 ```
 
 ## Video Demo
+- https://youtu.be/P59IOvT2Nb0 - YouTube Link
+- https://drive.google.com/file/d/1r-Ot0Vp1mtyxKzj-KHjuED-4P8NNOdtz/view?usp=sharing - Google Drive link
 
 ## Project Structure
+```bash
+junk_and_gems/
+├── README.md
+├── .gitignore
+│
+├── lib/                         # Flutter Mobile App
+│   ├── main.dart
+│   ├── providers/
+│   ├── screens/
+│   │   ├── login_screen.dart
+│   │   ├── dashboard_screen.dart
+│   │   ├── chat_screen.dart
+│   │   ├── profile_screen.dart
+│   │   └── ...
+│   ├── services/
+│   └── utils/
+│
+├── pubspec.yaml
+├── android/
+├── ios/
+│
+├── backend/                     # Node.js Backend
+│   ├── server.js
+│   ├── .env
+│   ├── package.json
+│   ├── package-lock.json
+│   └── config/
+│       └── cloudinary.js
+│
+└── web/                         # React Web App (Minimal Version)
+    ├── public/
+    │   ├── index.html
+    │   └── favicon.ico
+    │
+    ├── src/
+    │   ├── assets/
+    │   ├── components/
+    │   │   ├── LearnMore/
+    │   │   │   ├── learnmore.module.css
+    │   │   │   └── learnmore.tsx
+    │   │   ├── UpcycledProductsGallery/
+    │   │   │   ├── upcycledproductsgallery.module.css
+    │   │   │   └── upcycledproductsgallery.tsx
+    │   │   └── ...
+    │   ├── app.css
+    │   ├── app.tsx
+    │   ├── index.css
+    │   └── index.tsx
+    │
+    ├── package.json
+    ├── tsconfig.json
+    ├── vite.config.js (or webpack.config.js)
+    └── .gitignore
+```
 
 ## Screenshots
+<img src="designs_screenshots/onboarding_screen.png" alt="Onboarding Screen" width="150"> <img src="designs_screenshots/browse_screen.png" alt="Browse Screen" width="150"> <img src="designs_screenshots/marketplace_screen.png" alt="Marketplace Screen" width="150"> <img src="designs_screenshots/checkout_screen.png" alt="Checkout Screen" width="150"> <img src="designs_screenshots/upload_materials_screen.png" alt="Upload Materials Screen" width="150">
 
 ## Author
-Philippa Louise Giibwa
-Bsc. Software Engineering, ALU (2025)
-📧 p.giibwa@alustudent.com
-Supervisor: Pelin Mutanguha
+- Philippa Louise Giibwa. Bsc. Software Engineering, ALU (2025). 📧 p.giibwa@alustudent.com
+- Supervisor: Pelin Mutanguha
