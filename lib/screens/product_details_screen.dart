@@ -222,7 +222,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // Navigate to cart screen
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ShoppingCartScreen()),
+      MaterialPageRoute(builder: (context) => ShoppingCartScreen(userId: _currentUserId!)),
     );
 
     // In a real app, you would add the item to a cart manager or state management

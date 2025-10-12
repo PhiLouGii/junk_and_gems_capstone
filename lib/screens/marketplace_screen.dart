@@ -379,7 +379,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ShoppingCartScreen()),
+                      MaterialPageRoute(builder: (context) => ShoppingCartScreen(userId: widget.userId ?? '')),
                     );
                   },
                 ),
