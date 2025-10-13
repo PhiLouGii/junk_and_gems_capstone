@@ -10,6 +10,7 @@ import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
 import 'package:junk_and_gems/screens/create_product_listing_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:junk_and_gems/services/cart_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -31,7 +32,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   late AnimationController _animationController;
   late Animation<double> _animation;
   Map<String, String> _userData = {};
-  int _cartItemCount = 1; 
+  int _cartItemCount = 0;
   List<dynamic> _newProducts = [];
   bool _isLoadingNewProducts = false;
   String _searchQuery = '';
@@ -182,6 +183,115 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     });
     _loadUserData();
     _fetchNewProducts();
+    _loadCartCount();
+  }
+
+  // Simplified _loadCartCount method - removed the non-existent method call
+  Future<void> _loadCartCount() async {
+    try {
+      // For now, we'll set a default value since getCartItemsCount doesn't exist
+      // You can implement this later when you have a proper cart count method
+      setState(() {
+        _cartItemCount = 0; // Default to 0
+      });
+    } catch (error) {
+      print('Error loading cart count: $error');
+      setState(() {
+        _cartItemCount = 0;
+      });
+    }
+  }
+
+  // Fixed _addToCart method to match ProductDetailScreen's implementation
+  void _addToCart(Map<String, dynamic> product) async {
+    try {
+      if (widget.userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in to add items to cart'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      print('🛒 Adding to cart from Marketplace...');
+      print('User ID: ${widget.userId}');
+      print('Product ID: ${product['id']}');
+      print('Product Title: ${product['title']}');
+
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Adding to cart...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Use the same static method call as ProductDetailScreen
+      final result = await CartService.addToCart(
+        widget.userId!,
+        product['id']?.toString() ?? '',
+        quantity: 1,
+      );
+
+      print('✅ Add to cart result: $result');
+
+      // Show success
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${product['title']} added to cart!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: 'View Cart',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ShoppingCartScreen(userId: widget.userId!),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        
+        // Update cart count (you'll need to implement this properly later)
+        setState(() {
+          _cartItemCount += 1;
+        });
+      }
+    } catch (e) {
+      print('❌ Add to cart error: $e');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   void _startAutoScroll() {
@@ -447,6 +557,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       ),
     );
   }
+
+  // ... (rest of the widget methods remain the same - _buildSearchBar, _buildSearchResults, etc.)
+  // Only the cart-related methods were changed above
 
   Widget _buildSearchBar() {
     return Container(
@@ -726,19 +839,30 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFBEC092),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.shopping_bag_outlined,
-                          size: 16,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                      GestureDetector(
+                        onTap: () {
+                          _addToCart({
+                            'id': product['id']?.toString() ?? '',
+                            'title': title,
+                            'price': price,
+                            'image': image,
+                            'artisan': artisan,
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBEC092),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 16,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
                         ),
                       ),
                     ],
@@ -874,19 +998,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                       color: Theme.of(context).textTheme.bodyLarge?.color,
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFBEC092),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      Icons.shopping_bag_outlined,
-                                      size: 16,
-                                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                                  GestureDetector(
+                                    onTap: () {
+                                      _addToCart(product);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFBEC092),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        Icons.shopping_bag_outlined,
+                                        size: 16,
+                                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1128,19 +1257,30 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                 color: Theme.of(context).textTheme.bodyLarge?.color,
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFBEC092),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.shopping_bag_outlined,
-                                size: 16,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                            GestureDetector(
+                              onTap: () {
+                                _addToCart({
+                                  'id': product['id']?.toString() ?? '',
+                                  'title': product['title'] ?? 'Untitled',
+                                  'price': 'M${product['price']?.toString() ?? '0'}',
+                                  'image': product['image_url'] ?? '',
+                                  'artisan': product['creator_name'] ?? 'Unknown Artisan',
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFBEC092),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 16,
+                                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                                ),
                               ),
                             ),
                           ],
@@ -1358,19 +1498,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                   color: Theme.of(context).textTheme.bodyLarge?.color,
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFBEC092),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.shopping_bag_outlined,
-                                  size: 16,
-                                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                              GestureDetector(
+                                onTap: () {
+                                  _addToCart(product);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFBEC092),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.shopping_bag_outlined,
+                                    size: 16,
+                                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                                  ),
                                 ),
                               ),
                             ],

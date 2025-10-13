@@ -1,10 +1,14 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/screens/checkout_screen.dart';
 import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/services/cart_service.dart';
 import 'package:junk_and_gems/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ShoppingCartScreen extends StatefulWidget {
   final String userId;
@@ -30,31 +34,59 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   }
 
   Future<void> _checkAuthAndLoadData() async {
-    try {
-      print('🔐 Checking authentication status...');
-      final isLoggedIn = await ApiService.isLoggedIn();
-      
-      if (!isLoggedIn) {
-        print('❌ User not logged in');
-        setState(() {
-          _hasAuthError = true;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      print('✅ User is logged in, loading cart data...');
-      await _loadCartData();
-      await CartService.testConnection();
-    } catch (e) {
-      print('❌ Auth check error: $e');
+  try {
+    print('=' * 50);
+    print('🔍 AUTHENTICATION CHECK STARTED');
+    print('=' * 50);
+    
+    // Debug: Print all auth data
+    await ApiService.debugAuthData();
+    
+    // Check if token exists
+    final token = await ApiService.getToken();
+    print('📋 Token exists: ${token != null}');
+    
+    if (token != null) {
+      print('📋 Token preview: ${token.substring(0, min(20, token.length))}...');
+    }
+    
+    // Check if user ID exists
+    final userId = await ApiService.getUserId();
+    print('📋 User ID from storage: $userId');
+    print('📋 User ID from widget: ${widget.userId}');
+    
+    // Check if they match
+    if (userId != null && userId != widget.userId) {
+      print('⚠️ WARNING: User ID mismatch!');
+    }
+    
+    // Verify token is valid
+    final isValid = await ApiService.verifyToken();
+    print('📋 Token validation: $isValid');
+    
+    if (!isValid) {
+      print('❌ Token is invalid or expired');
       setState(() {
         _hasAuthError = true;
         _isLoading = false;
       });
+      return;
     }
-  }
 
+    print('✅ Authentication verified - Loading cart data...');
+    print('=' * 50);
+    
+    await _loadCartData();
+    
+  } catch (e) {
+    print('❌ Auth check error: $e');
+    print('Stack trace: ${StackTrace.current}');
+    setState(() {
+      _hasAuthError = true;
+      _isLoading = false;
+    });
+  }
+}
   Future<void> _loadCartData() async {
     try {
       print('🛒 Loading cart data for user: ${widget.userId}');
@@ -142,6 +174,93 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       ),
     );
   }
+
+  Future<void> _manualAuthCheck() async {
+  print('🔧 MANUAL AUTH CHECK');
+  
+  // Check SharedPreferences directly
+  final prefs = await SharedPreferences.getInstance();
+  final keys = prefs.getKeys();
+  
+  print('📋 All SharedPreferences keys: $keys');
+  
+  for (var key in keys) {
+    if (key.contains('token') || key.contains('user')) {
+      final value = prefs.get(key);
+      print('📋 $key: ${value.toString().substring(0, min(50, value.toString().length))}...');
+    }
+  }
+  
+  // Test the token
+  final token = await ApiService.getToken();
+  if (token != null) {
+    print('🧪 Testing token with API...');
+    try {
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/materials'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('📡 API test response: ${response.statusCode}');
+    } catch (e) {
+      print('❌ API test failed: $e');
+    }
+  }
+}
+
+Widget _buildEnhancedDebugButtons() {
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: [
+      FloatingActionButton(
+        heroTag: "auth_debug",
+        mini: true,
+        backgroundColor: Colors.blue,
+        onPressed: () async {
+          await _manualAuthCheck();
+          _showSuccessSnackBar('Check console for auth debug info');
+        },
+        child: const Icon(Icons.bug_report),
+      ),
+      const SizedBox(height: 8),
+      FloatingActionButton(
+        heroTag: "reauth",
+        mini: true,
+        backgroundColor: Colors.orange,
+        onPressed: () async {
+          // Try to re-authenticate
+          final token = await ApiService.getToken();
+          if (token != null) {
+            final isValid = await ApiService.verifyToken();
+            _showSuccessSnackBar('Token valid: $isValid');
+            if (isValid) {
+              await _retryLoadData();
+            }
+          } else {
+            _showErrorSnackBar('No token found - please login');
+          }
+        },
+        child: const Icon(Icons.refresh),
+      ),
+      const SizedBox(height: 8),
+      FloatingActionButton(
+        heroTag: "force_login",
+        mini: true,
+        backgroundColor: Colors.red,
+        onPressed: () {
+          // Force navigation to login
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        },
+        child: const Icon(Icons.login),
+      ),
+    ],
+  );
+}
 
   void _navigateToLogin() {
     Navigator.pushAndRemoveUntil(

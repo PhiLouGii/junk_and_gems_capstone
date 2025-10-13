@@ -2719,6 +2719,399 @@ app.post("/api/debug/cart-test-add/:userId", async (req, res) => {
   }
 });
 
+// Debug endpoint: Check if cart_items table exists and has correct structure
+app.get("/api/debug/cart-schema", async (req, res) => {
+  try {
+    console.log('🔍 Checking cart_items table schema...');
+    
+    // Check if table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'cart_items'
+      );
+    `);
+    
+    if (!tableCheck.rows[0].exists) {
+      return res.json({
+        exists: false,
+        message: 'cart_items table does not exist',
+        solution: 'Run the /api/setup-cart-table endpoint'
+      });
+    }
+    
+    // Get table structure
+    const columns = await pool.query(`
+      SELECT 
+        column_name, 
+        data_type, 
+        is_nullable,
+        column_default
+      FROM information_schema.columns 
+      WHERE table_name = 'cart_items' 
+      ORDER BY ordinal_position;
+    `);
+    
+    // Get constraints
+    const constraints = await pool.query(`
+      SELECT 
+        tc.constraint_name,
+        tc.constraint_type,
+        kcu.column_name,
+        ccu.table_name AS foreign_table_name,
+        ccu.column_name AS foreign_column_name
+      FROM information_schema.table_constraints AS tc 
+      LEFT JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      LEFT JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name
+        AND ccu.table_schema = tc.table_schema
+      WHERE tc.table_name = 'cart_items';
+    `);
+    
+    // Count existing cart items
+    const count = await pool.query('SELECT COUNT(*) FROM cart_items');
+    
+    res.json({
+      exists: true,
+      columns: columns.rows,
+      constraints: constraints.rows,
+      total_items: parseInt(count.rows[0].count),
+      message: 'Table structure looks good'
+    });
+    
+  } catch (err) {
+    console.error('❌ Cart schema check error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug endpoint: Test add to cart manually
+app.post("/api/debug/test-add-to-cart", async (req, res) => {
+  const { userId, productId } = req.body;
+  
+  try {
+    console.log('🧪 Testing add to cart...');
+    console.log('User ID:', userId);
+    console.log('Product ID:', productId);
+    
+    // Check if user exists
+    const userCheck = await pool.query(
+      'SELECT id, name FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        userId: userId 
+      });
+    }
+    
+    console.log('✅ User found:', userCheck.rows[0].name);
+    
+    // Check if product exists
+    const productCheck = await pool.query(
+      'SELECT id, title, price FROM products WHERE id = $1',
+      [productId]
+    );
+    
+    if (productCheck.rows.length === 0) {
+      return res.status(404).json({ 
+        error: 'Product not found',
+        productId: productId 
+      });
+    }
+    
+    console.log('✅ Product found:', productCheck.rows[0].title);
+    
+    // Check if item already in cart
+    const existingItem = await pool.query(
+      'SELECT * FROM cart_items WHERE user_id = $1 AND product_id = $2',
+      [userId, productId]
+    );
+    
+    if (existingItem.rows.length > 0) {
+      console.log('ℹ️ Item already in cart, updating quantity...');
+      const updated = await pool.query(
+        'UPDATE cart_items SET quantity = quantity + 1 WHERE user_id = $1 AND product_id = $2 RETURNING *',
+        [userId, productId]
+      );
+      
+      return res.json({
+        success: true,
+        message: 'Updated existing cart item',
+        cart_item: updated.rows[0],
+        user: userCheck.rows[0],
+        product: productCheck.rows[0]
+      });
+    }
+    
+    // Add new item to cart
+    console.log('➕ Adding new item to cart...');
+    const result = await pool.query(
+      'INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *',
+      [userId, productId, 1]
+    );
+    
+    console.log('✅ Item added to cart:', result.rows[0]);
+    
+    res.json({
+      success: true,
+      message: 'Item added to cart successfully',
+      cart_item: result.rows[0],
+      user: userCheck.rows[0],
+      product: productCheck.rows[0]
+    });
+    
+  } catch (err) {
+    console.error('❌ Test add to cart error:', err);
+    res.status(500).json({ 
+      error: err.message,
+      details: err.stack 
+    });
+  }
+});
+
+// Debug endpoint: View all cart items for a user
+app.get("/api/debug/cart-items/:userId", async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    console.log(`🔍 Getting all cart items for user ${userId}`);
+    
+    const result = await pool.query(`
+      SELECT 
+        ci.*,
+        p.title as product_title,
+        p.price as product_price,
+        u.name as user_name
+      FROM cart_items ci
+      LEFT JOIN products p ON ci.product_id = p.id
+      LEFT JOIN users u ON ci.user_id = u.id
+      WHERE ci.user_id = $1
+      ORDER BY ci.created_at DESC
+    `, [userId]);
+    
+    console.log(`✅ Found ${result.rows.length} cart items`);
+    
+    res.json({
+      user_id: userId,
+      total_items: result.rows.length,
+      items: result.rows
+    });
+    
+  } catch (err) {
+    console.error('❌ Get cart items error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug endpoint: Clear cart for a user
+app.delete("/api/debug/clear-cart/:userId", async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    console.log(`🗑️ Clearing cart for user ${userId}`);
+    
+    const result = await pool.query(
+      'DELETE FROM cart_items WHERE user_id = $1 RETURNING *',
+      [userId]
+    );
+    
+    console.log(`✅ Deleted ${result.rows.length} items`);
+    
+    res.json({
+      success: true,
+      message: `Cleared ${result.rows.length} items from cart`,
+      deleted_items: result.rows
+    });
+    
+  } catch (err) {
+    console.error('❌ Clear cart error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Enhanced add to cart with better logging
+app.post("/api/users/:userId/cart-enhanced", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+  const { product_id, quantity = 1 } = req.body;
+
+  console.log('='.repeat(50));
+  console.log('🛒 ADD TO CART REQUEST');
+  console.log('User ID:', userId);
+  console.log('Product ID:', product_id);
+  console.log('Quantity:', quantity);
+  console.log('Auth User ID:', req.user.id);
+  console.log('='.repeat(50));
+
+  try {
+    // Validate user authorization
+    if (parseInt(userId) !== req.user.id) {
+      console.log('❌ User ID mismatch');
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Validate input
+    if (!product_id) {
+      console.log('❌ Missing product_id');
+      return res.status(400).json({ error: 'Product ID is required' });
+    }
+
+    // Check if product exists
+    const productCheck = await pool.query(
+      'SELECT id, title, price FROM products WHERE id = $1',
+      [product_id]
+    );
+
+    if (productCheck.rows.length === 0) {
+      console.log('❌ Product not found:', product_id);
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    console.log('✅ Product found:', productCheck.rows[0].title);
+
+    // Check if item already in cart
+    const existingItem = await pool.query(
+      'SELECT id, quantity FROM cart_items WHERE user_id = $1 AND product_id = $2',
+      [userId, product_id]
+    );
+
+    let result;
+    if (existingItem.rows.length > 0) {
+      console.log('📝 Updating existing cart item...');
+      result = await pool.query(
+        'UPDATE cart_items SET quantity = quantity + $1, updated_at = NOW() WHERE user_id = $2 AND product_id = $3 RETURNING *',
+        [quantity, userId, product_id]
+      );
+      console.log('✅ Cart item updated');
+    } else {
+      console.log('➕ Adding new cart item...');
+      result = await pool.query(
+        'INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *',
+        [userId, product_id, quantity]
+      );
+      console.log('✅ Cart item added');
+    }
+
+    console.log('Result:', result.rows[0]);
+    console.log('='.repeat(50));
+
+    res.status(201).json({
+      success: true,
+      message: 'Item added to cart',
+      cart_item: result.rows[0],
+      product: productCheck.rows[0]
+    });
+
+  } catch (err) {
+    console.error('❌ Add to cart error:', err);
+    console.error('Stack trace:', err.stack);
+    console.log('='.repeat(50));
+    
+    if (err.code === '23503') {
+      return res.status(400).json({ 
+        error: 'Invalid product or user',
+        details: 'Foreign key constraint violation'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Server error: ' + err.message,
+      details: err.stack
+    });
+  }
+});
+
+// Test all cart functionality
+app.get("/api/debug/test-cart-flow/:userId", async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    console.log('🧪 TESTING COMPLETE CART FLOW');
+    const results = {
+      steps: [],
+      success: true
+    };
+    
+    // Step 1: Check user exists
+    const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    results.steps.push({
+      step: 1,
+      name: 'User Check',
+      success: userCheck.rows.length > 0,
+      data: userCheck.rows[0] || null
+    });
+    
+    if (userCheck.rows.length === 0) {
+      results.success = false;
+      return res.json(results);
+    }
+    
+    // Step 2: Get first product
+    const productCheck = await pool.query('SELECT * FROM products LIMIT 1');
+    results.steps.push({
+      step: 2,
+      name: 'Product Check',
+      success: productCheck.rows.length > 0,
+      data: productCheck.rows[0] || null
+    });
+    
+    if (productCheck.rows.length === 0) {
+      results.success = false;
+      return res.json(results);
+    }
+    
+    const testProduct = productCheck.rows[0];
+    
+    // Step 3: Clear existing cart items for this test
+    await pool.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+    results.steps.push({
+      step: 3,
+      name: 'Clear Cart',
+      success: true
+    });
+    
+    // Step 4: Add item to cart
+    const addResult = await pool.query(
+      'INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *',
+      [userId, testProduct.id, 1]
+    );
+    results.steps.push({
+      step: 4,
+      name: 'Add to Cart',
+      success: addResult.rows.length > 0,
+      data: addResult.rows[0]
+    });
+    
+    // Step 5: Retrieve cart items
+    const cartCheck = await pool.query(
+      'SELECT * FROM cart_items WHERE user_id = $1',
+      [userId]
+    );
+    results.steps.push({
+      step: 5,
+      name: 'Retrieve Cart',
+      success: cartCheck.rows.length > 0,
+      data: cartCheck.rows
+    });
+    
+    results.final_cart_count = cartCheck.rows.length;
+    results.message = results.success ? 'All tests passed!' : 'Some tests failed';
+    
+    res.json(results);
+    
+  } catch (err) {
+    console.error('❌ Cart flow test error:', err);
+    res.status(500).json({ 
+      error: err.message,
+      stack: err.stack
+    });
+  }
+});
+
 // Helper function to format time ago
 function formatTimeAgo(date) {
   const now = new Date();

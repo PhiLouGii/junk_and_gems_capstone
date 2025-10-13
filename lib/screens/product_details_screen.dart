@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:junk_and_gems/services/cart_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
@@ -21,26 +22,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final PageController _carouselController = PageController(viewportFraction: 0.8);
   int _currentCarouselIndex = 0;
   String? _currentUserId;
-
   String? _token;
-  // More by Nthati R. products
+
   final List<Map<String, String>> _moreByArtisan = [
     {
-    'title': 'Patchwork blouse', 
-    'price': 'M250', 
-    'image': 'assets/images/featured1.jpg',
-    'artisan': 'Lexie Grey',
-    'artisan_id': '2', 
-    'id': '1',
-  },
+      'title': 'Patchwork blouse',
+      'price': 'M250',
+      'image': 'assets/images/featured1.jpg',
+      'artisan': 'Lexie Grey',
+      'artisan_id': '2',
+      'id': '1',
+    },
     {
-    'title': 'Plastic bottle light', 
-    'price': 'M450', 
-    'image': 'assets/images/featured2.jpg',
-    'artisan': 'Philippa Giibwa',
-    'artisan_id': '3', 
-    'id': '2',
-  },
+      'title': 'Plastic bottle light',
+      'price': 'M450',
+      'image': 'assets/images/featured2.jpg',
+      'artisan': 'Philippa Giibwa',
+      'artisan_id': '3',
+      'id': '2',
+    },
     {
       'title': 'Bleach bottle lamp',
       'price': 'M450',
@@ -50,24 +50,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       'id': '1',
     },
     {
-    'title': 'CD lights', 
-    'price': 'M250', 
-    'image': 'assets/images/featured4.jpg',
-    'artisan': 'Mark Sloan',
-    'artisan_id': '5', 
-    'id': '4',
-  },
+      'title': 'CD lights',
+      'price': 'M250',
+      'image': 'assets/images/featured4.jpg',
+      'artisan': 'Mark Sloan',
+      'artisan_id': '5',
+      'id': '4',
+    },
     {
-    'title': 'Cassette Lamp', 
-    'price': 'M450', 
-    'image': 'assets/images/featured5.jpg',
-    'artisan': 'Maya Bishop',
-    'artisan_id': '7', 
-    'id': '5',
-  },
+      'title': 'Cassette Lamp',
+      'price': 'M450',
+      'image': 'assets/images/featured5.jpg',
+      'artisan': 'Maya Bishop',
+      'artisan_id': '7',
+      'id': '5',
+    },
   ];
 
-  // Related products
   final List<Map<String, String>> _relatedProducts = [
     {'title': 'Plastic Spoon Light', 'price': 'M450', 'image': 'assets/images/related1.jpg'},
     {'title': 'Egg tray Lamp', 'price': 'M400', 'image': 'assets/images/related2.jpg'},
@@ -86,108 +85,91 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _carouselController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _loadCurrentUser() async {
-  final prefs = await SharedPreferences.getInstance();
-  setState(() {
-    _currentUserId = prefs.getString('userId');
-    _token = prefs.getString('token');
-  });
-  
-  print('🔐 CURRENT USER ID: $_currentUserId');
-  print('🔐 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
-  
-  // Print all stored preferences for debugging
-  final allKeys = prefs.getKeys();
-  for (String key in allKeys) {
-    print('📝 SharedPrefs - $key: ${prefs.get(key)}');
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentUserId = prefs.getString('userId');
+      _token = prefs.getString('token');
+    });
+
+    print('🔐 CURRENT USER ID: $_currentUserId');
+    print('🔐 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
   }
-}
 
   void _messageArtisan(BuildContext context) async {
-  try {
-    // Show loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Starting conversation...'),
-        duration: Duration(seconds: 2),
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-      ),
-    );
-
-    if (_currentUserId == null) {
+    try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please log in to message artisans.'),
-          backgroundColor: Colors.red,
+          content: Text('Starting conversation...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
-      return;
-    }
 
-    final String artisanId = widget.product['artisan_id'] ?? '2'; 
-    final String productId = widget.product['id'] ?? '1';
-
-    print('=== MESSAGE ARTISAN DEBUG ===');
-    print('🔐 Current User ID: $_currentUserId');
-    print('🎯 Artisan ID: $artisanId');
-    print('📦 Product ID: $productId');
-    print('👤 Artisan Name: ${widget.product['artisan']}');
-    print('📝 Product Title: ${widget.product['title']}');
-    print('=============================');
-
-    // Start conversation with artisan
-    final response = await http.post(
-      Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'currentUserId': _currentUserId,
-        'otherUserId': artisanId,
-        'productId': productId,
-        'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
-      }),
-    ).timeout(const Duration(seconds: 10));
-
-    print('📡 Response status: ${response.statusCode}');
-    print('📦 Response body: ${response.body}');
-
-    if (response.statusCode == 200) {
-      final conversation = json.decode(response.body);
-      print('✅ Conversation created: ${conversation['id']}');
-      
-      // Navigate to chat screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatScreen(
-            userName: widget.product['artisan'] ?? 'Artisan',
-            otherUserId: artisanId,
-            currentUserId: _currentUserId!,
-            conversationId: conversation['id'].toString(),
-            product: widget.product,
+      if (_currentUserId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please log in to message artisans.'),
+            backgroundColor: Colors.red,
           ),
-        ),
-      );
-    } else {
-      final errorResponse = json.decode(response.body);
-      print('❌ API Error: ${errorResponse['error']}');
+        );
+        return;
+      }
+
+      final String artisanId = widget.product['artisan_id'] ?? '2';
+      final String productId = widget.product['id'] ?? '1';
+
+      print('=== MESSAGE ARTISAN DEBUG ===');
+      print('🔐 Current User ID: $_currentUserId');
+      print('🎯 Artisan ID: $artisanId');
+      print('📦 Product ID: $productId');
+      print('=============================');
+
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'currentUserId': _currentUserId,
+          'otherUserId': artisanId,
+          'productId': productId,
+          'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final conversation = json.decode(response.body);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              userName: widget.product['artisan'] ?? 'Artisan',
+              otherUserId: artisanId,
+              currentUserId: _currentUserId!,
+              conversationId: conversation['id'].toString(),
+              product: widget.product,
+            ),
+          ),
+        );
+      } else {
+        final errorResponse = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start conversation: ${errorResponse['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (error) {
+      print('Message artisan error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to start conversation: ${errorResponse['error']}'),
+          content: Text('Error starting conversation: $error'),
           backgroundColor: Colors.red,
         ),
       );
     }
-  } catch (error) {
-    print('Message artisan error: $error');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error starting conversation: $error'),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
-}
 
   void _startCarouselAutoScroll() {
     Future.delayed(const Duration(seconds: 3), () {
@@ -210,49 +192,97 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
-  void _addToCart(BuildContext context) {
-    // Create cart item from current product
-    final cartItem = {
-      'title': widget.product['title'] ?? 'Sta-Soft Lamp M400',
-      'price': _parsePrice(widget.product['price'] ?? 'M400'),
-      'image': widget.product['image'] ?? 'assets/images/featured3.jpg',
-      'quantity': _quantity,
-    };
-
-    // Navigate to cart screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ShoppingCartScreen(userId: _currentUserId!)),
-    );
-
-    // In a real app, you would add the item to a cart manager or state management
-    // For now, we'll just navigate to the cart screen
-    _showAddedToCartMessage(context);
-  }
-
-  int _parsePrice(String price) {
-    // Remove 'M' and parse to integer
-    final numericPrice = price.replaceAll('M', '');
-    return int.tryParse(numericPrice) ?? 400;
-  }
-
-  void _showAddedToCartMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${widget.product['title']} added to cart!'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Theme.of(context).colorScheme.secondary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+  // FIXED: This method now actually calls CartService.addToCart
+  Future<void> _addToCart(BuildContext context) async {
+    if (_currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to add items to cart'),
+          backgroundColor: Colors.red,
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    try {
+      print('🛒 Adding to cart...');
+      print('User ID: $_currentUserId');
+      print('Product ID: ${widget.product['id']}');
+      print('Product Title: ${widget.product['title']}');
+      print('Quantity: $_quantity');
+
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Adding to cart...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Actually add to cart via API
+      final result = await CartService.addToCart(
+        _currentUserId!,
+        widget.product['id']!,
+        quantity: _quantity,
+      );
+
+      print('✅ Add to cart result: $result');
+
+      // Show success
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.product['title']} added to cart!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: 'View Cart',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ShoppingCartScreen(userId: _currentUserId!),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Add to cart error: $e');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildCarouselItem(Map<String, String> product, int index, ThemeProvider themeProvider) {
     final isDarkMode = themeProvider.isDarkMode;
-    
+
     return GestureDetector(
       onTap: () {
         // Navigate to product detail when tapped
@@ -273,7 +303,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Image - Final adjustment
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: Image.asset(
@@ -294,8 +323,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 },
               ),
             ),
-            
-            // Product Info 
             Container(
               height: 42,
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -333,7 +360,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildRelatedProduct(Map<String, String> product, ThemeProvider themeProvider) {
     final isDarkMode = themeProvider.isDarkMode;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -350,7 +377,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       child: Row(
         children: [
-          // Product Image
           Container(
             width: 60,
             height: 60,
@@ -372,10 +398,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-          
           const SizedBox(width: 12),
-          
-          // Product Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,8 +422,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ],
             ),
           ),
-          
-          // View Button
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -478,7 +499,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
               child: Stack(
                 children: [
-                  // Product Image
                   Center(
                     child: ClipRRect(
                       borderRadius: const BorderRadius.only(
@@ -503,8 +523,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ),
-                  
-                  // Discount Badge (if any)
                   Positioned(
                     top: 20,
                     left: 20,
@@ -530,14 +548,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ],
               ),
             ),
-            
+
             // Product Details
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Title and Price
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -561,10 +578,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 8),
-                  
-                  // Artisan Name and Rating
                   Row(
                     children: [
                       Icon(
@@ -597,46 +611,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 24),
-                  
-                  // About the Product Section
                   _buildSection(
                     title: 'About the Product',
                     content: 'Eco-friendly elegance: a uniquely crafted upcycled lamp made from a detergent container, casting beautiful leaf-pattern shadows.',
                     isDarkMode: isDarkMode,
                   ),
-                  
                   const SizedBox(height: 20),
-                  
-                  // Original Material Section
                   _buildSection(
                     title: 'Original Material',
                     content: 'Cleaning detergent bottle',
                     isDarkMode: isDarkMode,
                   ),
-                  
                   const SizedBox(height: 20),
-                  
-                  // Product Specifications
                   _buildSection(
                     title: 'Specifications',
                     content: '• Height: 12 inches\n• Base diameter: 6 inches\n• Bulb: LED E27 (included)\n• Power cord: 6 feet',
                     isDarkMode: isDarkMode,
                   ),
-                  
                   const SizedBox(height: 20),
-                  
-                  // Shipping Information
                   _buildSection(
                     title: 'Pickup & Drop-off',
                     content: 'Contact the Artisan to arrange pickup or delivery within your area.',
                     isDarkMode: isDarkMode,
                   ),
-
                   const SizedBox(height: 30),
-                  
-                  // More by Nthati R. Section
                   Text(
                     'More by Nthati R.',
                     style: TextStyle(
@@ -645,10 +644,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                     ),
                   ),
-                  
                   const SizedBox(height: 16),
-                  
-                  // Carousel Slider
                   SizedBox(
                     height: 145,
                     child: ClipRRect(
@@ -666,10 +662,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ),
-                  
                   const SizedBox(height: 16),
-                  
-                  // Carousel Indicators
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
@@ -687,10 +680,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 30),
-                  
-                  // Related Products Section
                   Text(
                     'Related Products',
                     style: TextStyle(
@@ -699,17 +689,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                     ),
                   ),
-                  
                   const SizedBox(height: 16),
-                  
-                  // Related Products List
                   Column(
                     children: _relatedProducts.map((product) => _buildRelatedProduct(product, themeProvider)).toList(),
                   ),
-
                   const SizedBox(height: 20),
-                  
-                  // Unique Piece Description
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -733,8 +717,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ],
         ),
       ),
-      
-      // Bottom Action Bar
       bottomNavigationBar: Container(
         height: 90,
         padding: const EdgeInsets.all(16),
@@ -751,7 +733,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         child: Row(
           children: [
-            // Quantity Selector
             Container(
               decoration: BoxDecoration(
                 color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
@@ -789,10 +770,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ],
               ),
             ),
-            
             const SizedBox(width: 16),
-            
-            // Add to Cart Button
             Expanded(
               child: GestureDetector(
                 onTap: () => _addToCart(context),
@@ -815,10 +793,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
               ),
             ),
-
             const SizedBox(width: 16),
-
-            // Message Artisan Button
             GestureDetector(
               onTap: () => _messageArtisan(context),
               child: Container(
