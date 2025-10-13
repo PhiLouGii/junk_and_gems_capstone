@@ -7,9 +7,236 @@ import { Pool } from "pg";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import cloudinary from 'cloudinary';
+import sgMail from '@sendgrid/mail';
 
 const app = express();
 const port = 3003;
+
+// Configure SendGrid
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Email sending helper function
+async function sendEmail({ to, subject, text, html }) {
+  try {
+    const msg = {
+      to,
+      from: {
+        email: process.env.SENDGRID_FROM_EMAIL,
+        name: process.env.SENDGRID_FROM_NAME || 'Junk & Gems CEO'
+      },
+      subject,
+      text,
+      html: html || text
+    };
+
+    await sgMail.send(msg);
+    console.log(`✅ Email sent to ${to}: ${subject}`);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ SendGrid error:', error);
+    if (error.response) {
+      console.error('Error details:', error.response.body);
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+// Welcome email template
+function getWelcomeEmailHtml(name) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #88844D;
+          color: white;
+          padding: 30px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+        }
+        .content {
+          background-color: #F7F2E4;
+          padding: 30px;
+          border-radius: 0 0 10px 10px;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 30px;
+          background-color: #88844D;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 30px;
+          color: #666;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Welcome to Junk & Gems! 🎉</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${name}!</h2>
+        <p>Thank you for joining our community of eco-conscious creators and contributors.</p>
+        <p><strong>What you can do now:</strong></p>
+        <ul>
+          <li>🎁 Donate materials you no longer need</li>
+          <li>🔍 Browse available materials for your projects</li>
+          <li>💎 Earn gems for your contributions</li>
+          <li>🛍️ Shop unique upcycled products from artisans</li>
+          <li>💬 Connect with other community members</li>
+        </ul>
+        <p><strong>Welcome bonus:</strong> You've received 5 gems to get started!</p>
+        <p>Start exploring and making a difference today!</p>
+        <div class="footer">
+          <p>Junk & Gems - Turning waste into wonder</p>
+          <p>If you have any questions, feel free to reach out to our support team.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Password reset email template
+function getPasswordResetEmailHtml(name, resetToken) {
+  const resetUrl = `http://localhost:3003/reset-password?token=${resetToken}`;
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #88844D;
+          color: white;
+          padding: 30px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+        }
+        .content {
+          background-color: #F7F2E4;
+          padding: 30px;
+          border-radius: 0 0 10px 10px;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 30px;
+          background-color: #88844D;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .warning {
+          background-color: #fff3cd;
+          border-left: 4px solid #ffc107;
+          padding: 15px;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Password Reset Request 🔒</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${name},</h2>
+        <p>We received a request to reset your password for your Junk & Gems account.</p>
+        <p>Your password reset code is:</p>
+        <h1 style="text-align: center; color: #88844D; letter-spacing: 5px;">${resetToken}</h1>
+        <p>Enter this code in the app to reset your password. This code will expire in 1 hour.</p>
+        <div class="warning">
+          <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Material donation confirmation email
+function getDonationConfirmationEmailHtml(name, materialTitle, gemsEarned) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #88844D;
+          color: white;
+          padding: 30px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+        }
+        .content {
+          background-color: #F7F2E4;
+          padding: 30px;
+          border-radius: 0 0 10px 10px;
+        }
+        .gems-badge {
+          background-color: #88844D;
+          color: white;
+          padding: 10px 20px;
+          border-radius: 50px;
+          display: inline-block;
+          margin: 20px 0;
+          font-size: 18px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Donation Posted Successfully! 🎉</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${name}!</h2>
+        <p>Great news! Your donation has been posted successfully.</p>
+        <p><strong>Material:</strong> ${materialTitle}</p>
+        <div class="gems-badge">💎 +${gemsEarned} Gems Earned!</div>
+        <p>Your material is now visible to the community. Artisans and creators can browse and claim it for their projects.</p>
+        <p><strong>What happens next?</strong></p>
+        <ul>
+          <li>Community members can view your donation</li>
+          <li>Interested users can message you to arrange pickup</li>
+          <li>You'll be notified when someone claims your item</li>
+        </ul>
+        <p>Thank you for contributing to a more sustainable future! 🌍</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
 
 app.use(cors({
   origin: ['http://localhost:3003', 'http://10.0.2.2:3003', 'http://127.0.0.1:3003', 'http://localhost:3000'],
@@ -62,16 +289,14 @@ app.post("/signup", async (req, res) => {
       return res.status(400).json({ error: "Missing fields" });
     }
     
-    // Check if user already exists
     const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: "User already exists with this email" });
     }
     
-    // Generate username from email
     const username = email.split('@')[0];
-    
     const hashedPassword = await bcrypt.hash(password, 10);
+    
     const result = await pool.query(
       "INSERT INTO users (name, email, password, username) VALUES ($1, $2, $3, $4) RETURNING *",
       [name, email, hashedPassword, username]
@@ -79,6 +304,14 @@ app.post("/signup", async (req, res) => {
     
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
+    
+    // Send welcome email (don't await - let it send in background)
+    sendEmail({
+      to: email,
+      subject: 'Welcome to Junk & Gems! 🎉',
+      text: `Hi ${name}! Welcome to Junk & Gems. Thank you for joining our community of eco-conscious creators.`,
+      html: getWelcomeEmailHtml(name)
+    }).catch(err => console.error('Failed to send welcome email:', err));
     
     res.json({ 
       message: "User created successfully", 
@@ -92,6 +325,116 @@ app.post("/signup", async (req, res) => {
     });
   } catch (err) {
     console.error("Signup error:", err); 
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// --- NEW PASSWORD RESET REQUEST ENDPOINT ---
+app.post("/request-password-reset", async (req, res) => {
+  const { email } = req.body;
+  
+  try {
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    
+    if (result.rows.length === 0) {
+      // Don't reveal if email exists for security
+      return res.json({ 
+        message: "If that email exists, a reset code has been sent" 
+      });
+    }
+
+    const user = result.rows[0];
+    
+    // Generate 6-digit reset code
+    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+
+    // Store reset token in database
+    await pool.query(
+      "UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3",
+      [resetToken, expiresAt, user.id]
+    );
+
+    // Send reset email
+    await sendEmail({
+      to: email,
+      subject: 'Password Reset Code - Junk & Gems',
+      text: `Hi ${user.name}, Your password reset code is: ${resetToken}. This code expires in 1 hour.`,
+      html: getPasswordResetEmailHtml(user.name, resetToken)
+    });
+
+    res.json({ 
+      message: "If that email exists, a reset code has been sent" 
+    });
+    
+  } catch (err) {
+    console.error("Password reset request error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// --- VERIFY RESET CODE ENDPOINT ---
+app.post("/verify-reset-code", async (req, res) => {
+  const { email, code } = req.body;
+  
+  try {
+    if (!email || !code) {
+      return res.status(400).json({ error: "Email and code are required" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM users WHERE email = $1 AND reset_token = $2 AND reset_token_expires > NOW()",
+      [email, code]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired reset code" });
+    }
+
+    res.json({ 
+      message: "Code verified successfully",
+      userId: result.rows[0].id 
+    });
+    
+  } catch (err) {
+    console.error("Verify reset code error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// --- RESET PASSWORD ENDPOINT ---
+app.post("/reset-password", async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  
+  try {
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM users WHERE email = $1 AND reset_token = $2 AND reset_token_expires > NOW()",
+      [email, code]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired reset code" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await pool.query(
+      "UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2",
+      [hashedPassword, result.rows[0].id]
+    );
+
+    res.json({ message: "Password reset successfully" });
+    
+  } catch (err) {
+    console.error("Reset password error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
@@ -304,46 +647,36 @@ app.get("/materials", async (req, res) => {
 // Create new material/donation with base64 images
 app.post("/materials", async (req, res) => {
   console.log('📝 Received material creation request');
-const { 
+  const { 
     title, description, category, quantity, location, delivery_option, 
     available_from, available_until, is_fragile, contact_preferences,
     image_urls, uploader_id 
   } = req.body;
  
   try {
-    // Basic validation
     if (!title || !description || !category || !uploader_id) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log('🔍 Image URLs received:', image_urls);
-    console.log('🔍 Contact preferences received:', contact_preferences, 'type:', typeof contact_preferences);
-
-    // Handle image_urls - ensure it's a proper array
     let imageUrls = [];
     if (image_urls && Array.isArray(image_urls)) {
       imageUrls = image_urls;
     }
 
-    console.log('✅ Final image URLs:', imageUrls);
-
-     let contactPrefs = {};
+    let contactPrefs = {};
     if (contact_preferences) {
       if (typeof contact_preferences === 'string') {
         try {
           contactPrefs = JSON.parse(contact_preferences);
-          console.log('✅ Parsed contact_preferences from string to object');
         } catch (e) {
-          console.log('❌ Failed to parse contact_preferences string, using empty object');
           contactPrefs = {};
         }
       } else if (typeof contact_preferences === 'object') {
         contactPrefs = contact_preferences;
       }
     }
-    console.log('✅ Final contact_preferences:', contactPrefs);
 
-   const result = await pool.query(
+    const result = await pool.query(
       `INSERT INTO materials 
        (title, description, category, quantity, location, delivery_option, 
         available_from, available_until, is_fragile, contact_preferences, 
@@ -361,18 +694,28 @@ const {
       ]
     );
 
-    console.log('✅ Material created successfully with ID:', result.rows[0].id);
-
+    // Award gems
     await pool.query(
-  "UPDATE users SET available_gems = available_gems + 5 WHERE id = $1",
-  [uploader_id]
-);
-await pool.query(
-  "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
-  [uploader_id, 5, `Earned for donating material: ${title}`]
-);
+      "UPDATE users SET available_gems = available_gems + 5 WHERE id = $1",
+      [uploader_id]
+    );
+    await pool.query(
+      "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+      [uploader_id, 5, `Earned for donating material: ${title}`]
+    );
 
-    // Get the created material with uploader info
+    // Get user info and send confirmation email
+    const userResult = await pool.query("SELECT name, email FROM users WHERE id = $1", [uploader_id]);
+    if (userResult.rows.length > 0) {
+      const user = userResult.rows[0];
+      sendEmail({
+        to: user.email,
+        subject: 'Donation Posted Successfully! 🎉',
+        text: `Hi ${user.name}! Your donation "${title}" has been posted successfully. You earned 5 gems!`,
+        html: getDonationConfirmationEmailHtml(user.name, title, 5)
+      }).catch(err => console.error('Failed to send donation confirmation email:', err));
+    }
+
     const materialWithUploader = await pool.query(`
       SELECT 
         m.*,
@@ -386,23 +729,21 @@ await pool.query(
 
     const material = materialWithUploader.rows[0];
 
-     /// Format response - use image_data_base64 for the response
     const formattedMaterial = {
       ...material,
-      image_urls: material.image_data_base64 || [], // Map to image_urls for frontend
+      image_urls: material.image_data_base64 || [],
       uploader: material.uploader_name,
       amount: material.quantity,
       time: formatTimeAgo(material.created_at)
     };
 
-    console.log('✅ Sending response with image_urls:', formattedMaterial.image_urls);
     res.status(201).json(formattedMaterial);
   } catch (err) {
     console.error("❌ Create material error:", err);
-    console.error("❌ Error details:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
+
 
 // Search materials by category or title
 app.get("/materials/search", async (req, res) => {
@@ -2393,6 +2734,24 @@ function formatTimeAgo(date) {
   return new Date(date).toLocaleDateString();
 }
 
+app.post("/test-email", async (req, res) => {
+  const { to, subject, message } = req.body;
+  
+  try {
+    const result = await sendEmail({
+      to: to || process.env.SENDGRID_FROM_EMAIL,
+      subject: subject || 'Test Email from Junk & Gems',
+      text: message || 'This is a test email.',
+      html: `<h1>Test Email</h1><p>${message || 'This is a test email.'}</p>`
+    });
+    
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log(`📧 SendGrid configured: ${process.env.SENDGRID_API_KEY ? 'Yes' : 'No'}`);
 });
