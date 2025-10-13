@@ -1741,7 +1741,22 @@ app.get("/api/users/:userId/cart", authenticateToken, async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const result = await pool.query(`
+    console.log(`🛒 Getting cart for user ${userId}`);
+    
+    // First, let's check what columns actually exist in products table
+    const productColumns = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'products'
+    `);
+    
+    const hasImageData = productColumns.rows.some(col => col.column_name === 'image_data_base64');
+    const hasImageUrl = productColumns.rows.some(col => col.column_name === 'image_url');
+    
+    console.log(`🛒 Products table - has image_data_base64: ${hasImageData}, has image_url: ${hasImageUrl}`);
+    
+    // Build dynamic query based on available columns
+    let query = `
       SELECT 
         ci.id as cart_item_id,
         ci.quantity,
@@ -1754,41 +1769,75 @@ app.get("/api/users/:userId/cart", authenticateToken, async (req, res) => {
         p.materials_used,
         p.dimensions,
         p.location,
-        p.image_data_base64,
         p.artisan_id,
         u.name as artisan_name,
         u.profile_image_url as artisan_avatar
+    `;
+    
+    // Add image column based on what exists
+    if (hasImageData) {
+      query += `, p.image_data_base64`;
+    } else if (hasImageUrl) {
+      query += `, p.image_url as image_data_base64`;
+    } else {
+      query += `, NULL as image_data_base64`;
+    }
+    
+    query += `
       FROM cart_items ci
-      JOIN products p ON ci.product_id = p.id
-      JOIN users u ON p.artisan_id = u.id
+      LEFT JOIN products p ON ci.product_id = p.id
+      LEFT JOIN users u ON p.artisan_id = u.id
       WHERE ci.user_id = $1
       ORDER BY ci.created_at DESC
-    `, [userId]);
+    `;
 
+    console.log(`🛒 Executing query:`, query);
+    
+    const result = await pool.query(query, [userId]);
     console.log(`🛒 Found ${result.rows.length} cart items for user ${userId}`);
 
-    const cartItems = result.rows.map(item => ({
-      cart_item_id: item.cart_item_id,
-      product_id: item.product_id,
-      title: item.title,
-      description: item.description,
-      price: parseFloat(item.price),
-      category: item.category,
-      condition: item.condition,
-      materials_used: item.materials_used,
-      dimensions: item.dimensions,
-      location: item.location,
-      image_data_base64: item.image_data_base64 || [],
-      artisan_id: item.artisan_id,
-      artisan_name: item.artisan_name,
-      artisan_avatar: item.artisan_avatar,
-      quantity: item.quantity
-    }));
+    // Process results safely
+    const cartItems = result.rows.map(item => {
+      try {
+        const cartItem = {
+          cart_item_id: item.cart_item_id,
+          product_id: item.product_id,
+          title: item.title || 'Unknown Product',
+          description: item.description || '',
+          price: item.price ? parseFloat(item.price) : 0,
+          category: item.category,
+          condition: item.condition,
+          materials_used: item.materials_used,
+          dimensions: item.dimensions,
+          location: item.location,
+          image_data_base64: item.image_data_base64 || [],
+          artisan_id: item.artisan_id,
+          artisan_name: item.artisan_name || 'Unknown Artisan',
+          artisan_avatar: item.artisan_avatar,
+          quantity: item.quantity || 1
+        };
+        
+        // If we have image_url but no image_data_base64, convert it
+        if (item.image_url && (!item.image_data_base64 || item.image_data_base64.length === 0)) {
+          cartItem.image_data_base64 = [item.image_url];
+        }
+        
+        return cartItem;
+      } catch (itemErr) {
+        console.error(`❌ Error processing cart item:`, itemErr);
+        return null;
+      }
+    }).filter(item => item !== null); // Remove any null items from errors
 
+    console.log(`🛒 Successfully processed ${cartItems.length} cart items`);
     res.json(cartItems);
+    
   } catch (err) {
-    console.error("Get cart error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
+    console.error("❌ Get cart error:", err);
+    res.status(500).json({ 
+      error: "Server error: " + err.message,
+      details: "Check server logs for more information"
+    });
   }
 });
 
@@ -1798,15 +1847,25 @@ app.post("/api/users/:userId/cart", authenticateToken, async (req, res) => {
   const { product_id, quantity = 1 } = req.body;
 
   try {
+    console.log(`🛒 Add to cart - User: ${userId}, Product: ${product_id}, Quantity: ${quantity}`);
+    
+    // Validate input
+    if (!product_id) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
     // Check if product exists
     const productCheck = await pool.query(
-      "SELECT id FROM products WHERE id = $1",
+      "SELECT id, title FROM products WHERE id = $1",
       [product_id]
     );
 
     if (productCheck.rows.length === 0) {
+      console.log(`❌ Product ${product_id} not found`);
       return res.status(404).json({ error: "Product not found" });
     }
+
+    console.log(`✅ Product found: ${productCheck.rows[0].title}`);
 
     // Check if item already in cart
     const existingItem = await pool.query(
@@ -1817,26 +1876,43 @@ app.post("/api/users/:userId/cart", authenticateToken, async (req, res) => {
     let result;
     if (existingItem.rows.length > 0) {
       // Update quantity if item exists
+      console.log(`🔄 Updating existing cart item quantity`);
       result = await pool.query(
         "UPDATE cart_items SET quantity = quantity + $1, updated_at = NOW() WHERE user_id = $2 AND product_id = $3 RETURNING *",
         [quantity, userId, product_id]
       );
     } else {
       // Add new item to cart
+      console.log(`🆕 Adding new item to cart`);
       result = await pool.query(
         "INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
         [userId, product_id, quantity]
       );
     }
 
+    console.log(`✅ Cart operation successful, item ID: ${result.rows[0].id}`);
+    
     res.status(201).json({
       success: true,
       message: "Item added to cart",
       cart_item: result.rows[0]
     });
+    
   } catch (err) {
-    console.error("Add to cart error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
+    console.error("❌ Add to cart error:", err);
+    
+    // Check if it's a foreign key violation
+    if (err.code === '23503') {
+      return res.status(400).json({ 
+        error: "Invalid product or user",
+        details: "The product or user does not exist"
+      });
+    }
+    
+    res.status(500).json({ 
+      error: "Server error: " + err.message,
+      details: "Check server logs for more information"
+    });
   }
 });
 
@@ -2043,6 +2119,262 @@ app.post("/api/setup-cart-table", async (req, res) => {
   } catch (err) {
     console.error("Setup cart table error:", err);
     res.status(500).json({ error: "Setup failed: " + err.message });
+  }
+});
+
+app.get("/api/debug/cart-query/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    console.log(`🔍 Debug: Testing cart query for user ${userId}`);
+    
+    // Step 1: Check if user exists
+    const userCheck = await pool.query("SELECT id, name FROM users WHERE id = $1", [userId]);
+    console.log(`🔍 User check: ${userCheck.rows.length} users found`);
+    
+    // Step 2: Check cart_items directly
+    const cartCheck = await pool.query("SELECT * FROM cart_items WHERE user_id = $1", [userId]);
+    console.log(`🔍 Cart items raw: ${cartCheck.rows.length} items found`);
+    console.log(`🔍 Cart items:`, cartCheck.rows);
+    
+    // Step 3: Check products table structure
+    const productColumns = await pool.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'products' 
+      ORDER BY ordinal_position
+    `);
+    console.log(`🔍 Products table columns:`, productColumns.rows);
+    
+    // Step 4: Try simplified query first
+    const simpleQuery = await pool.query(`
+      SELECT 
+        ci.id as cart_item_id,
+        ci.quantity,
+        ci.user_id,
+        ci.product_id,
+        p.id as product_id,
+        p.title,
+        p.price
+      FROM cart_items ci
+      LEFT JOIN products p ON ci.product_id = p.id
+      WHERE ci.user_id = $1
+    `, [userId]);
+    
+    console.log(`🔍 Simple query result: ${simpleQuery.rows.length} items`);
+    
+    res.json({
+      user_exists: userCheck.rows.length > 0,
+      cart_items_count: cartCheck.rows.length,
+      cart_items: cartCheck.rows,
+      products_columns: productColumns.rows,
+      simple_query_results: simpleQuery.rows
+    });
+    
+  } catch (err) {
+    console.error("Debug cart query error:", err);
+    res.status(500).json({ error: "Debug query failed: " + err.message });
+  }
+});
+
+// Debug endpoint to manually add item to cart - NO AUTHENTICATION
+app.post("/api/debug/users/:userId/cart/add", async (req, res) => {
+  const { userId } = req.params;
+  const { product_id, quantity = 1 } = req.body;
+
+  try {
+    console.log(`🔍 Debug: Adding item to cart for user ${userId}, product ${product_id}`);
+    
+    // Check if product exists
+    const productCheck = await pool.query(
+      "SELECT id, title FROM products WHERE id = $1",
+      [product_id]
+    );
+
+    if (productCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    console.log(`🔍 Debug: Product found: ${productCheck.rows[0].title}`);
+
+    // Add to cart
+    const result = await pool.query(
+      "INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
+      [userId, product_id, quantity]
+    );
+
+    console.log(`✅ Debug: Item added to cart with ID: ${result.rows[0].id}`);
+    
+    res.json({
+      success: true,
+      message: "Debug: Item added to cart",
+      cart_item: result.rows[0],
+      product: productCheck.rows[0]
+    });
+  } catch (err) {
+    console.error("Debug add to cart error:", err);
+    res.status(500).json({ error: "Debug add failed: " + err.message });
+  }
+});
+
+// Debug endpoint to check all tables - NO AUTHENTICATION
+app.get("/api/debug/tables", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name;
+    `);
+    
+    res.json({
+      tables: result.rows.map(row => row.table_name)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug endpoint to check products - NO AUTHENTICATION
+app.get("/api/debug/products", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, title, price FROM products ORDER BY id LIMIT 10
+    `);
+    
+    res.json({
+      products: result.rows,
+      count: result.rows.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/debug/test-cart/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    console.log(`🧪 Running comprehensive cart test for user ${userId}`);
+    
+    // Step 1: Check if user exists
+    const userCheck = await pool.query("SELECT id, name FROM users WHERE id = $1", [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Step 2: Check if we have products
+    const products = await pool.query("SELECT id, title FROM products LIMIT 1");
+    if (products.rows.length === 0) {
+      return res.status(404).json({ error: "No products found in database" });
+    }
+    
+    const testProductId = products.rows[0].id;
+    console.log(`🧪 Using product ID ${testProductId} for testing`);
+    
+    // Step 3: Clear any existing cart items for this user
+    await pool.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
+    console.log(`🧪 Cleared existing cart items`);
+    
+    // Step 4: Add item to cart
+    const addResult = await pool.query(
+      "INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
+      [userId, testProductId, 2]
+    );
+    console.log(`🧪 Added item to cart:`, addResult.rows[0]);
+    
+    // Step 5: Retrieve cart items
+    const cartItems = await pool.query(`
+      SELECT ci.*, p.title, p.price 
+      FROM cart_items ci 
+      JOIN products p ON ci.product_id = p.id 
+      WHERE ci.user_id = $1
+    `, [userId]);
+    
+    console.log(`🧪 Retrieved ${cartItems.rows.length} cart items`);
+    
+    res.json({
+      success: true,
+      test_user: userCheck.rows[0],
+      test_product: products.rows[0],
+      added_cart_item: addResult.rows[0],
+      retrieved_cart_items: cartItems.rows,
+      message: "Cart test completed successfully"
+    });
+    
+  } catch (err) {
+    console.error("Cart test error:", err);
+    res.status(500).json({ error: "Cart test failed: " + err.message });
+  }
+});
+
+app.get("/api/debug/cart-raw/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    console.log(`🔍 Checking raw cart data for user ${userId}`);
+    
+    // Simple query without joins first
+    const rawCart = await pool.query(`
+      SELECT * FROM cart_items WHERE user_id = $1
+    `, [userId]);
+    
+    console.log(`📦 Raw cart items:`, rawCart.rows);
+
+    res.json({
+      user_id: userId,
+      cart_items: rawCart.rows,
+      count: rawCart.rows.length
+    });
+  } catch (err) {
+    console.error("Raw cart debug error:", err);
+    res.status(500).json({ error: "Raw cart debug failed: " + err.message });
+  }
+});
+
+app.post("/api/debug/cart-test-add/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { product_id } = req.body;
+
+  try {
+    console.log(`🧪 Test: Adding product ${product_id} to cart for user ${userId}`);
+    
+    // Step 1: Clear existing cart
+    await pool.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
+    console.log(`🧪 Cleared existing cart items`);
+    
+    // Step 2: Add test item
+    const addResult = await pool.query(
+      "INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
+      [userId, product_id, 1]
+    );
+    console.log(`🧪 Added item:`, addResult.rows[0]);
+    
+    // Step 3: Retrieve using main cart endpoint (with authentication simulation)
+    const cartResult = await pool.query(`
+      SELECT 
+        ci.id as cart_item_id,
+        ci.quantity,
+        p.id as product_id,
+        p.title,
+        p.price
+      FROM cart_items ci
+      JOIN products p ON ci.product_id = p.id
+      WHERE ci.user_id = $1
+    `, [userId]);
+    
+    console.log(`🧪 Retrieved ${cartResult.rows.length} items via main query`);
+    
+    res.json({
+      success: true,
+      added_item: addResult.rows[0],
+      retrieved_items: cartResult.rows,
+      message: "Test completed"
+    });
+    
+  } catch (err) {
+    console.error("Cart test error:", err);
+    res.status(500).json({ error: "Cart test failed: " + err.message });
   }
 });
 

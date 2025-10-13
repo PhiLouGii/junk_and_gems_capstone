@@ -1,15 +1,12 @@
-// services/api_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:3003'; 
+  static const String baseUrl = 'http://10.0.2.2:3003';
 
-  Future<Map<String, String>> _getHeaders() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? token = prefs.getString('auth_token');
-
+  static Future<Map<String, String>> _getHeaders() async {
+    final String? token = await getToken();
     final headers = {
       'Content-Type': 'application/json',
     };
@@ -21,7 +18,7 @@ class ApiService {
     return headers;
   }
 
-  Future<dynamic> get(String endpoint) async {
+  static Future<dynamic> get(String endpoint) async {
     try {
       final headers = await _getHeaders();
       final response = await http.get(
@@ -31,11 +28,12 @@ class ApiService {
 
       return _handleResponse(response);
     } catch (error) {
+      print('❌ API GET error: $error');
       throw Exception('Network error: $error');
     }
   }
 
-  Future<dynamic> post(String endpoint, dynamic data) async {
+  static Future<dynamic> post(String endpoint, dynamic data) async {
     try {
       final headers = await _getHeaders();
       final response = await http.post(
@@ -46,11 +44,12 @@ class ApiService {
 
       return _handleResponse(response);
     } catch (error) {
+      print('❌ API POST error: $error');
       throw Exception('Network error: $error');
     }
   }
 
-  Future<dynamic> put(String endpoint, dynamic data) async {
+  static Future<dynamic> put(String endpoint, dynamic data) async {
     try {
       final headers = await _getHeaders();
       final response = await http.put(
@@ -61,11 +60,12 @@ class ApiService {
 
       return _handleResponse(response);
     } catch (error) {
+      print('❌ API PUT error: $error');
       throw Exception('Network error: $error');
     }
   }
 
-  Future<dynamic> delete(String endpoint) async {
+  static Future<dynamic> delete(String endpoint) async {
     try {
       final headers = await _getHeaders();
       final response = await http.delete(
@@ -75,13 +75,16 @@ class ApiService {
 
       return _handleResponse(response);
     } catch (error) {
+      print('❌ API DELETE error: $error');
       throw Exception('Network error: $error');
     }
   }
 
-  dynamic _handleResponse(http.Response response) {
+  static dynamic _handleResponse(http.Response response) {
     final statusCode = response.statusCode;
     final responseBody = response.body;
+
+    print('📡 API Response: $statusCode - ${response.request?.url}');
 
     if (responseBody.isEmpty) {
       if (statusCode >= 200 && statusCode < 300) {
@@ -95,6 +98,11 @@ class ApiService {
 
     if (statusCode >= 200 && statusCode < 300) {
       return jsonResponse;
+    } else if (statusCode == 401 || statusCode == 403) {
+      // Authentication error - clear token
+      removeToken();
+      final errorMessage = jsonResponse['error'] ?? 'Authentication failed';
+      throw Exception('$errorMessage. Please login again.');
     } else {
       final errorMessage = jsonResponse['error'] ?? 'Request failed with status: $statusCode';
       throw Exception(errorMessage);
@@ -103,19 +111,59 @@ class ApiService {
 
   // Helper method to save token after login/signup
   static Future<void> saveToken(String token) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+      print('💾 Token saved successfully');
+    } catch (e) {
+      print('❌ Error saving token: $e');
+      throw Exception('Failed to save authentication token');
+    }
   }
 
   // Helper method to remove token on logout
   static Future<void> removeToken() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      print('🗑️ Token removed');
+    } catch (e) {
+      print('❌ Error removing token: $e');
+    }
   }
 
   // Helper method to get token
   static Future<String?> getToken() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      print('🔐 Token retrieved: ${token != null ? "Present" : "NULL"}');
+      return token;
+    } catch (e) {
+      print('❌ Error getting token: $e');
+      return null;
+    }
+  }
+
+  // Check if user is logged in
+  static Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    return token != null && token.isNotEmpty;
+  }
+
+  // Test server connection
+  static Future<void> testConnection() async {
+    try {
+      print('🔌 Testing connection to server...');
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/debug/tables'),
+      ).timeout(const Duration(seconds: 5));
+
+      print('✅ Server is reachable, status: ${response.statusCode}');
+      print('📋 Response: ${response.body}');
+    } catch (e) {
+      print('❌ Cannot reach server: $e');
+      throw Exception('Cannot connect to server. Please check your connection.');
+    }
   }
 }

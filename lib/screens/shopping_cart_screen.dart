@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/checkout_screen.dart';
+import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/services/cart_service.dart';
+import 'package:junk_and_gems/services/api_service.dart';
 
 class ShoppingCartScreen extends StatefulWidget {
   final String userId;
@@ -19,41 +21,134 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   int _appliedGems = 0;
   final TextEditingController _gemsController = TextEditingController();
   bool _isLoading = true;
+  bool _hasAuthError = false;
 
   @override
   void initState() {
     super.initState();
-    _loadCartData();
+    _checkAuthAndLoadData();
+  }
+
+  Future<void> _checkAuthAndLoadData() async {
+    try {
+      print('🔐 Checking authentication status...');
+      final isLoggedIn = await ApiService.isLoggedIn();
+      
+      if (!isLoggedIn) {
+        print('❌ User not logged in');
+        setState(() {
+          _hasAuthError = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      print('✅ User is logged in, loading cart data...');
+      await _loadCartData();
+      await CartService.testConnection();
+    } catch (e) {
+      print('❌ Auth check error: $e');
+      setState(() {
+        _hasAuthError = true;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadCartData() async {
     try {
       print('🛒 Loading cart data for user: ${widget.userId}');
-      final [cartItems, userGems] = await Future.wait([
-        CartService.getCartItems(widget.userId),
-        CartService.getUserGems(widget.userId),
-      ]);
+      
+      int userGems = 0;
+      List<dynamic> cartItems = [];
+
+      try {
+        userGems = await CartService.getUserGems(widget.userId);
+        print('💎 User gems loaded: $userGems');
+      } catch (e) {
+        print('⚠️ Could not load user gems: $e');
+        userGems = 0;
+        
+        if (_isAuthError(e)) {
+          _handleAuthError();
+          return;
+        }
+      }
+
+      try {
+        cartItems = await CartService.getCartItems(widget.userId);
+        print('✅ Cart items loaded: ${cartItems.length} items');
+      } catch (e) {
+        print('❌ Could not load cart items: $e');
+        
+        if (_isAuthError(e)) {
+          _handleAuthError();
+          return;
+        }
+      }
 
       setState(() {
-        _cartItems = cartItems as List<dynamic>;
-        _availableGems = userGems as int;
+        _cartItems = cartItems;
+        _availableGems = userGems;
         _isLoading = false;
+        _hasAuthError = false;
       });
       
-      print('✅ Cart loaded: ${_cartItems.length} items, $_availableGems gems');
     } catch (e) {
-      print('❌ Error loading cart data: $e');
+      print('❌ Unexpected error in _loadCartData: $e');
       setState(() {
         _isLoading = false;
       });
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load cart: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
+  }
+
+  bool _isAuthError(dynamic error) {
+    final errorStr = error.toString();
+    return errorStr.contains('Session expired') || 
+           errorStr.contains('Please login') ||
+           errorStr.contains('Authentication failed') ||
+           errorStr.contains('not authenticated');
+  }
+
+  void _handleAuthError() {
+    setState(() {
+      _hasAuthError = true;
+      _isLoading = false;
+    });
+  }
+
+  void _showLoginRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Authentication Required'),
+        content: const Text('Please login to access your shopping cart.'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              _navigateToLogin();
+            },
+            child: const Text('Login'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back
+            },
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   double get _subtotal {
@@ -66,7 +161,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   }
 
   int get _maxAllowedGems {
-    // User can only use 10% of their available gems
     return (_availableGems * 0.1).floor();
   }
 
@@ -84,12 +178,11 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       });
     } catch (e) {
       print('❌ Error updating quantity: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to update quantity: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar('Failed to update quantity: ${e.toString().replaceAll('Exception: ', '')}');
+      
+      if (_isAuthError(e)) {
+        _handleAuthError();
+      }
     }
   }
 
@@ -101,20 +194,14 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
         _cartItems.removeWhere((item) => item['cart_item_id'].toString() == itemId);
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Item removed from cart'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _showSuccessSnackBar('Item removed from cart');
     } catch (e) {
       print('❌ Error removing item: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to remove item: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar('Failed to remove item: ${e.toString().replaceAll('Exception: ', '')}');
+      
+      if (_isAuthError(e)) {
+        _handleAuthError();
+      }
     }
   }
 
@@ -126,25 +213,54 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       if (gems > maxAllowed) {
         _appliedGems = maxAllowed;
         _gemsController.text = maxAllowed.toString();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Maximum allowed gems is $maxAllowed (10% of your total)'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        _showWarningSnackBar('Maximum allowed gems is $maxAllowed (10% of your total)');
       } else if (gems > _availableGems) {
         _appliedGems = _availableGems;
         _gemsController.text = _availableGems.toString();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Cannot apply more gems than you have'),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        _showWarningSnackBar('Cannot apply more gems than you have');
       } else {
         _appliedGems = gems;
+        _showSuccessSnackBar('$gems gems applied successfully!');
       }
     });
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showWarningSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _retryLoadData() async {
+    setState(() {
+      _isLoading = true;
+      _hasAuthError = false;
+    });
+    await _checkAuthAndLoadData();
   }
 
   @override
@@ -174,37 +290,119 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (_hasAuthError || _isLoading)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _retryLoadData,
+              tooltip: 'Retry',
+            ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF88844D)))
-          : Column(
+      body: _buildBody(),
+      floatingActionButton: _buildDebugButtons(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF88844D)),
+            SizedBox(height: 16),
+            Text('Loading your cart...'),
+          ],
+        ),
+      );
+    }
+
+    if (_hasAuthError) {
+      return _buildAuthErrorScreen();
+    }
+
+    if (_cartItems.isEmpty) {
+      return _buildEmptyCart();
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
               children: [
-                Expanded(
-                  child: _cartItems.isEmpty
-                      ? _buildEmptyCart()
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            children: [
-                              // Cart Items
-                              _buildCartItems(),
-                              const SizedBox(height: 24),
-                              
-                              // Apply Gems Section
-                              _buildGemsSection(),
-                              const SizedBox(height: 24),
-                              
-                              // Order Summary
-                              _buildOrderSummary(),
-                            ],
-                          ),
-                        ),
-                ),
-                
-                // Bottom Buttons
-                if (_cartItems.isNotEmpty) _buildBottomButtons(),
+                _buildCartItems(),
+                const SizedBox(height: 24),
+                _buildGemsSection(),
+                const SizedBox(height: 24),
+                _buildOrderSummary(),
               ],
             ),
+          ),
+        ),
+        _buildBottomButtons(),
+      ],
+    );
+  }
+
+  Widget _buildAuthErrorScreen() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 80,
+              color: Colors.orange,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Authentication Required',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please login to access your shopping cart and gems.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: _navigateToLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF88844D),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Login Now'),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: _retryLoadData,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -238,7 +436,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Go back to marketplace
+              Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF88844D),
@@ -279,7 +477,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Product Image
         Container(
           width: 80,
           height: 80,
@@ -302,13 +499,12 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
         ),
         const SizedBox(width: 16),
         
-        // Product Details and Quantity
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item['title'],
+                item['title'] ?? 'Unknown Product',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -317,7 +513,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'M${item['price']}',
+                'M${item['price'] ?? 0}',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -326,10 +522,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               ),
               const SizedBox(height: 8),
               
-              // Quantity Selector and Remove Button
               Row(
                 children: [
-                  // Quantity Selector
                   Container(
                     width: 120,
                     decoration: BoxDecoration(
@@ -347,7 +541,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                           onPressed: () {
-                            final newQuantity = item['quantity'] - 1;
+                            final newQuantity = (item['quantity'] ?? 1) - 1;
                             if (newQuantity >= 1) {
                               _updateQuantity(item['cart_item_id'].toString(), newQuantity);
                             }
@@ -359,7 +553,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                           ),
                         ),
                         Text(
-                          item['quantity'].toString(),
+                          (item['quantity'] ?? 1).toString(),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -373,7 +567,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                           onPressed: () {
-                            final newQuantity = item['quantity'] + 1;
+                            final newQuantity = (item['quantity'] ?? 1) + 1;
                             _updateQuantity(item['cart_item_id'].toString(), newQuantity);
                           },
                           padding: EdgeInsets.zero,
@@ -386,7 +580,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                     ),
                   ),
                   const Spacer(),
-                  // Remove Button
                   IconButton(
                     icon: Icon(
                       Icons.delete_outline,
@@ -497,7 +690,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Gems Input Field
           Row(
             children: [
               Expanded(
@@ -646,11 +838,10 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       ),
       child: Row(
         children: [
-          // Add More Items Button
           Expanded(
             child: OutlinedButton(
               onPressed: () {
-                Navigator.pop(context); // Go back to marketplace
+                Navigator.pop(context);
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
@@ -671,8 +862,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
             ),
           ),
           const SizedBox(width: 16),
-          
-          // Checkout Button
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -681,7 +870,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               ),
               child: TextButton(
                 onPressed: () {
-                  // Navigate to checkout
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -693,7 +881,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                       ),
                     ),
                   ).then((_) {
-                    // Refresh cart when returning from checkout
                     _loadCartData();
                   });
                 },
@@ -716,6 +903,37 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDebugButtons() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        FloatingActionButton(
+          heroTag: "debug1",
+          mini: true,
+          onPressed: () async {
+            print('🐛 DEBUG: Testing cart connection...');
+            try {
+              await CartService.testConnection();
+              final token = await ApiService.getToken();
+              print('🔐 Current token: $token');
+              _showSuccessSnackBar('Connection test completed');
+            } catch (e) {
+              _showErrorSnackBar('Connection test failed: $e');
+            }
+          },
+          child: const Icon(Icons.bug_report),
+        ),
+        const SizedBox(height: 8),
+        FloatingActionButton(
+          heroTag: "debug2",
+          mini: true,
+          onPressed: _retryLoadData,
+          child: const Icon(Icons.refresh),
+        ),
+      ],
     );
   }
 
