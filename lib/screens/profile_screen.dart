@@ -56,56 +56,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ========== DATA LOADING METHODS ==========
 
   Future<void> _loadUserData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        userData = {
-          'id': prefs.getString('userId') ?? '',
-          'name': prefs.getString('userName') ?? 'User',
-          'email': prefs.getString('userEmail') ?? '',
-          'username': prefs.getString('username') ?? '',
-          'bio': prefs.getString('userBio') ?? '',
-          'profilePicture': prefs.getString('profilePicture') ?? '',
-        };
-        _bioController.text = userData['bio'] ?? '';
-      });
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // 🔍 Debug: Print all stored keys
+    print('=' * 50);
+    print('📦 CHECKING SHARED PREFERENCES');
+    print('All keys: ${prefs.getKeys()}');
+    print('userId: ${prefs.getString('userId')}');
+    print('user_id: ${prefs.getString('user_id')}');
+    print('userName: ${prefs.getString('userName')}');
+    print('user_name: ${prefs.getString('user_name')}');
+    print('userEmail: ${prefs.getString('userEmail')}');
+    print('user_email: ${prefs.getString('user_email')}');
+    print('=' * 50);
+    
+    // ✅ Try multiple possible key variations and use widget.userId as fallback
+    final storedUserId = prefs.getString('userId') ?? 
+                        prefs.getString('user_id') ?? 
+                        widget.userId;
+    
+    setState(() {
+      userData = {
+        'id': storedUserId,
+        'name': prefs.getString('userName') ?? 
+                prefs.getString('user_name') ?? 
+                widget.userName,
+        'email': prefs.getString('userEmail') ?? 
+                 prefs.getString('user_email') ?? 
+                 '',
+        'username': prefs.getString('username') ?? '',
+        'bio': prefs.getString('userBio') ?? 
+               prefs.getString('user_bio') ?? 
+               '',
+        'profilePicture': prefs.getString('profilePicture') ?? 
+                         prefs.getString('profile_picture') ?? 
+                         '',
+      };
+      _bioController.text = userData['bio'] ?? '';
+    });
 
-      await _loadUserGems();
-    } catch (e) {
-      print('❌ Error loading user data: $e');
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
+    print('✅ Using User ID: ${userData['id']}');
+    print('✅ Using User Name: ${userData['name']}');
+    
+    // ✅ Use the correct user ID for API calls
+    await _loadUserGems();
+  } catch (e) {
+    print('❌ Error loading user data: $e');
+  } finally {
+    setState(() {
+      isLoading = false;
+    });
   }
+}
 
   Future<void> _loadUserGems() async {
-    try {
-      print('💰 Loading user gems for user: ${widget.userId}');
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/users/${widget.userId}/profile'),
-      );
+  try {
+    // ✅ Use the ID from userData which is now correctly loaded
+    final userId = userData['id'] ?? widget.userId;
+    print('💰 Loading user gems for user: $userId');
+    
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+    );
+    
+    if (response.statusCode == 200) {
+      final userProfile = json.decode(response.body);
+      final gems = userProfile['available_gems'] ?? 0;
       
-      if (response.statusCode == 200) {
-        final userProfile = json.decode(response.body);
-        final gems = userProfile['available_gems'] ?? 0;
-        
-        setState(() {
-          userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
-        });
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('userGems', userGems);
-      } else {
-        print('❌ Failed to load user gems: ${response.statusCode}');
-        _loadCachedGems();
-      }
-    } catch (e) {
-      print('❌ Error loading user gems: $e');
+      setState(() {
+        userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
+      });
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('userGems', userGems);
+      
+      print('✅ Loaded gems: $userGems for user $userId');
+    } else {
+      print('❌ Failed to load user gems: ${response.statusCode}');
+      print('❌ Response: ${response.body}');
       _loadCachedGems();
     }
+  } catch (e) {
+    print('❌ Error loading user gems: $e');
+    _loadCachedGems();
   }
+}
 
   Future<void> _loadCachedGems() async {
     final prefs = await SharedPreferences.getInstance();
