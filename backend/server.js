@@ -1050,43 +1050,6 @@ app.post("/api/fix-user-profile-pictures", async (req, res) => {
 });
 
 // --- CHAT ENDPOINTS ---
-app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, res) => {
-  const { userId1, userId2 } = req.params;
-  
-  try {
-    // Check if conversation already exists
-    const existingConv = await pool.query(`
-      SELECT c.* 
-      FROM conversations c
-      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
-      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
-      WHERE cp1.user_id = $1 AND cp2.user_id = $2
-    `, [userId1, userId2]);
-
-    if (existingConv.rows.length > 0) {
-      return res.json(existingConv.rows[0]);
-    }
-
-    // Create new conversation
-    const newConv = await pool.query(
-      'INSERT INTO conversations DEFAULT VALUES RETURNING *'
-    );
-    
-    const convId = newConv.rows[0].id;
-
-    // Add both users as participants
-    await pool.query(
-      'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)',
-      [convId, userId1, userId2]
-    );
-
-    res.json(newConv.rows[0]);
-  } catch (err) {
-    console.error("Get conversation error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
 app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) => {
   const { userId } = req.params;
   
@@ -1102,8 +1065,6 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
 
     console.log(`✅ User found: ${userCheck.rows[0].name}`);
 
-    // Get all conversations for this user
-    // Fixed: Removed DISTINCT and added c.created_at to fix ORDER BY error
     const result = await pool.query(`
       SELECT 
         c.id as conversation_id,
@@ -1139,7 +1100,6 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
 
     console.log(`✅ Found ${result.rows.length} conversations for user ${userId}`);
     
-    // Log first conversation for debugging
     if (result.rows.length > 0) {
       console.log(`📋 First conversation:`, JSON.stringify(result.rows[0], null, 2));
     }
@@ -1155,7 +1115,7 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
   }
 });
 
-
+// 2. Get messages for a conversation (MUST come before the dynamic route)
 app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   
@@ -1166,6 +1126,12 @@ app.get("/api/conversations/:conversationId/messages", authenticateToken, async 
   console.log('='.repeat(60));
   
   try {
+    // Validate conversationId is a number
+    if (isNaN(conversationId)) {
+      console.log(`❌ Invalid conversation ID: ${conversationId}`);
+      return res.status(400).json({ error: "Invalid conversation ID" });
+    }
+
     // Step 1: Check if conversation exists
     console.log(`Step 1: Checking if conversation ${conversationId} exists...`);
     const convCheck = await pool.query(
@@ -1212,7 +1178,6 @@ app.get("/api/conversations/:conversationId/messages", authenticateToken, async 
 
     console.log(`✅ Found ${result.rows.length} messages for conversation ${conversationId}`);
     
-    // Log first few messages for debugging
     if (result.rows.length > 0) {
       console.log(`📋 Sample messages (first 3):`);
       result.rows.slice(0, 3).forEach((msg, idx) => {
@@ -1233,18 +1198,17 @@ app.get("/api/conversations/:conversationId/messages", authenticateToken, async 
     console.error("❌ GET MESSAGES ERROR");
     console.error("Error message:", err.message);
     console.error("Error code:", err.code);
-    console.error("Error details:", err);
     console.error("Stack trace:", err.stack);
     console.error('='.repeat(60));
     
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: "Server error: " + err.message,
-      code: err.code,
-      details: err.stack
+      code: err.code
     });
   }
 });
 
+// 3. Send a message
 app.post("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   const { senderId, messageText } = req.body;
@@ -1254,12 +1218,10 @@ app.post("/api/conversations/:conversationId/messages", authenticateToken, async
   console.log(`💬 Message: ${messageText}`);
   
   try {
-    // Validate input
     if (!senderId || !messageText) {
       return res.status(400).json({ error: "senderId and messageText are required" });
     }
 
-    // Verify sender has access to this conversation
     const accessCheck = await pool.query(`
       SELECT 1 FROM conversation_participants 
       WHERE conversation_id = $1 AND user_id = $2
@@ -1270,7 +1232,6 @@ app.post("/api/conversations/:conversationId/messages", authenticateToken, async
       return res.status(403).json({ error: "Access denied to this conversation" });
     }
 
-    // Insert the message
     const result = await pool.query(`
       INSERT INTO messages (conversation_id, sender_id, message_text, sent_at)
       VALUES ($1, $2, $3, NOW())
@@ -1280,19 +1241,16 @@ app.post("/api/conversations/:conversationId/messages", authenticateToken, async
     const message = result.rows[0];
     console.log(`✅ Message sent with ID: ${message.id}`);
 
-    // Get sender info
     const senderInfo = await pool.query(
       'SELECT name, profile_image_url FROM users WHERE id = $1',
       [senderId]
     );
 
-    // Update conversation updated_at
     await pool.query(
       'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
       [conversationId]
     );
 
-    // Return message with sender info
     const fullMessage = {
       ...message,
       sender_name: senderInfo.rows[0]?.name || 'Unknown User',
@@ -1302,132 +1260,11 @@ app.post("/api/conversations/:conversationId/messages", authenticateToken, async
     res.status(201).json(fullMessage);
   } catch (err) {
     console.error("❌ Send message error:", err);
-    console.error("Error details:", err.stack);
-    res.status(500).json({ 
-      error: "Server error: " + err.message 
-    });
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
-// Start or get conversation with artisan
-app.post("/api/conversations/start", async (req, res) => {
-  console.log('=== CONVERSATION START REQUEST ===');
-  console.log('Request body:', req.body);
-  
-  const { currentUserId, otherUserId, productId, initialMessage } = req.body;
-  
-  // Validate required fields
-  if (!currentUserId || !otherUserId) {
-    console.log('❌ Missing required fields');
-    return res.status(400).json({ 
-      error: "Missing required fields: currentUserId and otherUserId are required" 
-    });
-  }
-
-  try {
-    console.log('Checking if users exist...');
-    
-    // Check if both users exist
-    const userCheck = await pool.query(
-      'SELECT id, name FROM users WHERE id IN ($1, $2) ORDER BY id',
-      [currentUserId, otherUserId]
-    );
-
-    console.log('Found users:', userCheck.rows);
-
-    if (userCheck.rows.length < 2) {
-      const foundIds = userCheck.rows.map(row => row.id);
-      const missingIds = [currentUserId, otherUserId].filter(id => !foundIds.includes(parseInt(id)));
-      console.log(`❌ Missing users: ${missingIds.join(', ')}`);
-      return res.status(400).json({ 
-        error: `Users not found: ${missingIds.join(', ')}` 
-      });
-    }
-
-    console.log('✓ Both users exist');
-
-    // Check if conversation already exists between these users
-    const existingConv = await pool.query(`
-      SELECT c.* 
-      FROM conversations c
-      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
-      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
-      WHERE cp1.user_id = $1 AND cp2.user_id = $2
-      LIMIT 1
-    `, [currentUserId, otherUserId]);
-
-    let conversationId;
-    
-    if (existingConv.rows.length > 0) {
-      conversationId = existingConv.rows[0].id;
-      console.log('✓ Found existing conversation:', conversationId);
-    } else {
-      // Create new conversation
-      const newConv = await pool.query(
-        'INSERT INTO conversations (created_at, updated_at) VALUES (NOW(), NOW()) RETURNING *'
-      );
-      
-      conversationId = newConv.rows[0].id;
-      console.log('✓ Created new conversation:', conversationId);
-
-      // Add both users as participants
-      await pool.query(
-        'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)',
-        [conversationId, currentUserId, otherUserId]
-      );
-      console.log('✓ Added participants to conversation');
-    }
-
-    // If there's an initial message, send it
-    if (initialMessage) {
-      await pool.query(
-        'INSERT INTO messages (conversation_id, sender_id, message_text, sent_at) VALUES ($1, $2, $3, NOW())',
-        [conversationId, currentUserId, initialMessage]
-      );
-      console.log('✓ Added initial message:', initialMessage);
-      
-      // Update conversation updated_at
-      await pool.query(
-        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
-        [conversationId]
-      );
-    }
-
-    // Return conversation info
-    const conversationInfo = await pool.query(`
-      SELECT 
-        c.*,
-        json_agg(
-          json_build_object(
-            'user_id', u.id,
-            'name', u.name,
-            'email', u.email
-          )
-        ) as participants
-      FROM conversations c
-      JOIN conversation_participants cp ON c.id = cp.conversation_id
-      JOIN users u ON cp.user_id = u.id
-      WHERE c.id = $1
-      GROUP BY c.id
-    `, [conversationId]);
-
-    console.log('✓ Conversation created successfully:', conversationId);
-    
-    res.json({
-      id: conversationId,
-      ...conversationInfo.rows[0]
-    });
-    
-  } catch (err) {
-    console.error("❌ Start conversation error:", err);
-    res.status(500).json({ 
-      error: "Server error: " + err.message,
-      details: "Check server logs for more information"
-    });
-  }
-});
-
-// Mark messages as read
+// 4. Mark messages as read
 app.put("/api/conversations/:conversationId/read", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   const { userId } = req.body;
@@ -1446,82 +1283,148 @@ app.put("/api/conversations/:conversationId/read", authenticateToken, async (req
   }
 });
 
-app.post("/api/setup-messaging", async (req, res) => {
-  try {
-    console.log('Starting messaging setup...');
-
-    // Create conversations table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id SERIAL PRIMARY KEY,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-    console.log('✓ Created conversations table');
-
-    // Create conversation_participants table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS conversation_participants (
-        id SERIAL PRIMARY KEY,
-        conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        joined_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(conversation_id, user_id)
-      )
-    `);
-    console.log('✓ Created conversation_participants table');
-
-    // Create messages table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id SERIAL PRIMARY KEY,
-        conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
-        sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        message_text TEXT NOT NULL,
-        sent_at TIMESTAMP DEFAULT NOW(),
-        read_at TIMESTAMP NULL
-      )
-    `);
-    console.log('✓ Created messages table');
-
-    // Create a simple password hash that works
-    const simpleHash = await bcrypt.hash('testpassword123', 10);
-
-    // Check and create test users
-    const existingUser1 = await pool.query('SELECT id FROM users WHERE id = 1');
-    if (existingUser1.rows.length === 0) {
-      await pool.query(
-        'INSERT INTO users (id, name, email, password) VALUES ($1, $2, $3, $4)',
-        [1, 'Test User', 'test@user.com', simpleHash]
-      );
-      console.log('✓ Created test user 1');
-    } else {
-      console.log('✓ Test user 1 already exists');
-    }
-
-    const existingUser2 = await pool.query('SELECT id FROM users WHERE id = 2');
-    if (existingUser2.rows.length === 0) {
-      await pool.query(
-        'INSERT INTO users (id, name, email, password) VALUES ($1, $2, $3, $4)',
-        [2, 'Nthati Radiapole', 'nthati@artisan.com', simpleHash]
-      );
-      console.log('✓ Created test user 2');
-    } else {
-      console.log('✓ Test user 2 already exists');
-    }
-
-    res.json({ 
-      success: true, 
-      message: "Messaging setup completed successfully",
-      test_users: {
-        buyer: { id: 1, name: 'Test User' },
-        artisan: { id: 2, name: 'Nthati Radiapole' }
-      }
+// 5. Start or get conversation with artisan
+app.post("/api/conversations/start", async (req, res) => {
+  console.log('=== CONVERSATION START REQUEST ===');
+  console.log('Request body:', req.body);
+  
+  const { currentUserId, otherUserId, productId, initialMessage } = req.body;
+  
+  if (!currentUserId || !otherUserId) {
+    console.log('❌ Missing required fields');
+    return res.status(400).json({ 
+      error: "Missing required fields: currentUserId and otherUserId are required" 
     });
+  }
+
+  try {
+    console.log('Checking if users exist...');
+    
+    const userCheck = await pool.query(
+      'SELECT id, name FROM users WHERE id IN ($1, $2) ORDER BY id',
+      [currentUserId, otherUserId]
+    );
+
+    console.log('Found users:', userCheck.rows);
+
+    if (userCheck.rows.length < 2) {
+      const foundIds = userCheck.rows.map(row => row.id);
+      const missingIds = [currentUserId, otherUserId].filter(id => !foundIds.includes(parseInt(id)));
+      console.log(`❌ Missing users: ${missingIds.join(', ')}`);
+      return res.status(400).json({ 
+        error: `Users not found: ${missingIds.join(', ')}` 
+      });
+    }
+
+    console.log('✅ Both users exist');
+
+    const existingConv = await pool.query(`
+      SELECT c.* 
+      FROM conversations c
+      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
+      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
+      WHERE cp1.user_id = $1 AND cp2.user_id = $2
+      LIMIT 1
+    `, [currentUserId, otherUserId]);
+
+    let conversationId;
+    
+    if (existingConv.rows.length > 0) {
+      conversationId = existingConv.rows[0].id;
+      console.log('✅ Found existing conversation:', conversationId);
+    } else {
+      const newConv = await pool.query(
+        'INSERT INTO conversations (created_at, updated_at) VALUES (NOW(), NOW()) RETURNING *'
+      );
+      
+      conversationId = newConv.rows[0].id;
+      console.log('✅ Created new conversation:', conversationId);
+
+      await pool.query(
+        'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)',
+        [conversationId, currentUserId, otherUserId]
+      );
+      console.log('✅ Added participants to conversation');
+    }
+
+    if (initialMessage) {
+      await pool.query(
+        'INSERT INTO messages (conversation_id, sender_id, message_text, sent_at) VALUES ($1, $2, $3, NOW())',
+        [conversationId, currentUserId, initialMessage]
+      );
+      console.log('✅ Added initial message:', initialMessage);
+      
+      await pool.query(
+        'UPDATE conversations SET updated_at = NOW() WHERE id = $1',
+        [conversationId]
+      );
+    }
+
+    const conversationInfo = await pool.query(`
+      SELECT 
+        c.*,
+        json_agg(
+          json_build_object(
+            'user_id', u.id,
+            'name', u.name,
+            'email', u.email
+          )
+        ) as participants
+      FROM conversations c
+      JOIN conversation_participants cp ON c.id = cp.conversation_id
+      JOIN users u ON cp.user_id = u.id
+      WHERE c.id = $1
+      GROUP BY c.id
+    `, [conversationId]);
+
+    console.log('✅ Conversation created successfully:', conversationId);
+    
+    res.json({
+      id: conversationId,
+      ...conversationInfo.rows[0]
+    });
+    
   } catch (err) {
-    console.error("Setup error:", err);
-    res.status(500).json({ error: "Setup failed: " + err.message });
+    console.error("❌ Start conversation error:", err);
+    res.status(500).json({ 
+      error: "Server error: " + err.message
+    });
+  }
+});
+
+// 6. LAST: Dynamic route (catches /api/conversations/NUMBER/NUMBER)
+// This should be at the END so it doesn't catch other routes
+app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, res) => {
+  const { userId1, userId2 } = req.params;
+  
+  try {
+    const existingConv = await pool.query(`
+      SELECT c.* 
+      FROM conversations c
+      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
+      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
+      WHERE cp1.user_id = $1 AND cp2.user_id = $2
+    `, [userId1, userId2]);
+
+    if (existingConv.rows.length > 0) {
+      return res.json(existingConv.rows[0]);
+    }
+
+    const newConv = await pool.query(
+      'INSERT INTO conversations DEFAULT VALUES RETURNING *'
+    );
+    
+    const convId = newConv.rows[0].id;
+
+    await pool.query(
+      'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)',
+      [convId, userId1, userId2]
+    );
+
+    res.json(newConv.rows[0]);
+  } catch (err) {
+    console.error("Get conversation error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
@@ -3472,6 +3375,58 @@ app.get("/api/debug/conversation/:id", async (req, res) => {
     
   } catch (err) {
     console.error('Error checking conversation:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/debug/fix-conversation-access/:conversationId/:userId", async (req, res) => {
+  const { conversationId, userId } = req.params;
+  
+  try {
+    console.log(`🔧 Fixing access for user ${userId} to conversation ${conversationId}`);
+    
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id, name FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Check if conversation exists
+    const convCheck = await pool.query('SELECT id FROM conversations WHERE id = $1', [conversationId]);
+    if (convCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+    
+    // Check if user is already a participant
+    const participantCheck = await pool.query(
+      'SELECT 1 FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
+      [conversationId, userId]
+    );
+    
+    if (participantCheck.rows.length > 0) {
+      return res.json({
+        success: true,
+        message: `User ${userId} already has access to conversation ${conversationId}`,
+        already_participant: true
+      });
+    }
+    
+    // Add user as participant
+    await pool.query(
+      'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2)',
+      [conversationId, userId]
+    );
+    
+    console.log(`✅ Added user ${userId} (${userCheck.rows[0].name}) to conversation ${conversationId}`);
+    
+    res.json({
+      success: true,
+      message: `Successfully added user ${userId} to conversation ${conversationId}`,
+      user: userCheck.rows[0]
+    });
+    
+  } catch (err) {
+    console.error('Error fixing conversation access:', err);
     res.status(500).json({ error: err.message });
   }
 });
