@@ -500,7 +500,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble({
+   Widget _buildMessageBubble({
     required String message,
     required bool isMe,
     required String time,
@@ -543,6 +543,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.7,
+                  ),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isMe 
@@ -560,13 +563,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: isMe 
-                              ? const Color(0xFF88844D) 
-                              : (isDarkMode ? Colors.white : Colors.black87),
-                          fontSize: 16,
+                      Flexible(
+                        child: Text(
+                          message,
+                          style: TextStyle(
+                            color: isMe 
+                                ? const Color(0xFF88844D) 
+                                : (isDarkMode ? Colors.white : Colors.black87),
+                            fontSize: 16,
+                          ),
+                          softWrap: true,
                         ),
                       ),
                       if (isTemp && isMe) ...[
