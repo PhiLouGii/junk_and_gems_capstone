@@ -79,72 +79,102 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  Future<void> _loadMessages() async {
-    if (_token == null) {
-      print('❌ Token not available');
-      setState(() {
-        _error = 'Authentication token not available';
-        _isLoading = false;
-      });
-      return;
-    }
+ Future<void> _loadMessages() async {
+  if (_token == null) {
+    print('❌ Token not available');
+    setState(() {
+      _error = 'Authentication token not available. Please log in again.';
+      _isLoading = false;
+    });
+    return;
+  }
 
-    try {
-      print('📨 Loading messages for conversation: ${widget.conversationId}');
+  try {
+    print('📨 Loading messages for conversation: ${widget.conversationId}');
+    print('🔑 Using token: ${_token!.substring(0, 20)}...');
+    
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    print('📨 Response status: ${response.statusCode}');
+    print('📨 Response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      print('✅ SUCCESS: Loaded ${data.length} messages from server');
       
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
-        headers: {
-          'Authorization': 'Bearer $_token',
-        },
-      );
-
-      print('📨 Response status: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        print('✅ SUCCESS: Loaded ${data.length} messages from server');
-        
-        if (data.isEmpty) {
-          print('ℹ️  Server returned empty messages array');
-        } else {
-          // Print first 3 messages for debugging
-          for (var i = 0; i < data.length && i < 3; i++) {
-            final msg = data[i];
-            print('💬 Message $i: ID=${msg['id']}, Sender=${msg['sender_id']}, Text="${msg['message_text']}"');
-          }
-        }
-
-        setState(() {
-          _messages.clear();
-          _messages.addAll(data.cast<Map<String, dynamic>>());
-          _isLoading = false;
-          _error = null;
-        });
-
-        _scrollToBottom();
-      } else if (response.statusCode == 403) {
-        print('❌ ACCESS DENIED: User cannot access this conversation');
-        setState(() {
-          _isLoading = false;
-          _error = 'You do not have access to this conversation';
-        });
+      if (data.isEmpty) {
+        print('ℹ️ Server returned empty messages array');
       } else {
-        print('❌ HTTP ERROR: ${response.statusCode}');
-        print('❌ Response body: ${response.body}');
+        // Print first 3 messages for debugging
+        for (var i = 0; i < data.length && i < 3; i++) {
+          final msg = data[i];
+          print('💬 Message $i: ID=${msg['id']}, Sender=${msg['sender_id']}, Text="${msg['message_text']}"');
+        }
+      }
+
+      setState(() {
+        _messages.clear();
+        _messages.addAll(data.cast<Map<String, dynamic>>());
+        _isLoading = false;
+        _error = null;
+      });
+
+      _scrollToBottom();
+    } else if (response.statusCode == 403) {
+      print('❌ ACCESS DENIED: User cannot access this conversation');
+      setState(() {
+        _isLoading = false;
+        _error = 'You do not have access to this conversation';
+      });
+    } else if (response.statusCode == 404) {
+      print('❌ NOT FOUND: Conversation does not exist');
+      setState(() {
+        _isLoading = false;
+        _error = 'Conversation not found. It may have been deleted.';
+      });
+    } else if (response.statusCode == 401) {
+      print('❌ UNAUTHORIZED: Token may be invalid or expired');
+      setState(() {
+        _isLoading = false;
+        _error = 'Session expired. Please log in again.';
+      });
+    } else if (response.statusCode == 500) {
+      print('❌ SERVER ERROR: ${response.body}');
+      // Try to parse error message from server
+      try {
+        final errorData = json.decode(response.body);
         setState(() {
           _isLoading = false;
-          _error = 'Failed to load messages (Error ${response.statusCode})';
+          _error = 'Server error: ${errorData['error'] ?? 'Unknown error'}';
+        });
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+          _error = 'Server error. Please try again later.';
         });
       }
-    } catch (error) {
-      print('❌ NETWORK ERROR: $error');
+    } else {
+      print('❌ HTTP ERROR: ${response.statusCode}');
+      print('❌ Response body: ${response.body}');
       setState(() {
         _isLoading = false;
-        _error = 'Network error: $error';
+        _error = 'Failed to load messages (Error ${response.statusCode})';
       });
     }
+  } catch (error) {
+    print('❌ NETWORK ERROR: $error');
+    setState(() {
+      _isLoading = false;
+      _error = 'Network error. Please check your connection.';
+    });
   }
+}
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -182,72 +212,101 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    final String messageText = _messageController.text.trim();
-    if (messageText.isEmpty) return;
+  final String messageText = _messageController.text.trim();
+  if (messageText.isEmpty || _token == null) return;
 
-    // Create temporary message
-    final tempMessage = {
-      'id': 'temp-${DateTime.now().millisecondsSinceEpoch}',
-      'message_text': messageText,
-      'sender_id': widget.currentUserId,
-      'sender_name': 'You',
-      'sent_at': DateTime.now().toIso8601String(),
-      'is_temp': true,
-    };
+  // Create temporary message
+  final tempMessage = {
+    'id': 'temp-${DateTime.now().millisecondsSinceEpoch}',
+    'message_text': messageText,
+    'sender_id': widget.currentUserId,
+    'sender_name': 'You',
+    'sent_at': DateTime.now().toIso8601String(),
+    'is_temp': true,
+  };
 
-    // Add to UI immediately
-    setState(() {
-      _messages.add(tempMessage);
-    });
-    _messageController.clear();
-    _scrollToBottom();
+  // Add to UI immediately
+  setState(() {
+    _messages.add(tempMessage);
+  });
+  _messageController.clear();
+  _scrollToBottom();
 
-    try {
-      print('🚀 Sending message: "$messageText"');
+  try {
+    print('🚀 Sending message: "$messageText"');
+    print('📨 To conversation: ${widget.conversationId}');
+    print('👤 From user: ${widget.currentUserId}');
+    
+    final response = await http.post(
+      Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+      body: json.encode({
+        'senderId': widget.currentUserId,
+        'messageText': messageText,
+      }),
+    );
+
+    print('🚀 Send response: ${response.statusCode}');
+    print('🚀 Response body: ${response.body}');
+    
+    if (response.statusCode == 201) {
+      final newMessage = json.decode(response.body);
+      print('✅ Message sent successfully: ${newMessage['id']}');
       
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_token',
-        },
-        body: json.encode({
-          'senderId': widget.currentUserId,
-          'messageText': messageText,
-        }),
-      );
-
-      print('🚀 Send response: ${response.statusCode}');
-      
-      if (response.statusCode == 201) {
-        final newMessage = json.decode(response.body);
-        print('✅ Message sent successfully: ${newMessage['id']}');
-        
-        // Replace temporary message
-        setState(() {
-          _messages.removeWhere((msg) => msg['is_temp'] == true && msg['message_text'] == messageText);
-          _messages.add(newMessage);
-        });
-        
-        _loadMessages(); // Reload to get latest state
-      } else {
-        final errorBody = json.decode(response.body);
-        throw Exception('Failed to send: ${errorBody['error']}');
-      }
-    } catch (error) {
-      print('❌ Send message error: $error');
+      // Replace temporary message with real one
       setState(() {
-        _messages.removeWhere((msg) => msg['is_temp'] == true && msg['message_text'] == messageText);
+        _messages.removeWhere((msg) => 
+          msg['is_temp'] == true && 
+          msg['message_text'] == messageText
+        );
+        _messages.add(newMessage);
       });
       
+      _scrollToBottom();
+    } else {
+      // Handle error response
+      String errorMessage = 'Failed to send message';
+      try {
+        final errorBody = json.decode(response.body);
+        errorMessage = errorBody['error'] ?? errorMessage;
+      } catch (e) {
+        // Use default error message
+      }
+      
+      throw Exception(errorMessage);
+    }
+  } catch (error) {
+    print('❌ Send message error: $error');
+    
+    // Remove temporary message
+    setState(() {
+      _messages.removeWhere((msg) => 
+        msg['is_temp'] == true && 
+        msg['message_text'] == messageText
+      );
+    });
+    
+    // Show error to user
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to send: $error'),
+          content: Text('Failed to send message: $error'),
           backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () {
+              _messageController.text = messageText;
+            },
+          ),
         ),
       );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
