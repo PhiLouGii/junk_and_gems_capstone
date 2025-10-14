@@ -809,11 +809,57 @@ app.get("/materials/search", async (req, res) => {
 });
 
 // Claim a material
-app.put("/materials/:id/claim", authenticateToken, async (req, res) => {
+app.put("/materials/:id/claim", async (req, res) => {
   const { id } = req.params;
   const { claimed_by } = req.body;
 
+  console.log('🎯 Claim material request:');
+  console.log('Material ID:', id);
+  console.log('Claimed by user:', claimed_by);
+
   try {
+    // Validate input
+    if (!claimed_by) {
+      return res.status(400).json({ error: "claimed_by is required" });
+    }
+
+    // Check if material exists
+    const materialCheck = await pool.query(
+      "SELECT * FROM materials WHERE id = $1",
+      [id]
+    );
+
+    if (materialCheck.rows.length === 0) {
+      console.log('❌ Material not found:', id);
+      return res.status(404).json({ error: "Material not found" });
+    }
+
+    const material = materialCheck.rows[0];
+    console.log('✅ Material found:', material.title);
+
+    // Check if already claimed
+    if (material.is_claimed) {
+      console.log('⚠️ Material already claimed');
+      return res.status(400).json({ 
+        error: "Material already claimed",
+        claimed_by: material.claimed_by 
+      });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query(
+      "SELECT id, name FROM users WHERE id = $1",
+      [claimed_by]
+    );
+
+    if (userCheck.rows.length === 0) {
+      console.log('❌ User not found:', claimed_by);
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    console.log('✅ User found:', userCheck.rows[0].name);
+
+    // Update material to claimed
     const result = await pool.query(
       `UPDATE materials 
        SET is_claimed = true, claimed_by = $1, claimed_at = NOW() 
@@ -822,18 +868,35 @@ app.put("/materials/:id/claim", authenticateToken, async (req, res) => {
       [claimed_by, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Material not found" });
+    console.log('✅ Material claimed successfully');
+
+    // Award gems to claimer (optional - 2 gems for claiming)
+    try {
+      await pool.query(
+        "UPDATE users SET available_gems = available_gems + 2 WHERE id = $1",
+        [claimed_by]
+      );
+      await pool.query(
+        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+        [claimed_by, 2, `Claimed material: ${material.title}`]
+      );
+      console.log('💎 Awarded 2 gems for claiming');
+    } catch (gemErr) {
+      console.log('⚠️ Could not award gems:', gemErr.message);
     }
 
     res.json({ 
       success: true, 
       message: "Material claimed successfully",
-      material: result.rows[0]
+      material: result.rows[0],
+      gems_earned: 2
     });
+
   } catch (err) {
-    console.error("Claim material error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ Claim material error:", err);
+    res.status(500).json({ 
+      error: "Server error: " + err.message 
+    });
   }
 });
 

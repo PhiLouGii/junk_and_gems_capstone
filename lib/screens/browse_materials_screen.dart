@@ -6,6 +6,7 @@ import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'create_listing_screen.dart';
 
 class BrowseMaterialsScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   String? _selectedCategory;
+  Set<String> _claimedMaterialIds = {};
 
   // Common material categories
   final List<String> _categories = [
@@ -41,10 +43,23 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _loadMaterials();
+void initState() {
+  super.initState();
+  _initializeAndLoad();
+}
+
+Future<void> _initializeAndLoad() async {
+  // Ensure auth provider is initialized
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  if (!authProvider.isInitialized) {
+    print('⏳ Waiting for auth provider to initialize...');
+    await authProvider.initialize();
+    print('✅ Auth provider ready!');
   }
+  
+  // Now load materials
+  _loadMaterials();
+}
 
   @override
   void dispose() {
@@ -54,7 +69,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
 
   Future<void> _loadMaterials() async {
     try {
-      print('🔄 Loading materials from: http://10.0.2.2:3003/materials');
+      print('📄 Loading materials from: http://10.0.2.2:3003/materials');
       final response = await http.get(
         Uri.parse('http://10.0.2.2:3003/materials'),
       );
@@ -82,12 +97,14 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         _hasError = true;
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load materials: $error'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load materials: $error'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -142,30 +159,94 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
   Future<void> _claimMaterial(String materialId, String title) async {
-    try {
-      final response = await http.put(
-        Uri.parse('http://10.0.2.2:3003/materials/$materialId/claim'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'claimed_by': 1, // Replace with actual user ID from auth
-        }),
-      );
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      if (response.statusCode == 200) {
+  print('=' * 50);
+  print('🎯 CLAIM MATERIAL ATTEMPT');
+  print('User object: ${authProvider.user}');
+  print('User ID: ${authProvider.user?.id}');
+  print('User name: ${authProvider.user?.name}');
+  print('Is authenticated: ${authProvider.isAuthenticated}');
+  print('Is initialized: ${authProvider.isInitialized}');
+  // print('Token: ${authProvider.token}'); // This won't work, but shows the idea
+  print('=' * 50);
+
+  if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
+    print('❌ User not authenticated or ID is null');
+    
+    // Try to initialize if not done
+    if (!authProvider.isInitialized) {
+      print('🔄 Auth not initialized, initializing now...');
+      await authProvider.initialize();
+      
+      // Check again after initialization
+      if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully claimed $title')),
+          const SnackBar(
+            content: Text('Please login to claim materials'),
+            backgroundColor: Colors.orange,
+          ),
         );
-        _loadMaterials();
-      } else {
-        throw Exception('Failed to claim material');
+        return;
       }
-    } catch (error) {
-      print('Error claiming material: $error');
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to claim material: $error')),
+        const SnackBar(
+          content: Text('Please login to claim materials'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+  }
+
+  print('✅ User authenticated, proceeding with claim...');
+
+  try {
+    print('🎯 Claiming material $materialId for user ${authProvider.user!.id}');
+    
+    final response = await http.put(
+      Uri.parse('http://10.0.2.2:3003/materials/$materialId/claim'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'claimed_by': authProvider.user!.id,
+      }),
+    );
+
+    print('📡 Claim response status: ${response.statusCode}');
+    print('📡 Claim response body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _claimedMaterialIds.add(materialId);
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully claimed $title! 🎉 +2 Gems earned'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      
+      await _loadMaterials();
+    } else {
+      throw Exception('Failed to claim material: ${response.body}');
+    }
+  } catch (error) {
+    print('❌ Error claiming material: $error');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to claim material: $error'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +597,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
     final String imageUrl = hasImages ? material['image_urls'][0] : '';
-    final bool isClaimed = material['claimed_by'] != null;
+    final bool isClaimed = material['claimed_by'] != null || 
+                          _claimedMaterialIds.contains(material['id'].toString());
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -531,174 +613,214 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           ),
         ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          // Image Section
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Container(
-              height: 160,
-              width: double.infinity,
-              child: hasImages 
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                  : null,
+          Column(
+            children: [
+              // Image Section
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: Container(
+                  height: 160,
+                  width: double.infinity,
+                  child: hasImages 
+                      ? Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildCategoryPlaceholder(material['category'] ?? 'General');
+                          },
+                        )
+                      : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+                ),
+              ),
+              
+              // Content Section
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title and Category
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            material['title'] ?? 'No Title',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return _buildCategoryPlaceholder(material['category'] ?? 'General');
-                      },
-                    )
-                  : _buildCategoryPlaceholder(material['category'] ?? 'General'),
-            ),
-          ),
-          
-          // Content Section
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title and Category
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        material['title'] ?? 'No Title',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFBEC092).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        material['category'] ?? 'General',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF88844D),
-                          fontWeight: FontWeight.w500,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBEC092).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            material['category'] ?? 'General',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF88844D),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Description
-                Text(
-                  material['description'] ?? 'No description',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Location and Time
-                Row(
-                  children: [
-                    Icon(Icons.location_on, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        material['location'] ?? 'Unknown location',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.access_time, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
-                    const SizedBox(width: 4),
+                    
+                    const SizedBox(height: 8),
+                    
+                    // Description
                     Text(
-                      material['time'] ?? 'Recently',
+                      material['description'] ?? 'No description',
                       style: TextStyle(
                         fontSize: 14,
                         color: Theme.of(context).textTheme.bodyMedium?.color,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ],
-                ),
-                
-                // Quantity
-                if (material['quantity'] != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.inventory_2, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Quantity: ${material['quantity']!}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                
-                const SizedBox(height: 16),
-                
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: isClaimed ? null : () {
-                          _claimMaterial(material['id'].toString(), material['title']);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isClaimed ? Colors.grey : const Color(0xFFBEC092),
-                          foregroundColor: isClaimed ? Colors.white : const Color(0xFF88844D),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: Text(isClaimed ? 'Claimed' : 'Claim'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _showMaterialDetails(context, material: material),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFBEC092), width: 2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: Text(
-                          'Details',
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Location and Time
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            material['location'] ?? 'Unknown location',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
+                            ),
                           ),
                         ),
+                        Icon(Icons.access_time, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
+                        const SizedBox(width: 4),
+                        Text(
+                          material['time'] ?? 'Recently',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Quantity
+                    if (material['quantity'] != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.inventory_2, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Quantity: ${material['quantity']!}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isClaimed ? null : () {
+                              _claimMaterial(material['id'].toString(), material['title']);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isClaimed ? Colors.grey : const Color(0xFFBEC092),
+                              foregroundColor: isClaimed ? Colors.white : const Color(0xFF88844D),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Text(isClaimed ? 'Claimed' : 'Claim'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => _showMaterialDetails(context, material: material),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Text(
+                              'Details',
+                              style: TextStyle(
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // "CLAIMED" Banner
+          if (isClaimed)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF88844D),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.check_circle, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'CLAIMED',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -770,6 +892,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
     final String imageUrl = hasImages ? material['image_urls'][0] : '';
+    final bool isClaimed = material['claimed_by'] != null || 
+                          _claimedMaterialIds.contains(material['id'].toString());
 
     showModalBottomSheet(
       context: context,
@@ -920,18 +1044,18 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                       children: [
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
+                            onPressed: isClaimed ? null : () {
                               Navigator.pop(context);
                               _claimMaterial(material['id'].toString(), material['title']);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFBEC092),
-                              foregroundColor: const Color(0xFF88844D),
+                              backgroundColor: isClaimed ? Colors.grey : const Color(0xFFBEC092),
+                              foregroundColor: isClaimed ? Colors.white : const Color(0xFF88844D),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
-                            child: const Text(
-                              'Claim Material',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            child: Text(
+                              isClaimed ? 'Already Claimed' : 'Claim Material',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ),

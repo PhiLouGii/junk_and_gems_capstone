@@ -6,7 +6,7 @@ import 'package:junk_and_gems/services/api_service.dart';
 
 class AuthService {
   static const String baseUrl = "http://10.0.2.2:3000"; 
-  // 👆 Android emulator. Use "http://localhost:3000" if running Flutter web.
+
 
   // Save user data to shared preferences
   static Future<void> saveUserData(String token, String userId, String name, String email) async {
