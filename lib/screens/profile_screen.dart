@@ -34,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isLoading = true;
   bool isSavingBio = false;
   bool isSavingProfilePicture = false;
+  bool isEditingBio = false;
   int userGems = 0;
   
   // Controllers and pickers
@@ -56,92 +57,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ========== DATA LOADING METHODS ==========
 
   Future<void> _loadUserData() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // 🔍 Debug: Print all stored keys
-    print('=' * 50);
-    print('📦 CHECKING SHARED PREFERENCES');
-    print('All keys: ${prefs.getKeys()}');
-    print('userId: ${prefs.getString('userId')}');
-    print('user_id: ${prefs.getString('user_id')}');
-    print('userName: ${prefs.getString('userName')}');
-    print('user_name: ${prefs.getString('user_name')}');
-    print('userEmail: ${prefs.getString('userEmail')}');
-    print('user_email: ${prefs.getString('user_email')}');
-    print('=' * 50);
-    
-    // ✅ Try multiple possible key variations and use widget.userId as fallback
-    final storedUserId = prefs.getString('userId') ?? 
-                        prefs.getString('user_id') ?? 
-                        widget.userId;
-    
-    setState(() {
-      userData = {
-        'id': storedUserId,
-        'name': prefs.getString('userName') ?? 
-                prefs.getString('user_name') ?? 
-                widget.userName,
-        'email': prefs.getString('userEmail') ?? 
-                 prefs.getString('user_email') ?? 
-                 '',
-        'username': prefs.getString('username') ?? '',
-        'bio': prefs.getString('userBio') ?? 
-               prefs.getString('user_bio') ?? 
-               '',
-        'profilePicture': prefs.getString('profilePicture') ?? 
-                         prefs.getString('profile_picture') ?? 
-                         '',
-      };
-      _bioController.text = userData['bio'] ?? '';
-    });
-
-    print('✅ Using User ID: ${userData['id']}');
-    print('✅ Using User Name: ${userData['name']}');
-    
-    // ✅ Use the correct user ID for API calls
-    await _loadUserGems();
-  } catch (e) {
-    print('❌ Error loading user data: $e');
-  } finally {
-    setState(() {
-      isLoading = false;
-    });
-  }
-}
-
-  Future<void> _loadUserGems() async {
-  try {
-    // ✅ Use the ID from userData which is now correctly loaded
-    final userId = userData['id'] ?? widget.userId;
-    print('💰 Loading user gems for user: $userId');
-    
-    final response = await http.get(
-      Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
-    );
-    
-    if (response.statusCode == 200) {
-      final userProfile = json.decode(response.body);
-      final gems = userProfile['available_gems'] ?? 0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      print('📦 CHECKING SHARED PREFERENCES');
+      print('All keys: ${prefs.getKeys()}');
+      
+      final storedUserId = prefs.getString('userId') ?? 
+                          prefs.getString('user_id') ?? 
+                          widget.userId;
       
       setState(() {
-        userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
+        userData = {
+          'id': storedUserId,
+          'name': prefs.getString('userName') ?? 
+                  prefs.getString('user_name') ?? 
+                  widget.userName,
+          'email': prefs.getString('userEmail') ?? 
+                   prefs.getString('user_email') ?? 
+                   '',
+          'username': prefs.getString('username') ?? '',
+          'bio': prefs.getString('userBio') ?? 
+                 prefs.getString('user_bio') ?? 
+                 '',
+          'profilePicture': prefs.getString('profilePicture') ?? 
+                           prefs.getString('profile_picture') ?? 
+                           '',
+        };
+        _bioController.text = userData['bio'] ?? '';
       });
+
+      print('✅ Using User ID: ${userData['id']}');
+      print('✅ Using User Name: ${userData['name']}');
       
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('userGems', userGems);
+      await _loadUserGems();
+    } catch (e) {
+      print('❌ Error loading user data: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadUserGems() async {
+    try {
+      final userId = userData['id'] ?? widget.userId;
+      print('💰 Loading user gems for user: $userId');
       
-      print('✅ Loaded gems: $userGems for user $userId');
-    } else {
-      print('❌ Failed to load user gems: ${response.statusCode}');
-      print('❌ Response: ${response.body}');
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+      );
+      
+      if (response.statusCode == 200) {
+        final userProfile = json.decode(response.body);
+        final gems = userProfile['available_gems'] ?? 0;
+        
+        setState(() {
+          userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
+        });
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('userGems', userGems);
+        
+        print('✅ Loaded gems: $userGems for user $userId');
+      } else {
+        print('❌ Failed to load user gems: ${response.statusCode}');
+        _loadCachedGems();
+      }
+    } catch (e) {
+      print('❌ Error loading user gems: $e');
       _loadCachedGems();
     }
-  } catch (e) {
-    print('❌ Error loading user gems: $e');
-    _loadCachedGems();
   }
-}
 
   Future<void> _loadCachedGems() async {
     final prefs = await SharedPreferences.getInstance();
@@ -176,9 +164,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final XFile? pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 400,
-        maxHeight: 400,
-        imageQuality: 80,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
       );
 
       if (pickedFile != null) {
@@ -191,7 +179,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       print('❌ Error picking image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick image: $e')),
+        SnackBar(
+          content: Text('Failed to pick image: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -210,19 +201,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (imageUrl != null) {
-        // Update local storage
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('profilePicture', imageUrl);
         
-        // Update state
         setState(() {
           userData['profilePicture'] = imageUrl;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Profile picture updated successfully!'),
+            content: Text('✅ Profile picture updated!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -230,7 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('❌ Error uploading profile picture: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to upload profile picture: $e'),
+          content: Text('Failed to upload: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -249,35 +239,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Stack(
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 140,
+            height: 140,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFBEC092), width: 3),
+              border: Border.all(color: const Color(0xFFBEC092), width: 4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: ClipOval(
               child: _buildProfileImageContent(profilePicture),
             ),
           ),
           Positioned(
-            bottom: 0,
-            right: 0,
+            bottom: 5,
+            right: 5,
             child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: const BoxDecoration(
-                color: Color(0xFF88844D),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF88844D),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: isSavingProfilePicture
                   ? const SizedBox(
-                      width: 16,
-                      height: 16,
+                      width: 20,
+                      height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     )
-                  : const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                  : const Icon(Icons.camera_alt, size: 20, color: Colors.white),
             ),
           ),
         ],
@@ -317,7 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       color: const Color(0xFFE4E5C2),
       child: const Icon(
         Icons.person,
-        size: 50,
+        size: 60,
         color: Color(0xFF88844D),
       ),
     );
@@ -359,10 +363,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userBio', _bioController.text);
         
+        setState(() {
+          userData['bio'] = _bioController.text;
+          isEditingBio = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Bio updated successfully!'),
+            content: Text('✅ Bio updated successfully!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
       } else {
@@ -391,9 +401,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             'Logout',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: Text(
             'Are you sure you want to logout?',
@@ -407,15 +421,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
               ),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 _performLogout();
               },
-              child: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.red),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
               ),
+              child: const Text('Logout'),
             ),
           ],
         );
@@ -426,14 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _performLogout() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('token');
-      await prefs.remove('userId');
-      await prefs.remove('userName');
-      await prefs.remove('userEmail');
-      await prefs.remove('username');
-      await prefs.remove('userBio');
-      await prefs.remove('profilePicture');
-      await prefs.remove('userGems');
+      await prefs.clear();
       
       Navigator.pushAndRemoveUntil(
         context,
@@ -515,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildProfileHeader(userName, username),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
               _buildBioSection(),
               const SizedBox(height: 32),
               _buildDivider(),
@@ -535,7 +543,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         _buildProfilePicture(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           userName,
           style: TextStyle(
@@ -543,17 +551,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           '@$username',
           style: TextStyle(
             fontSize: 16,
-            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         _buildGemsCounter(),
       ],
     );
@@ -561,21 +570,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildGemsCounter() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [Colors.green.shade400, Colors.green.shade600],
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.green.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.star, color: Colors.green, size: 18),
-          const SizedBox(width: 4),
+          const Icon(Icons.star, color: Colors.white, size: 22),
+          const SizedBox(width: 8),
           Text(
             "$userGems Gems", 
-            style: TextStyle(
-              color: Colors.green,
-              fontWeight: FontWeight.w600,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
             ),
           ),
         ],
@@ -587,85 +606,130 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Bio',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Bio',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            if (!isEditingBio)
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    isEditingBio = true;
+                  });
+                },
+                icon: Icon(
+                  Icons.edit,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  size: 22,
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
-        Stack(
-          children: [
-            TextField(
-              maxLength: 120,
-              maxLines: 3,
-              controller: _bioController,
-              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-              decoration: InputDecoration(
-                contentPadding: const EdgeInsets.all(20),
-                filled: true,
-                fillColor: Theme.of(context).cardColor,
-                hintText: "Add a little something about yourself...",
-                hintStyle: TextStyle(
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                  fontStyle: FontStyle.italic,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFBEC092)),
-                ),
-                counterText: "",
-              ),
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isEditingBio 
+                  ? const Color(0xFF88844D) 
+                  : Colors.transparent,
+              width: 2,
             ),
-            Positioned(
-              bottom: 8,
-              right: 16,
-              child: Text(
-                "${_bioController.text.length}/120",
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              TextField(
+                maxLength: 120,
+                maxLines: 4,
+                controller: _bioController,
+                enabled: isEditingBio,
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontSize: 15,
+                ),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.all(20),
+                  hintText: "Add a little something about yourself...",
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                    fontStyle: FontStyle.italic,
+                  ),
+                  border: InputBorder.none,
+                  counterText: "",
                 ),
               ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: isSavingBio ? null : _updateBio,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 2,
-                        offset: const Offset(0, 1),
+              if (isEditingBio)
+                Padding(
+                  padding: const EdgeInsets.only(left: 20, right: 20, bottom: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "${_bioController.text.length}/120",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _bioController.text = userData['bio'] ?? '';
+                                isEditingBio = false;
+                              });
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            onPressed: isSavingBio ? null : _updateBio,
+                            icon: isSavingBio
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save, size: 18),
+                            label: Text(isSavingBio ? 'Saving...' : 'Save'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF88844D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  child: isSavingBio
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                          ),
-                        )
-                      : Icon(
-                          Icons.save, 
-                          size: 16, 
-                          color: Theme.of(context).textTheme.bodyLarge?.color
-                        ),
                 ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -673,7 +737,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildDivider() {
     return Divider(
-      color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.3),
+      color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.2),
       thickness: 1,
     );
   }
@@ -696,7 +760,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: 'Email',
           value: userEmail,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         _buildContactItem(
           icon: Icons.phone_outlined,
           label: 'Phone',
@@ -706,31 +770,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildContactItem({required IconData icon, required String label, required String value}) {
+  Widget _buildContactItem({
+    required IconData icon, 
+    required String label, 
+    required String value
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05), 
-            blurRadius: 4, 
+            blurRadius: 8, 
             offset: const Offset(0, 2)
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: const Color(0xFF88844D), size: 20),
+              child: Icon(icon, color: const Color(0xFF88844D), size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -741,8 +809,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     label,
                     style: TextStyle(
                       fontSize: 14, 
-                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7)
-                    )
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -750,8 +819,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: TextStyle(
                       fontSize: 16, 
                       color: Theme.of(context).textTheme.bodyLarge?.color, 
-                      fontWeight: FontWeight.w600
-                    )
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -780,7 +849,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: 'My Purchases', 
           onTap: () {}
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _buildAccountItem(
           icon: Icons.settings_outlined, 
           label: 'Settings', 
@@ -795,42 +864,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAccountItem({required IconData icon, required String label, VoidCallback? onTap}) {
+  Widget _buildAccountItem({
+    required IconData icon, 
+    required String label, 
+    VoidCallback? onTap
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05), 
-            blurRadius: 4, 
+            blurRadius: 8, 
             offset: const Offset(0, 2)
           ),
         ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(16.0),
+        contentPadding: const EdgeInsets.all(20.0),
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: const Color(0xFFBEC092),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: const Color(0xFF88844D), size: 20),
+          child: Icon(icon, color: const Color(0xFF88844D), size: 24),
         ),
         title: Text(
           label,
           style: TextStyle(
             fontSize: 16, 
             color: Theme.of(context).textTheme.bodyLarge?.color, 
-            fontWeight: FontWeight.w600
+            fontWeight: FontWeight.w600,
           ),
         ),
         trailing: Icon(
           Icons.arrow_forward_ios,
           color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-          size: 16,
+          size: 18,
         ),
         onTap: onTap,
       ),
