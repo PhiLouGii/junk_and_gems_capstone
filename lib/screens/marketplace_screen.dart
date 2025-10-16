@@ -442,6 +442,54 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     });
   }
 
+  // Helper method for image handling
+  Widget _buildImage(String imageSource) {
+    // Check if it's a base64 data URI
+    if (imageSource.startsWith('data:image')) {
+      return Image.memory(
+        base64Decode(imageSource.split(',')[1]),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Error loading base64 image: $error');
+          return _buildImagePlaceholder();
+        },
+      );
+    }
+    // Check if it's a network URL
+    else if (imageSource.startsWith('http')) {
+      return Image.network(
+        imageSource,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Error loading network image: $error');
+          return _buildImagePlaceholder();
+        },
+      );
+    }
+    // Assume it's an asset
+    else {
+      return Image.asset(
+        imageSource,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Error loading asset image: $error');
+          return _buildImagePlaceholder();
+        },
+      );
+    }
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      color: const Color(0xFFE4E5C2),
+      child: Icon(
+        Icons.recycling,
+        size: 40,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -557,9 +605,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       ),
     );
   }
-
-  // ... (rest of the widget methods remain the same - _buildSearchBar, _buildSearchResults, etc.)
-  // Only the cart-related methods were changed above
 
   Widget _buildSearchBar() {
     return Container(
@@ -723,7 +768,27 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     final title = product['title'] ?? 'Untitled';
     final artisan = isFromServer ? (product['creator_name'] ?? 'Unknown Artisan') : product['artisan']!;
     final price = isFromServer ? 'M${product['price']?.toString() ?? '0'}' : product['price']!;
-    final image = isFromServer ? (product['image_url'] ?? 'assets/images/placeholder.jpg') : product['image']!;
+    
+    // FIXED: Better image handling
+    String image = '';
+    if (isFromServer) {
+      // Check image_data_base64 first (array of base64 strings)
+      if (product['image_data_base64'] != null && product['image_data_base64'] is List && (product['image_data_base64'] as List).isNotEmpty) {
+        image = product['image_data_base64'][0]; // Get first image
+      } 
+      // Fallback to image_url if available
+      else if (product['image_url'] != null && product['image_url'].toString().isNotEmpty) {
+        image = product['image_url'];
+      } 
+      // Default placeholder
+      else {
+        image = 'assets/images/placeholder.jpg';
+      }
+    } else {
+      image = product['image'] ?? 'assets/images/placeholder.jpg';
+    }
+
+    print('🖼️ Product: $title, Image: ${image.substring(0, image.length > 50 ? 50 : image.length)}...');
 
     return GestureDetector(
       onTap: () {
@@ -767,40 +832,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                   top: Radius.circular(16),
                 ),
                 color: Color(0xFFE4E5C2),
-              ),
-              child: ClipRRect(
+            ),
+            child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
                 ),
-                child: image.startsWith('http')
-                    ? Image.network(
-                        image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: const Color(0xFFE4E5C2),
-                            child: Icon(
-                              Icons.recycling,
-                              size: 40,
-                              color: Theme.of(context).textTheme.bodyLarge?.color,
-                            ),
-                          );
-                        },
-                      )
-                    : Image.asset(
-                        image,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: const Color(0xFFE4E5C2),
-                            child: Icon(
-                              Icons.recycling,
-                              size: 40,
-                              color: Theme.of(context).textTheme.bodyLarge?.color,
-                            ),
-                          );
-                        },
-                      ),
+                child: _buildImage(image),
               ),
             ),
             const SizedBox(height: 8),
@@ -1130,6 +1167,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         itemCount: _newProducts.length,
         itemBuilder: (context, index) {
           final product = _newProducts[index];
+          
+          // FIXED: Better image handling
+          String imageSource = '';
+          if (product['image_data_base64'] != null && 
+              product['image_data_base64'] is List && 
+              (product['image_data_base64'] as List).isNotEmpty) {
+            imageSource = product['image_data_base64'][0];
+          } else if (product['image_url'] != null && 
+                     product['image_url'].toString().isNotEmpty) {
+            imageSource = product['image_url'];
+          } else {
+            imageSource = 'assets/images/placeholder.jpg';
+          }
+          
+          print('🖼️ New Product: ${product['title']}, Image type: ${imageSource.startsWith('data:') ? 'base64' : imageSource.startsWith('http') ? 'network' : 'asset'}');
+          
           return GestureDetector(
             onTap: () {
               Navigator.push(
@@ -1140,7 +1193,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       'title': product['title'] ?? 'Untitled',
                       'artisan': product['creator_name'] ?? 'Unknown Artisan',
                       'price': 'M${product['price']?.toString() ?? '0'}',
-                      'image': product['image_url'] ?? 'assets/images/placeholder.jpg',
+                      'image': imageSource,
                       'artisan_id': product['artisan_id']?.toString() ?? '',
                       'id': product['id']?.toString() ?? '',
                       'description': product['description'] ?? '',
@@ -1181,44 +1234,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(16),
                       ),
-                      child: product['image_url'] != null && product['image_url'].startsWith('http')
-                          ? Image.network(
-                              product['image_url'],
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: const Color(0xFFE4E5C2),
-                                  child: Icon(
-                                    Icons.recycling,
-                                    size: 40,
-                                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                                  ),
-                                );
-                              },
-                            )
-                          : product['image_url'] != null
-                              ? Image.asset(
-                                  product['image_url'],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: const Color(0xFFE4E5C2),
-                                      child: Icon(
-                                        Icons.recycling,
-                                        size: 40,
-                                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                                      ),
-                                    );
-                                  },
-                                )
-                              : Container(
-                                  color: const Color(0xFFE4E5C2),
-                                  child: Icon(
-                                    Icons.recycling,
-                                    size: 40,
-                                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                                  ),
-                                ),
+                      child: _buildImage(imageSource),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1263,7 +1279,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                   'id': product['id']?.toString() ?? '',
                                   'title': product['title'] ?? 'Untitled',
                                   'price': 'M${product['price']?.toString() ?? '0'}',
-                                  'image': product['image_url'] ?? '',
+                                  'image': imageSource,
                                   'artisan': product['creator_name'] ?? 'Unknown Artisan',
                                 });
                               },

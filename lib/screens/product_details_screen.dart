@@ -7,6 +7,7 @@ import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'dart:math';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, String> product;
@@ -23,61 +24,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _currentCarouselIndex = 0;
   String? _currentUserId;
   String? _token;
-
-  final List<Map<String, String>> _moreByArtisan = [
-    {
-      'title': 'Patchwork blouse',
-      'price': 'M250',
-      'image': 'assets/images/featured1.jpg',
-      'artisan': 'Lexie Grey',
-      'artisan_id': '2',
-      'id': '1',
-    },
-    {
-      'title': 'Plastic bottle light',
-      'price': 'M450',
-      'image': 'assets/images/featured2.jpg',
-      'artisan': 'Philippa Giibwa',
-      'artisan_id': '3',
-      'id': '2',
-    },
-    {
-      'title': 'Bleach bottle lamp',
-      'price': 'M450',
-      'image': 'assets/images/featured3.jpg',
-      'artisan': 'Nthati Radiapole',
-      'artisan_id': '10',
-      'id': '1',
-    },
-    {
-      'title': 'CD lights',
-      'price': 'M250',
-      'image': 'assets/images/featured4.jpg',
-      'artisan': 'Mark Sloan',
-      'artisan_id': '5',
-      'id': '4',
-    },
-    {
-      'title': 'Cassette Lamp',
-      'price': 'M450',
-      'image': 'assets/images/featured5.jpg',
-      'artisan': 'Maya Bishop',
-      'artisan_id': '7',
-      'id': '5',
-    },
-  ];
-
-  final List<Map<String, String>> _relatedProducts = [
-    {'title': 'Plastic Spoon Light', 'price': 'M450', 'image': 'assets/images/related1.jpg'},
-    {'title': 'Egg tray Lamp', 'price': 'M400', 'image': 'assets/images/related2.jpg'},
-    {'title': 'LEGO lamp', 'price': 'M300', 'image': 'assets/images/related3.jpg'},
-  ];
+  List<dynamic> _similarProducts = [];
+  bool _isLoadingSimilarProducts = false;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUser();
-    _startCarouselAutoScroll();
+    _fetchSimilarProducts();
   }
 
   @override
@@ -95,6 +49,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     print('🔐 CURRENT USER ID: $_currentUserId');
     print('🔐 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
+  }
+
+  Future<void> _fetchSimilarProducts() async {
+    setState(() {
+      _isLoadingSimilarProducts = true;
+    });
+
+    try {
+      print('🔍 Fetching similar products...');
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/products'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> allProducts = json.decode(response.body);
+        
+        // Filter out the current product and limit to 6 items
+        final filtered = allProducts
+            .where((p) => p['id'].toString() != widget.product['id'])
+            .take(6)
+            .toList();
+        
+        setState(() {
+          _similarProducts = filtered;
+        });
+        
+        print('✅ Found ${_similarProducts.length} similar products');
+      } else {
+        print('❌ Failed to load similar products: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('❌ Error fetching similar products: $error');
+    } finally {
+      setState(() {
+        _isLoadingSimilarProducts = false;
+      });
+    }
   }
 
   void _messageArtisan(BuildContext context) async {
@@ -171,28 +163,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  void _startCarouselAutoScroll() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (_carouselController.hasClients) {
-        final nextPage = _currentCarouselIndex + 1;
-        if (nextPage >= _moreByArtisan.length) {
-          _carouselController.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
-        } else {
-          _carouselController.nextPage(
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut,
-          );
-        }
-        _startCarouselAutoScroll();
-      }
-    });
-  }
-
-  // FIXED: This method now actually calls CartService.addToCart
   Future<void> _addToCart(BuildContext context) async {
     if (_currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -211,7 +181,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       print('Product Title: ${widget.product['title']}');
       print('Quantity: $_quantity');
 
-      // Show loading
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
@@ -232,7 +201,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       );
 
-      // Actually add to cart via API
       final result = await CartService.addToCart(
         _currentUserId!,
         widget.product['id']!,
@@ -241,7 +209,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       print('✅ Add to cart result: $result');
 
-      // Show success
       if (context.mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -280,12 +247,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Widget _buildCarouselItem(Map<String, String> product, int index, ThemeProvider themeProvider) {
+  Widget _buildSimilarProductCard(dynamic product, ThemeProvider themeProvider) {
     final isDarkMode = themeProvider.isDarkMode;
+    final String imageUrl = product['image_data_base64'] != null && 
+                            (product['image_data_base64'] as List).isNotEmpty
+        ? product['image_data_base64'][0]
+        : product['image_url'] ?? '';
 
     return GestureDetector(
       onTap: () {
-        // Navigate to product detail when tapped
+        // Navigate to this product's detail page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailScreen(
+              product: {
+                'id': product['id'].toString(),
+                'title': product['title'] ?? 'Untitled',
+                'artisan': product['creator_name'] ?? 'Unknown Artisan',
+                'artisan_id': product['artisan_id']?.toString() ?? '',
+                'price': 'M${product['price']?.toString() ?? '0'}',
+                'image': imageUrl,
+                'description': product['description'] ?? '',
+              },
+            ),
+          ),
+        );
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -305,23 +292,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.asset(
-                product['image']!,
-                fit: BoxFit.cover,
-                height: 92,
-                width: double.infinity,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 92,
-                    color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
-                    child: Icon(
-                      Icons.recycling,
-                      size: 40,
-                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                    ),
-                  );
-                },
-              ),
+              child: imageUrl.startsWith('http') || imageUrl.startsWith('data:image')
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      height: 92,
+                      width: double.infinity, 
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildImagePlaceholder(isDarkMode);
+                      },
+                    )
+                  : imageUrl.startsWith('assets/')
+                      ? Image.asset(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          height: 92,
+                          width: double.infinity, 
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildImagePlaceholder(isDarkMode);
+                          },
+                        )
+                      : _buildImagePlaceholder(isDarkMode),
             ),
             Container(
               height: 42,
@@ -331,7 +322,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    product['title']!,
+                    product['title'] ?? 'Untitled',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -342,7 +333,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    product['price']!,
+                    'M${product['price']?.toString() ?? '0'}',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -358,86 +349,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildRelatedProduct(Map<String, String> product, ThemeProvider themeProvider) {
-    final isDarkMode = themeProvider.isDarkMode;
-
+  Widget _buildSimilarProductImagePlaceholder(bool isDarkMode) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                product['image']!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Icon(
-                    Icons.recycling,
-                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product['title']!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product['price']!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              'View',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-              ),
-            ),
-          ),
-        ],
+      height: 92,
+      color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+      child: Icon(
+        Icons.recycling,
+        size: 40,
+        color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
       ),
     );
   }
@@ -488,66 +407,61 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             // Product Image
             Container(
-              height: 300,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
+  height: 300,
+  width: double.infinity, 
+  decoration: BoxDecoration(
+    color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+    borderRadius: const BorderRadius.only(
+      bottomLeft: Radius.circular(30),
+      bottomRight: Radius.circular(30),
+    ),
+  ),
+  child: Stack(
+    children: [
+      Center(
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(30),
+            bottomRight: Radius.circular(30),
+          ),
+          child: _buildProductImage(widget.product['image']!, isDarkMode),
+        ),
+      ),
+      Positioned(
+        top: 20,
+        left: 20,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondary,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.eco,
+                size: 14,
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Upcycled',
+                style: TextStyle(
+                  color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
               ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(30),
-                        bottomRight: Radius.circular(30),
-                      ),
-                      child: Image.asset(
-                        widget.product['image']!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
-                            child: Icon(
-                              Icons.recycling,
-                              size: 80,
-                              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 20,
-                    left: 20,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '20% OFF',
-                        style: TextStyle(
-                          color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  ),
+),
 
             // Product Details
             Padding(
@@ -560,7 +474,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          widget.product['title'] ?? 'Sta-Soft Lamp',
+                          widget.product['title'] ?? 'Untitled Product',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -569,7 +483,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                       Text(
-                        widget.product['price'] ?? 'M400',
+                        widget.product['price'] ?? 'M0',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -588,7 +502,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'By ${widget.product['artisan'] ?? 'Nthati Radiapole'}',
+                        'By ${widget.product['artisan'] ?? 'Unknown Artisan'}',
                         style: TextStyle(
                           fontSize: 14,
                           color: isDarkMode ? Colors.white70 : Colors.black.withOpacity(0.6),
@@ -602,7 +516,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '4.6 (110 Reviews)',
+                        '4.8 (New)',
                         style: TextStyle(
                           fontSize: 14,
                           color: isDarkMode ? Colors.white : Colors.black,
@@ -614,85 +528,74 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(height: 24),
                   _buildSection(
                     title: 'About the Product',
-                    content: 'Eco-friendly elegance: a uniquely crafted upcycled lamp made from a detergent container, casting beautiful leaf-pattern shadows.',
+                    content: widget.product['description'] ?? 'A beautifully crafted upcycled product made with care and creativity.',
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 20),
                   _buildSection(
-                    title: 'Original Material',
-                    content: 'Cleaning detergent bottle',
-                    isDarkMode: isDarkMode,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSection(
-                    title: 'Specifications',
-                    content: '• Height: 12 inches\n• Base diameter: 6 inches\n• Bulb: LED E27 (included)\n• Power cord: 6 feet',
-                    isDarkMode: isDarkMode,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSection(
-                    title: 'Pickup & Drop-off',
-                    content: 'Contact the Artisan to arrange pickup or delivery within your area.',
+                    title: 'Pickup & Delivery',
+                    content: 'Contact the artisan to arrange pickup or delivery within your area.',
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 30),
-                  Text(
-                    'More by Nthati R.',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 145,
-                    child: ClipRRect(
-                      child: PageView.builder(
-                        controller: _carouselController,
-                        itemCount: _moreByArtisan.length,
-                        onPageChanged: (index) {
-                          setState(() {
-                            _currentCarouselIndex = index;
-                          });
-                        },
-                        itemBuilder: (context, index) {
-                          return _buildCarouselItem(_moreByArtisan[index], index, themeProvider);
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  
+                  // Similar Products Section (replaces hardcoded "More by Nthati R.")
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      _moreByArtisan.length,
-                      (index) => Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentCarouselIndex == index
-                              ? (isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D))
-                              : (isDarkMode ? const Color(0xFFBEC092).withOpacity(0.5) : const Color(0xFFBEC092).withOpacity(0.5)),
+                    children: [
+                      Icon(
+                        Icons.recommend,
+                        color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'You May Also Like',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  Text(
-                    'Related Products',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 16),
-                  Column(
-                    children: _relatedProducts.map((product) => _buildRelatedProduct(product, themeProvider)).toList(),
-                  ),
+                  
+                  _isLoadingSimilarProducts
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(
+                              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                            ),
+                          ),
+                        )
+                      : _similarProducts.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20.0),
+                                child: Text(
+                                  'No similar products found',
+                                  style: TextStyle(
+                                    color: isDarkMode ? Colors.white70 : Colors.black54,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : SizedBox(
+                              height: 145,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _similarProducts.length,
+                                itemBuilder: (context, index) {
+                                  return _buildSimilarProductCard(
+                                    _similarProducts[index],
+                                    themeProvider,
+                                  );
+                                },
+                              ),
+                            ),
+                  
                   const SizedBox(height: 20),
                   Container(
                     width: double.infinity,
@@ -701,14 +604,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      'A unique piece made with love and recycled goods.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                        color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                      ),
-                      textAlign: TextAlign.center,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.volunteer_activism,
+                          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'A unique piece made with love and recycled materials.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -852,4 +766,68 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ],
     );
   }
+
+  Widget _buildProductImage(String imageSource, bool isDarkMode) {
+  print('🖼️ Loading product detail image: ${imageSource.substring(0, min(50, imageSource.length))}...');
+  
+  // Check if it's a base64 data URI
+  if (imageSource.startsWith('data:image')) {
+    try {
+      // Split the data URI and decode
+      final base64String = imageSource.split(',')[1];
+      final bytes = base64Decode(base64String);
+      
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Error loading base64 image: $error');
+          return _buildImagePlaceholder(isDarkMode);
+        },
+      );
+    } catch (e) {
+      print('❌ Error decoding base64 image: $e');
+      return _buildImagePlaceholder(isDarkMode);
+    }
+  }
+  // Check if it's a network URL
+  else if (imageSource.startsWith('http')) {
+    return Image.network(
+      imageSource,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        print('❌ Error loading network image: $error');
+        return _buildImagePlaceholder(isDarkMode);
+      },
+    );
+  }
+  // Assume it's an asset
+  else {
+    return Image.asset(
+      imageSource,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        print('❌ Error loading asset image: $error');
+        return _buildImagePlaceholder(isDarkMode);
+      },
+    );
+  }
+}
+
+Widget _buildImagePlaceholder(bool isDarkMode) {
+  return Container(
+    color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+    child: Icon(
+      Icons.recycling,
+      size: 80,
+      color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+    ),
+  );
+}
 }
