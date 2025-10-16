@@ -63,32 +63,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('📦 CHECKING SHARED PREFERENCES');
       print('All keys: ${prefs.getKeys()}');
       
-      final storedUserId = prefs.getString('userId') ?? 
-                          prefs.getString('user_id') ?? 
-                          widget.userId;
+      // IMPORTANT: Always use widget.userId as the source of truth
+      final currentUserId = widget.userId;
+      print('🎯 Current logged-in user ID: $currentUserId');
       
-      setState(() {
-        userData = {
-          'id': storedUserId,
-          'name': prefs.getString('userName') ?? 
-                  prefs.getString('user_name') ?? 
-                  widget.userName,
-          'email': prefs.getString('userEmail') ?? 
-                   prefs.getString('user_email') ?? 
-                   '',
-          'username': prefs.getString('username') ?? '',
-          'bio': prefs.getString('userBio') ?? 
-                 prefs.getString('user_bio') ?? 
-                 '',
-          'profilePicture': prefs.getString('profilePicture') ?? 
-                           prefs.getString('profile_picture') ?? 
-                           '',
-        };
-        _bioController.text = userData['bio'] ?? '';
-      });
-
-      print('✅ Using User ID: ${userData['id']}');
-      print('✅ Using User Name: ${userData['name']}');
+      // Check if cached user ID matches current user
+      final cachedUserId = prefs.getString('userId') ?? prefs.getString('user_id');
+      print('💾 Cached user ID: $cachedUserId');
+      
+      // If cached user doesn't match current user, fetch fresh data from server
+      if (cachedUserId != currentUserId) {
+        print('⚠️ User mismatch! Clearing old cache and fetching fresh data...');
+        await _clearUserCache();
+      }
+      
+      // Always fetch fresh profile data from server
+      print('🌐 Fetching fresh profile data from server...');
+      try {
+        final response = await http.get(
+          Uri.parse('http://10.0.2.2:3003/api/users/$currentUserId/profile'),
+        );
+        
+        if (response.statusCode == 200) {
+          final serverData = json.decode(response.body);
+          print('✅ Server data received: ${serverData.toString()}');
+          
+          // Update SharedPreferences with fresh server data
+          await prefs.setString('userId', currentUserId);
+          await prefs.setString('user_id', currentUserId);
+          await prefs.setString('userName', serverData['name'] ?? widget.userName);
+          await prefs.setString('user_name', serverData['name'] ?? widget.userName);
+          await prefs.setString('userEmail', serverData['email'] ?? '');
+          await prefs.setString('user_email', serverData['email'] ?? '');
+          await prefs.setString('username', serverData['username'] ?? '');
+          await prefs.setString('userBio', serverData['bio'] ?? '');
+          await prefs.setString('user_bio', serverData['bio'] ?? '');
+          await prefs.setString('profilePicture', serverData['profile_image_url'] ?? '');
+          await prefs.setString('profile_picture', serverData['profile_image_url'] ?? '');
+          
+          setState(() {
+            userData = {
+              'id': currentUserId,
+              'name': serverData['name'] ?? widget.userName,
+              'email': serverData['email'] ?? '',
+              'username': serverData['username'] ?? '',
+              'bio': serverData['bio'] ?? '',
+              'profilePicture': serverData['profile_image_url'] ?? '',
+              'specialty': serverData['specialty'] ?? '',
+              'user_type': serverData['user_type'] ?? 'contributor',
+            };
+            _bioController.text = userData['bio'] ?? '';
+          });
+          
+          print('✅ Profile data loaded from server for user: ${userData['name']}');
+          print('✅ Bio: ${userData['bio']}');
+          print('✅ Profile Picture: ${userData['profilePicture']}');
+        } else {
+          print('⚠️ Server returned ${response.statusCode}, using cached/widget data');
+          await _loadFromCacheOrWidget(prefs, currentUserId);
+        }
+      } catch (serverError) {
+        print('⚠️ Server fetch failed: $serverError, using cached/widget data');
+        await _loadFromCacheOrWidget(prefs, currentUserId);
+      }
       
       await _loadUserGems();
     } catch (e) {
@@ -98,6 +135,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadFromCacheOrWidget(SharedPreferences prefs, String currentUserId) async {
+    setState(() {
+      userData = {
+        'id': currentUserId,
+        'name': prefs.getString('userName') ?? 
+                prefs.getString('user_name') ?? 
+                widget.userName,
+        'email': prefs.getString('userEmail') ?? 
+                 prefs.getString('user_email') ?? 
+                 '',
+        'username': prefs.getString('username') ?? '',
+        'bio': prefs.getString('userBio') ?? 
+               prefs.getString('user_bio') ?? 
+               '',
+        'profilePicture': prefs.getString('profilePicture') ?? 
+                         prefs.getString('profile_picture') ?? 
+                         '',
+      };
+      _bioController.text = userData['bio'] ?? '';
+    });
+  }
+
+  Future<void> _clearUserCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userBio');
+    await prefs.remove('user_bio');
+    await prefs.remove('profilePicture');
+    await prefs.remove('profile_picture');
+    await prefs.remove('userGems');
+    print('✅ Old user cache cleared');
   }
 
   Future<void> _loadUserGems() async {
@@ -345,6 +414,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         throw Exception('User ID not found');
       }
 
+      // First, get current user type from server to avoid constraint violation
+      String userType = 'contributor'; // Default fallback
+      try {
+        final profileResponse = await http.get(
+          Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+        );
+        if (profileResponse.statusCode == 200) {
+          final profileData = json.decode(profileResponse.body);
+          userType = profileData['user_type'] ?? 'contributor';
+          print('✅ Current user_type: $userType');
+        }
+      } catch (e) {
+        print('⚠️ Could not fetch current user_type, using default: $e');
+      }
+
       final response = await http.put(
         Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
         headers: {
@@ -353,9 +437,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
         body: json.encode({
           'name': userData['name'],
-          'specialty': '',
+          'specialty': userData['specialty'] ?? '',
           'bio': _bioController.text,
-          'user_type': 'user',
+          'user_type': userType, // Use existing user_type instead of 'user'
         }),
       );
 

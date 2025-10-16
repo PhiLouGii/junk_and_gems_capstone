@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
-import 'package:junk_and_gems/services/api_service.dart'; // Make sure this exists
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,7 +21,33 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Handles login using ApiService
+  // 🔧 FIXED: Clear all old user data before login
+  Future<void> _clearOldUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    print('🗑️ Clearing old user data...');
+    
+    // Remove all user-specific data
+    await prefs.remove('token');
+    await prefs.remove('userId');
+    await prefs.remove('user_id');
+    await prefs.remove('userName');
+    await prefs.remove('user_name');
+    await prefs.remove('userEmail');
+    await prefs.remove('user_email');
+    await prefs.remove('username');
+    await prefs.remove('userBio');
+    await prefs.remove('user_bio');
+    await prefs.remove('profilePicture');
+    await prefs.remove('profile_picture');
+    await prefs.remove('userGems');
+    await prefs.remove('specialty');
+    await prefs.remove('user_type');
+    
+    print('✅ Old user data cleared');
+  }
+
+  // 🔧 FIXED: Handles login with proper data clearing
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -33,35 +58,98 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       print('🔐 Starting login process...');
+      
+      // STEP 1: Clear old user data first
+      await _clearOldUserData();
 
-      final result = await ApiService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
+      // STEP 2: Make login API call
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:3003/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        }),
       );
 
-      print('✅ Login API call successful');
+      print('📥 Login response status: ${response.statusCode}');
+      print('📥 Login response body: ${response.body}');
 
-      // Debug and verify auth data
-      await ApiService.debugAuthData();
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body);
+        
+        // STEP 3: Store new user data
+        final prefs = await SharedPreferences.getInstance();
+        
+        final userId = result['user']['id'].toString();
+        final userName = result['user']['name'];
+        final userEmail = result['user']['email'];
+        final username = result['user']['username'] ?? userEmail.split('@')[0];
+        final token = result['token'];
+        
+        print('💾 Storing new user data:');
+        print('  - ID: $userId');
+        print('  - Name: $userName');
+        print('  - Email: $userEmail');
+        print('  - Username: $username');
+        
+        // Store all user data with both key formats for compatibility
+        await prefs.setString('token', token);
+        await prefs.setString('userId', userId);
+        await prefs.setString('user_id', userId);
+        await prefs.setString('userName', userName);
+        await prefs.setString('user_name', userName);
+        await prefs.setString('userEmail', userEmail);
+        await prefs.setString('user_email', userEmail);
+        await prefs.setString('username', username);
+        
+        // STEP 4: Fetch fresh profile data from server
+        print('🌐 Fetching fresh profile data...');
+        try {
+          final profileResponse = await http.get(
+            Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+          );
+          
+          if (profileResponse.statusCode == 200) {
+            final profileData = json.decode(profileResponse.body);
+            
+            // Store profile-specific data
+            await prefs.setString('userBio', profileData['bio'] ?? '');
+            await prefs.setString('user_bio', profileData['bio'] ?? '');
+            await prefs.setString('profilePicture', profileData['profile_image_url'] ?? '');
+            await prefs.setString('profile_picture', profileData['profile_image_url'] ?? '');
+            await prefs.setInt('userGems', profileData['available_gems'] ?? 0);
+            await prefs.setString('specialty', profileData['specialty'] ?? '');
+            await prefs.setString('user_type', profileData['user_type'] ?? 'contributor');
+            
+            print('✅ Profile data loaded:');
+            print('  - Bio: ${profileData['bio'] ?? '(empty)'}');
+            print('  - Profile Picture: ${profileData['profile_image_url'] ?? '(none)'}');
+            print('  - Gems: ${profileData['available_gems'] ?? 0}');
+          } else {
+            print('⚠️ Could not fetch profile data: ${profileResponse.statusCode}');
+          }
+        } catch (profileError) {
+          print('⚠️ Profile fetch error (non-critical): $profileError');
+        }
 
-      final isLoggedIn = await ApiService.isLoggedIn();
-      print('🔍 Post-login authentication check: $isLoggedIn');
+        print('✅ Login successful!');
 
-      if (!isLoggedIn) {
-        throw Exception('Authentication data not saved properly');
-      }
-
-      // Navigate to dashboard
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-              userId: result['user']['id'].toString(),
-              userName: result['user']['name'],
+        // STEP 5: Navigate to dashboard
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DashboardScreen(
+                userId: userId,
+                userName: userName,
+              ),
             ),
-          ),
-        );
+          );
+        }
+      } else {
+        final errorData = json.decode(response.body);
+        throw Exception(errorData['error'] ?? 'Login failed');
       }
     } catch (e) {
       print('❌ Login failed: $e');
@@ -77,17 +165,38 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Optional debug button to test stored authentication data
+  // Debug button to test stored authentication data
   Widget _buildDebugButton() {
     return TextButton(
       onPressed: () async {
-        await ApiService.debugAuthData();
-        final isLoggedIn = await ApiService.isLoggedIn();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logged in: $isLoggedIn')),
-        );
+        final prefs = await SharedPreferences.getInstance();
+        
+        print('🔍 DEBUG AUTH STATUS:');
+        print('All keys: ${prefs.getKeys()}');
+        print('Token: ${prefs.getString('token')?.substring(0, 20)}...');
+        print('User ID: ${prefs.getString('userId')}');
+        print('User Name: ${prefs.getString('userName')}');
+        print('User Email: ${prefs.getString('userEmail')}');
+        print('User Bio: ${prefs.getString('userBio')}');
+        print('Profile Picture: ${prefs.getString('profilePicture')}');
+        print('User Gems: ${prefs.getInt('userGems')}');
+        
+        final hasToken = prefs.getString('token') != null;
+        final hasUserId = prefs.getString('userId') != null;
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Logged in: ${hasToken && hasUserId}\nCheck console for details'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       },
-      child: const Text('Debug Auth Status'),
+      child: const Text(
+        'Debug Auth Status',
+        style: TextStyle(fontSize: 12, color: Colors.grey),
+      ),
     );
   }
 
@@ -261,7 +370,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
                           const SizedBox(height: 20),
-                          _buildDebugButton(), // ✅ Debug button for developers
+                          _buildDebugButton(),
                           const SizedBox(height: 20),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
