@@ -1537,13 +1537,94 @@ app.post("/api/setup-products-table", async (req, res) => {
 app.get("/api/products", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT * FROM products 
-      ORDER BY created_at DESC
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar
+      FROM products p
+      LEFT JOIN users u ON p.artisan_id = u.id
+      ORDER BY p.created_at DESC
     `);
-    res.json(result.rows);
+    
+    console.log(`✅ Found ${result.rows.length} products`);
+    
+    // Ensure each product has the correct structure
+    const products = result.rows.map(product => ({
+      ...product,
+      creator_name: product.creator_name || 'Unknown Artist',
+      image_url: product.image_data_base64 && product.image_data_base64.length > 0 
+        ? product.image_data_base64[0] 
+        : null
+    }));
+    
+    res.json(products);
   } catch (err) {
     console.error("Get products error:", err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/fix-products-image-column", async (req, res) => {
+  try {
+    console.log('🔧 Fixing products table image column...');
+
+    // Check if image_data_base64 column exists
+    const columnCheck = await pool.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'products' AND column_name = 'image_data_base64'
+    `);
+
+    if (columnCheck.rows.length === 0) {
+      // Add the column if it doesn't exist
+      await pool.query(`
+        ALTER TABLE products 
+        ADD COLUMN image_data_base64 TEXT[]
+      `);
+      console.log('✅ Added image_data_base64 column as TEXT array');
+    } else {
+      // Check if it's the right type
+      const currentType = columnCheck.rows[0].data_type;
+      console.log('Current image_data_base64 type:', currentType);
+      
+      if (currentType !== 'ARRAY') {
+        // Drop and recreate with correct type
+        await pool.query(`
+          ALTER TABLE products 
+          DROP COLUMN IF EXISTS image_data_base64
+        `);
+        await pool.query(`
+          ALTER TABLE products 
+          ADD COLUMN image_data_base64 TEXT[]
+        `);
+        console.log('✅ Recreated image_data_base64 column as TEXT array');
+      } else {
+        console.log('✅ image_data_base64 column already has correct type');
+      }
+    }
+
+    // Also ensure we have image_url for backwards compatibility
+    const imageUrlCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'products' AND column_name = 'image_url'
+    `);
+
+    if (imageUrlCheck.rows.length === 0) {
+      await pool.query(`
+        ALTER TABLE products 
+        ADD COLUMN image_url VARCHAR(500)
+      `);
+      console.log('✅ Added image_url column for backwards compatibility');
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Products table image columns fixed successfully" 
+    });
+  } catch (err) {
+    console.error("❌ Fix products table error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
   }
 });
 
@@ -1587,7 +1668,7 @@ app.get("/api/products/search", async (req, res) => {
 // Create new product listing
 app.post("/api/products", async (req, res) => {
   console.log('📝 Received product creation request');
-  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  console.log('Request body keys:', Object.keys(req.body));
   
   const { 
     title, 
@@ -1599,6 +1680,7 @@ app.post("/api/products", async (req, res) => {
     dimensions, 
     location,
     artisan_id,
+    creator_name, // Accept creator_name from frontend
     image_data_base64
   } = req.body;
 
@@ -1615,8 +1697,34 @@ app.post("/api/products", async (req, res) => {
       price,
       category,
       condition,
-      artisan_id
+      artisan_id,
+      image_count: image_data_base64 ? image_data_base64.length : 0
     });
+
+    // Verify user exists and get their name
+    const userResult = await pool.query(
+      "SELECT id, name FROM users WHERE id = $1",
+      [artisan_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid creator: User does not exist" });
+    }
+
+    const actualCreatorName = userResult.rows[0].name;
+    console.log('✅ Creator verified:', actualCreatorName);
+
+    // Handle images - ensure it's an array
+    let imageUrls = [];
+    if (image_data_base64) {
+      if (Array.isArray(image_data_base64)) {
+        imageUrls = image_data_base64;
+      } else if (typeof image_data_base64 === 'string') {
+        imageUrls = [image_data_base64];
+      }
+    }
+
+    console.log('📸 Processing', imageUrls.length, 'images');
 
     // Insert the new product
     const result = await pool.query(
@@ -1634,34 +1742,29 @@ app.post("/api/products", async (req, res) => {
         dimensions || null,
         location || null,
         artisan_id,
-        image_data_base64 || []
+        imageUrls // Store the array of base64 images
       ]
     );
 
     const product = result.rows[0];
     console.log('✅ Product created successfully with ID:', product.id);
 
-    // Get the created product with creator info
-    const productWithCreator = await pool.query(`
-      SELECT 
-        p.*,
-        u.name as creator_name,
-        u.profile_image_url as creator_avatar
-      FROM products p
-      JOIN users u ON p.artisan_id = u.id
-      WHERE p.id = $1
-    `, [product.id]);
+    // Return product with creator info
+    const fullProduct = {
+      ...product,
+      creator_name: actualCreatorName,
+      image_url: imageUrls.length > 0 ? imageUrls[0] : null, // First image as main
+      image_data_base64: imageUrls // All images
+    };
 
-    const fullProduct = productWithCreator.rows[0];
-
-    console.log('✅ Sending response for product:', fullProduct.id);
+    console.log('✅ Sending response with creator:', actualCreatorName);
     res.status(201).json(fullProduct);
 
   } catch (err) {
     console.error("❌ Create product error:", err);
     console.error("❌ Error details:", err.stack);
     
-    // Check if it's a foreign key constraint error (creator doesn't exist)
+    // Check if it's a foreign key constraint error
     if (err.code === '23503') {
       return res.status(400).json({ error: "Invalid creator: User does not exist" });
     }

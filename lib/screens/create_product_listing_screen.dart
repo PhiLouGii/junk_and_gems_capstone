@@ -351,16 +351,17 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return;
   }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+  setState(() {
+    _isSubmitting = true;
+  });
 
-    try {
-    // Get user ID from shared preferences
+  try {
+    // Get user ID and name from shared preferences
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('userId');
+    final userName = prefs.getString('userName') ?? 'Unknown User';
       
-     if (userId == null) {
+    if (userId == null) {
       _showErrorDialog('Please login to list a product');
       setState(() {
         _isSubmitting = false;
@@ -368,7 +369,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       return;
     }
 
-      final setupResponse = await http.post(
+    final setupResponse = await http.post(
       Uri.parse('http://10.0.2.2:3003/api/setup-products-table'),
       headers: {'Content-Type': 'application/json'},
     );
@@ -381,42 +382,58 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       return;
     }
 
-      // Prepare the product data
-      final productData = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'price': _price,
-        'category': _selectedCategory,
-        'condition': _selectedCondition,
-        'materials_used': _materialsController.text.isEmpty ? null : _materialsController.text,
-        'dimensions': _dimensionsController.text.isEmpty ? null : _dimensionsController.text,
-        'location': _locationController.text.isEmpty ? null : _locationController.text,
-        'artisan_id': int.parse(userId),
-        'image_data_base64': _images.isNotEmpty ? _images[0].path : null,
-      };
+    // Convert images to base64
+    List<String> imageBase64List = [];
+    if (_images.isNotEmpty) {
+      for (var imageFile in _images) {
+        try {
+          final bytes = await File(imageFile.path).readAsBytes();
+          final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+          imageBase64List.add(base64Image);
+          print('✅ Converted image to base64: ${base64Image.substring(0, 50)}...');
+        } catch (e) {
+          print('⚠️ Error converting image: $e');
+        }
+      }
+    }
 
-      print('Submitting product: $productData');
+    // Prepare the product data
+    final productData = {
+      'title': _titleController.text,
+      'description': _descriptionController.text,
+      'price': _price,
+      'category': _selectedCategory,
+      'condition': _selectedCondition,
+      'materials_used': _materialsController.text.isEmpty ? null : _materialsController.text,
+      'dimensions': _dimensionsController.text.isEmpty ? null : _dimensionsController.text,
+      'location': _locationController.text.isEmpty ? null : _locationController.text,
+      'artisan_id': int.parse(userId),
+      'creator_name': userName, // Add creator name explicitly
+      'image_data_base64': imageBase64List, // Send as array of base64 strings
+    };
 
-      // Send to backend
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:3003/api/products'), // Use 10.0.2.2 for Android emulator
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(productData),
-      ).timeout(const Duration(seconds: 30));
+    print('📤 Submitting product: ${json.encode(productData).substring(0, 200)}...');
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
+    // Send to backend
+    final response = await http.post(
+      Uri.parse('http://10.0.2.2:3003/api/products'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode(productData),
+    ).timeout(const Duration(seconds: 30));
 
-      if (response.statusCode == 201) {
+    print('Response status: ${response.statusCode}');
+    print('Response body: ${response.body}');
+
+    if (response.statusCode == 201) {
       _showSuccessDialog();
     } else {
       final errorData = json.decode(response.body);
       final errorMessage = errorData['error'] ?? 'Failed to create product (Status: ${response.statusCode})';
       _showErrorDialog(errorMessage);
     }
-    } catch (error) {
+  } catch (error) {
     print('Error submitting product: $error');
     _showErrorDialog('Network error: $error');
   } finally {
