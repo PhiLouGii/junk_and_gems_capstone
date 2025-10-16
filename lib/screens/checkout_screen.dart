@@ -44,6 +44,61 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.dispose();
   }
 
+  void _showUnavailableDialog(BuildContext context, String paymentMethod) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.info_outline,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Oops!',
+              style: TextStyle(
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          '$paymentMethod is currently not available. Please come back soon or try card payment.',
+          style: TextStyle(
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Reset to card payment
+              setState(() {
+                _selectedPaymentMethod = 'Card (Credit/Debit)';
+              });
+            },
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -299,30 +354,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           const SizedBox(height: 12),
           
-          // EcoCash Payment Option
-          _buildPaymentOption(
+          // EcoCash Payment Option with Logo
+          _buildPaymentOptionWithLogo(
             title: 'EcoCash',
             isSelected: _selectedPaymentMethod == 'EcoCash',
             onTap: () {
-              setState(() {
-                _selectedPaymentMethod = 'EcoCash';
-              });
+              _showUnavailableDialog(context, 'EcoCash');
             },
-            icon: Icons.phone_android,
+            logoPath: 'assets/images/ecocash_logo.png',
             isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
-          // M-Pesa Payment Option
-          _buildPaymentOption(
+          // M-Pesa Payment Option with Logo
+          _buildPaymentOptionWithLogo(
             title: 'M-Pesa',
             isSelected: _selectedPaymentMethod == 'M-Pesa',
             onTap: () {
-              setState(() {
-                _selectedPaymentMethod = 'M-Pesa';
-              });
+              _showUnavailableDialog(context, 'M-Pesa');
             },
-            icon: Icons.mobile_friendly,
+            logoPath: 'assets/images/mpesa_logo.png',
             isDarkMode: isDarkMode,
           ),
         ],
@@ -357,6 +408,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               icon,
               color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
               size: 24,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+              ),
+            ),
+            const Spacer(),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentOptionWithLogo({
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required String logoPath,
+    required bool isDarkMode,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Theme.of(context).colorScheme.secondary.withOpacity(0.3) : 
+                 isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Theme.of(context).colorScheme.secondary : 
+                   Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+            width: 2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Image.asset(
+              logoPath,
+              height: 32,
+              width: 32,
+              fit: BoxFit.contain,
             ),
             const SizedBox(width: 12),
             Text(
@@ -450,7 +551,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Accepted Cards
+          // Accepted Cards with Logos
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -464,9 +565,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _PaymentLogo(text: 'VISA', isDarkMode: isDarkMode),
+                  Image.asset(
+                    'assets/images/visa_logo.png',
+                    height: 30,
+                    fit: BoxFit.contain,
+                  ),
                   const SizedBox(width: 12),
-                  _PaymentLogo(text: 'Mastercard', isDarkMode: isDarkMode),
+                  Image.asset(
+                    'assets/images/mastercard_logo.png',
+                    height: 30,
+                    fit: BoxFit.contain,
+                  ),
                 ],
               ),
             ],
@@ -874,34 +983,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Widget for payment logos
-class _PaymentLogo extends StatelessWidget {
-  final String text;
-  final bool isDarkMode;
-
-  const _PaymentLogo({required this.text, required this.isDarkMode});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).colorScheme.secondary),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-        ),
       ),
     );
   }
