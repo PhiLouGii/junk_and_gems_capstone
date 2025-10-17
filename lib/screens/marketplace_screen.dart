@@ -257,7 +257,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     }
   }
 
-  void _addToCart(Map<String, dynamic> product) async {
+   void _addToCart(Map<String, dynamic> product) async {
     try {
       if (widget.userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -266,6 +266,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             backgroundColor: Colors.red,
           ),
         );
+        return;
+      }
+
+      // Check if this is a static product (doesn't exist in database)
+      final productId = product['id']?.toString() ?? '';
+      final isStaticProduct = int.tryParse(productId) != null && int.parse(productId) < 10;
+
+      if (isStaticProduct) {
+        // Static products from _products list - show message
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('This is a sample product. Only products from the "New Products" section can be added to cart.'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
         return;
       }
 
@@ -369,51 +387,47 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
   // UPDATED: Fetch new products with fallback to static
   Future<void> _fetchNewProducts() async {
-    if (_isLoadingNewProducts) return;
-    
-    setState(() {
-      _isLoadingNewProducts = true;
-    });
+  if (_isLoadingNewProducts) return;
+  
+  setState(() {
+    _isLoadingNewProducts = true;
+  });
 
-    try {
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/products'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
+  try {
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:3003/api/products'),
+      headers: {'Content-Type': 'application/json'},
+    ).timeout(const Duration(seconds: 5));
 
-      if (response.statusCode == 200) {
-        final List<dynamic> products = json.decode(response.body);
-        
-        // Combine API products with static products
-        if (products.isNotEmpty) {
-          setState(() {
-            _newProducts = [...products, ..._staticNewProducts];
-          });
-          print('✅ Loaded ${products.length} API products + ${_staticNewProducts.length} static products');
-        } else {
-          setState(() {
-            _newProducts = _staticNewProducts;
-          });
-          print('ℹ️ No API products, showing ${_staticNewProducts.length} static products');
-        }
-      } else {
-        print('⚠️ Failed to load products: ${response.statusCode}, using static products');
-        setState(() {
-          _newProducts = _staticNewProducts;
-        });
-      }
-    } catch (error) {
-      print('❌ Error fetching new products: $error');
-      print('ℹ️ Using static products as fallback');
+    if (response.statusCode == 200) {
+      final List<dynamic> products = json.decode(response.body);
+      
+      // Filter out static products (IDs 1-16) - only show user-created products (ID >= 17)
+      final userCreatedProducts = products.where((product) {
+        final productId = int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+        return productId >= 17; // Only show products with ID 17 and above
+      }).toList();
+      
       setState(() {
-        _newProducts = _staticNewProducts;
+        _newProducts = userCreatedProducts;
       });
-    } finally {
+      print('✅ Loaded ${userCreatedProducts.length} user-created products (filtered out static products)');
+    } else {
       setState(() {
-        _isLoadingNewProducts = false;
+        _newProducts = [];
       });
     }
+  } catch (error) {
+    print('❌ Error fetching new products: $error');
+    setState(() {
+      _newProducts = [];
+    });
+  } finally {
+    setState(() {
+      _isLoadingNewProducts = false;
+    });
   }
+}
 
   Future<void> _searchProducts(String query) async {
     if (query.isEmpty) {

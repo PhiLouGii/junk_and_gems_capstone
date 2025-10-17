@@ -3597,6 +3597,129 @@ app.post("/api/debug/fix-conversation-access/:conversationId/:userId", async (re
   }
 });
 
+// Seed static products into database
+app.post("/api/seed-static-products", async (req, res) => {
+  try {
+    console.log('🌱 Seeding static products...');
+
+    const staticProducts = [
+      {
+        id: 1,
+        title: 'Fabric and Denim Patchwork Jacket',
+        description: 'Beautiful handcrafted jacket made from upcycled fabric and denim patches',
+        price: 450,
+        category: 'Fashion',
+        artisan_id: 2,
+      },
+      {
+        id: 2,
+        title: 'Beer Bottle Lamp',
+        description: 'Unique lamp crafted from recycled beer bottles',
+        price: 380,
+        category: 'Home Decor',
+        artisan_id: 3,
+      },
+      {
+        id: 3,
+        title: 'Sta-Soft Lamp',
+        description: 'Creative lamp made from Sta-Soft containers',
+        price: 300,
+        category: 'Home Decor',
+        artisan_id: 10,
+      },
+      {
+        id: 4,
+        title: 'Belt Patchwork Bag',
+        description: 'Stylish bag made from upcycled leather belts',
+        price: 200,
+        category: 'Fashion',
+        artisan_id: 5,
+      },
+      {
+        id: 5,
+        title: 'Denim Patchwork Bag',
+        description: 'Trendy tote bag made from denim scraps',
+        price: 330,
+        category: 'Fashion',
+        artisan_id: 7,
+      },
+      {
+        id: 6,
+        title: 'Shoelace Table Coasters',
+        description: 'Colorful coasters woven from old shoelaces',
+        price: 250,
+        category: 'Home Decor',
+        artisan_id: 11,
+      },
+      {
+        id: 13,
+        title: 'Broken China Mosaic',
+        description: 'Beautiful mosaic art from broken china pieces',
+        price: 250,
+        category: 'Home Decor',
+        artisan_id: 12,
+      },
+      {
+        id: 14,
+        title: 'Bottle Cap Soap Dish',
+        description: 'Practical soap dish made from bottle caps',
+        price: 200,
+        category: 'Home Decor',
+        artisan_id: 12,
+      },
+      {
+        id: 15,
+        title: 'Shoprite Shower curtain',
+        description: 'Unique shower curtain from Shoprite bags',
+        price: 200,
+        category: 'Home Decor',
+        artisan_id: 12,
+      },
+      {
+        id: 16,
+        title: 'Cassette Wall Art',
+        description: 'Nostalgic wall art made from old cassette tapes',
+        price: 650,
+        category: 'Home Decor',
+        artisan_id: 12,
+      },
+    ];
+
+    for (const product of staticProducts) {
+      // Check if product already exists
+      const existing = await pool.query(
+        'SELECT id FROM products WHERE id = $1',
+        [product.id]
+      );
+
+      if (existing.rows.length === 0) {
+        // Insert with specific ID
+        await pool.query(
+          `INSERT INTO products (id, title, description, price, category, artisan_id, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())
+           ON CONFLICT (id) DO NOTHING`,
+          [product.id, product.title, product.description, product.price, product.category, product.artisan_id]
+        );
+        console.log(`✅ Added product: ${product.title}`);
+      } else {
+        console.log(`⏭️  Skipped existing product: ${product.title}`);
+      }
+    }
+
+    // Reset sequence to avoid ID conflicts with new products
+    await pool.query(`SELECT setval('products_id_seq', (SELECT MAX(id) FROM products))`);
+
+    res.json({
+      success: true,
+      message: `Seeded ${staticProducts.length} static products`
+    });
+  } catch (err) {
+    console.error("Seed static products error:", err);
+    res.status(500).json({ error: "Seed failed: " + err.message });
+  }
+});
+
+
 
 // Helper function to format time ago
 function formatTimeAgo(date) {
