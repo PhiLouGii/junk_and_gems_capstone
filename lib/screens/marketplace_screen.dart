@@ -39,6 +39,64 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   bool _isSearching = false;
   List<dynamic> _searchResults = [];
 
+  // ADD THIS: Static new products list with local assets
+  final List<Map<String, String>> _staticNewProducts = [
+    {
+      'id': '17',
+      'title': 'Recycled Plastic Planter',
+      'artisan': 'Green Thumb Studios',
+      'artisan_id': '14',
+      'price': 'M320',
+      'image': 'assets/images/featured3.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'description': 'Eco-friendly planter made from recycled plastic bottles',
+    },
+    {
+      'id': '18',
+      'title': 'Vintage Suitcase Table',
+      'artisan': 'Retro Revival',
+      'artisan_id': '15',
+      'price': 'M680',
+      'image': 'assets/images/featured4.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'description': 'Unique coffee table crafted from vintage suitcase',
+    },
+    {
+      'id': '19',
+      'title': 'Fabric Scrap Cushions',
+      'artisan': 'Cozy Corners',
+      'artisan_id': '16',
+      'price': 'M240',
+      'image': 'assets/images/featured6.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'description': 'Colorful cushions made from fabric scraps',
+    },
+    {
+      'id': '20',
+      'title': 'Wire Sculpture Bird',
+      'artisan': 'Metal Magic',
+      'artisan_id': '17',
+      'price': 'M480',
+      'image': 'assets/images/featured5.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'description': 'Artistic bird sculpture from recycled wire',
+    },
+    {
+      'id': '21',
+      'title': 'Book Page Wall Art',
+      'artisan': 'Paper Dreams',
+      'artisan_id': '18',
+      'price': 'M350',
+      'image': 'assets/images/featured9.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'description': 'Beautiful wall art made from old book pages',
+    },
+    {
+      'id': '22',
+      'title': 'Tin Can Organizer',
+      'artisan': 'Tidy Treasures',
+      'artisan_id': '19',
+      'price': 'M180',
+      'image': 'assets/images/featured7.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'description': 'Practical desk organizer from upcycled tin cans',
+    },
+  ];
+
   final List<Map<String, String>> _featuredProducts = [
     {
       'title': 'Fabric and Denim Patchwork Jacket',
@@ -186,13 +244,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     _loadCartCount();
   }
 
-  // Simplified _loadCartCount method - removed the non-existent method call
   Future<void> _loadCartCount() async {
     try {
-      // For now, we'll set a default value since getCartItemsCount doesn't exist
-      // You can implement this later when you have a proper cart count method
       setState(() {
-        _cartItemCount = 0; // Default to 0
+        _cartItemCount = 0;
       });
     } catch (error) {
       print('Error loading cart count: $error');
@@ -202,7 +257,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     }
   }
 
-  // Fixed _addToCart method to match ProductDetailScreen's implementation
   void _addToCart(Map<String, dynamic> product) async {
     try {
       if (widget.userId == null) {
@@ -220,7 +274,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       print('Product ID: ${product['id']}');
       print('Product Title: ${product['title']}');
 
-      // Show loading
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Row(
@@ -241,7 +294,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         ),
       );
 
-      // Use the same static method call as ProductDetailScreen
       final result = await CartService.addToCart(
         widget.userId!,
         product['id']?.toString() ?? '',
@@ -250,7 +302,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
       print('✅ Add to cart result: $result');
 
-      // Show success
       if (context.mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -273,7 +324,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           ),
         );
         
-        // Update cart count (you'll need to implement this properly later)
         setState(() {
           _cartItemCount += 1;
         });
@@ -317,6 +367,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     });
   }
 
+  // UPDATED: Fetch new products with fallback to static
   Future<void> _fetchNewProducts() async {
     if (_isLoadingNewProducts) return;
     
@@ -328,18 +379,35 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       final response = await http.get(
         Uri.parse('http://10.0.2.2:3003/api/products'),
         headers: {'Content-Type': 'application/json'},
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final List<dynamic> products = json.decode(response.body);
-        setState(() {
-          _newProducts = products;
-        });
+        
+        // Combine API products with static products
+        if (products.isNotEmpty) {
+          setState(() {
+            _newProducts = [...products, ..._staticNewProducts];
+          });
+          print('✅ Loaded ${products.length} API products + ${_staticNewProducts.length} static products');
+        } else {
+          setState(() {
+            _newProducts = _staticNewProducts;
+          });
+          print('ℹ️ No API products, showing ${_staticNewProducts.length} static products');
+        }
       } else {
-        print('Failed to load products: ${response.statusCode}');
+        print('⚠️ Failed to load products: ${response.statusCode}, using static products');
+        setState(() {
+          _newProducts = _staticNewProducts;
+        });
       }
     } catch (error) {
-      print('Error fetching new products: $error');
+      print('❌ Error fetching new products: $error');
+      print('ℹ️ Using static products as fallback');
+      setState(() {
+        _newProducts = _staticNewProducts;
+      });
     } finally {
       setState(() {
         _isLoadingNewProducts = false;
@@ -442,9 +510,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     });
   }
 
-  // Helper method for image handling
   Widget _buildImage(String imageSource) {
-    // Check if it's a base64 data URI
     if (imageSource.startsWith('data:image')) {
       return Image.memory(
         base64Decode(imageSource.split(',')[1]),
@@ -455,7 +521,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         },
       );
     }
-    // Check if it's a network URL
     else if (imageSource.startsWith('http')) {
       return Image.network(
         imageSource,
@@ -466,7 +531,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         },
       );
     }
-    // Assume it's an asset
     else {
       return Image.asset(
         imageSource,
@@ -769,26 +833,20 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     final artisan = isFromServer ? (product['creator_name'] ?? 'Unknown Artisan') : product['artisan']!;
     final price = isFromServer ? 'M${product['price']?.toString() ?? '0'}' : product['price']!;
     
-    // FIXED: Better image handling
     String image = '';
     if (isFromServer) {
-      // Check image_data_base64 first (array of base64 strings)
       if (product['image_data_base64'] != null && product['image_data_base64'] is List && (product['image_data_base64'] as List).isNotEmpty) {
-        image = product['image_data_base64'][0]; // Get first image
+        image = product['image_data_base64'][0];
       } 
-      // Fallback to image_url if available
       else if (product['image_url'] != null && product['image_url'].toString().isNotEmpty) {
         image = product['image_url'];
       } 
-      // Default placeholder
       else {
         image = 'assets/images/placeholder.jpg';
       }
     } else {
       image = product['image'] ?? 'assets/images/placeholder.jpg';
     }
-
-    print('🖼️ Product: $title, Image: ${image.substring(0, image.length > 50 ? 50 : image.length)}...');
 
     return GestureDetector(
       onTap: () {
@@ -1159,6 +1217,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
+  // UPDATED: Build new products list with static/API product handling
   Widget _buildNewProductsList() {
     return SizedBox(
       height: 220,
@@ -1168,20 +1227,49 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         itemBuilder: (context, index) {
           final product = _newProducts[index];
           
-          // FIXED: Better image handling
+          // Check if this is a static product (has 'image' key) or API product
+          final isStaticProduct = product is Map<String, String> && product.containsKey('image');
+          
           String imageSource = '';
-          if (product['image_data_base64'] != null && 
-              product['image_data_base64'] is List && 
-              (product['image_data_base64'] as List).isNotEmpty) {
-            imageSource = product['image_data_base64'][0];
-          } else if (product['image_url'] != null && 
-                     product['image_url'].toString().isNotEmpty) {
-            imageSource = product['image_url'];
+          String title = '';
+          String artisan = '';
+          String price = '';
+          String productId = '';
+          String artisanId = '';
+          String description = '';
+          
+          if (isStaticProduct) {
+            // Static product from assets
+            imageSource = product['image']!;
+            title = product['title']!;
+            artisan = product['artisan']!;
+            price = product['price']!;
+            productId = product['id']!;
+            artisanId = product['artisan_id']!;
+            description = product['description']!;
           } else {
-            imageSource = 'assets/images/placeholder.jpg';
+            // API product
+            title = product['title'] ?? 'Untitled';
+            artisan = product['creator_name'] ?? 'Unknown Artisan';
+            price = 'M${product['price']?.toString() ?? '0'}';
+            productId = product['id']?.toString() ?? '';
+            artisanId = product['artisan_id']?.toString() ?? '';
+            description = product['description'] ?? '';
+            
+            // Get image from API product
+            if (product['image_data_base64'] != null && 
+                product['image_data_base64'] is List && 
+                (product['image_data_base64'] as List).isNotEmpty) {
+              imageSource = product['image_data_base64'][0];
+            } else if (product['image_url'] != null && 
+                       product['image_url'].toString().isNotEmpty) {
+              imageSource = product['image_url'];
+            } else {
+              imageSource = 'assets/images/placeholder.jpg';
+            }
           }
           
-          print('🖼️ New Product: ${product['title']}, Image type: ${imageSource.startsWith('data:') ? 'base64' : imageSource.startsWith('http') ? 'network' : 'asset'}');
+          print('🖼️ New Product: $title, Type: ${isStaticProduct ? "static asset" : "API"}, Image: ${imageSource.substring(0, imageSource.length > 50 ? 50 : imageSource.length)}...');
           
           return GestureDetector(
             onTap: () {
@@ -1190,13 +1278,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                 MaterialPageRoute(
                   builder: (context) => ProductDetailScreen(
                     product: {
-                      'title': product['title'] ?? 'Untitled',
-                      'artisan': product['creator_name'] ?? 'Unknown Artisan',
-                      'price': 'M${product['price']?.toString() ?? '0'}',
+                      'title': title,
+                      'artisan': artisan,
+                      'price': price,
                       'image': imageSource,
-                      'artisan_id': product['artisan_id']?.toString() ?? '',
-                      'id': product['id']?.toString() ?? '',
-                      'description': product['description'] ?? '',
+                      'artisan_id': artisanId,
+                      'id': productId,
+                      'description': description,
                     },
                   ),
                 ),
@@ -1244,7 +1332,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          product['title'] ?? 'Untitled',
+                          title,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1255,7 +1343,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'By ${product['creator_name'] ?? 'Unknown Artisan'}',
+                          'By $artisan',
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).textTheme.bodyMedium?.color,
@@ -1266,7 +1354,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'M${product['price']?.toString() ?? '0'}',
+                              price,
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -1276,11 +1364,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                             GestureDetector(
                               onTap: () {
                                 _addToCart({
-                                  'id': product['id']?.toString() ?? '',
-                                  'title': product['title'] ?? 'Untitled',
-                                  'price': 'M${product['price']?.toString() ?? '0'}',
+                                  'id': productId,
+                                  'title': title,
+                                  'price': price,
                                   'image': imageSource,
-                                  'artisan': product['creator_name'] ?? 'Unknown Artisan',
+                                  'artisan': artisan,
                                 });
                               },
                               child: Container(

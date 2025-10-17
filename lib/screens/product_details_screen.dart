@@ -27,6 +27,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<dynamic> _similarProducts = [];
   bool _isLoadingSimilarProducts = false;
 
+  // STATIC SIMILAR PRODUCTS WITH LOCAL ASSETS - REPLACE IMAGE PATHS WITH YOUR ACTUAL ASSET NAMES
+  final List<Map<String, String>> _staticSimilarProducts = [
+    {
+      'id': '7',
+      'title': 'Vintage Bottle Lamp',
+      'artisan': 'Sarah Chen',
+      'artisan_id': '8',
+      'price': 'M420',
+      'image': 'assets/images/featured2.jpg', // Replace with your actual asset name
+      'description': 'Beautiful handcrafted lamp from recycled bottles',
+    },
+    {
+      'id': '8',
+      'title': 'Denim Tote Bag',
+      'artisan': 'Mike Ross',
+      'artisan_id': '9',
+      'price': 'M280',
+      'image': 'assets/images/upcycled1.jpg', // Replace with your actual asset name
+      'description': 'Stylish tote made from upcycled denim',
+    },
+    {
+      'id': '9',
+      'title': 'Wooden Wall Art',
+      'artisan': 'Emma Stone',
+      'artisan_id': '10',
+      'price': 'M550',
+      'image': 'assets/images/featured9.jpg', // Replace with your actual asset name
+      'description': 'Rustic wall decoration from reclaimed wood',
+    },
+    {
+      'id': '10',
+      'title': 'Glass Mosaic Mirror',
+      'artisan': 'James Wilson',
+      'artisan_id': '11',
+      'price': 'M380',
+      'image': 'assets/images/featured5.jpg', // Replace with your actual asset name
+      'description': 'Decorative mirror with glass mosaic frame',
+    },
+    {
+      'id': '11',
+      'title': 'Tire Ottoman',
+      'artisan': 'Lisa Anderson',
+      'artisan_id': '12',
+      'price': 'M450',
+      'image': 'assets/images/featured3.jpg', // Replace with your actual asset name
+      'description': 'Comfortable ottoman made from recycled tire',
+    },
+    {
+      'id': '12',
+      'title': 'Magazine Bowl',
+      'artisan': 'David Lee',
+      'artisan_id': '13',
+      'price': 'M220',
+      'image': 'assets/images/featured7.jpg', // Replace with your actual asset name
+      'description': 'Unique bowl crafted from rolled magazines',
+    },
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -47,8 +105,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _token = prefs.getString('token');
     });
 
-    print('🔐 CURRENT USER ID: $_currentUserId');
-    print('🔐 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
+    print('🔍 CURRENT USER ID: $_currentUserId');
+    print('🔍 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
   }
 
   Future<void> _fetchSimilarProducts() async {
@@ -58,45 +116,51 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     try {
       print('🔍 Fetching similar products...');
+      
+      // Try to fetch from API first with timeout
       final response = await http.get(
         Uri.parse('http://10.0.2.2:3003/api/products'),
         headers: {'Content-Type': 'application/json'},
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final List<dynamic> allProducts = json.decode(response.body);
         
         print('📦 Total products from API: ${allProducts.length}');
         
+        // Filter out current product and take up to 4
         final filtered = allProducts
             .where((p) => p['id'].toString() != widget.product['id'])
-            .take(6)
+            .take(4)
             .toList();
         
-        for (var i = 0; i < filtered.length; i++) {
-          final p = filtered[i];
-          print('Product $i: ${p['title']}');
-          print('  - Has image_data_base64: ${p['image_data_base64'] != null}');
-          if (p['image_data_base64'] != null) {
-            print('  - Array length: ${(p['image_data_base64'] as List).length}');
-            if ((p['image_data_base64'] as List).isNotEmpty) {
-              final img = p['image_data_base64'][0];
-              print('  - First image type: ${img.startsWith('data:image') ? 'base64' : img.startsWith('http') ? 'URL' : 'other'}');
-            }
-          }
-          print('  - Has image_url: ${p['image_url'] != null}');
+        // If we have API products, combine with static products
+        if (filtered.isNotEmpty) {
+          setState(() {
+            _similarProducts = [...filtered, ..._staticSimilarProducts.take(2)];
+          });
+          print('✅ Using ${filtered.length} API products + ${_staticSimilarProducts.take(2).length} static products');
+        } else {
+          // No API products, use static only
+          setState(() {
+            _similarProducts = _staticSimilarProducts;
+          });
+          print('✅ Using static products only');
         }
-        
-        setState(() {
-          _similarProducts = filtered;
-        });
-        
-        print('✅ Found ${_similarProducts.length} similar products');
       } else {
-        print('❌ Failed to load similar products: ${response.statusCode}');
+        // API failed, use static products
+        print('⚠️ API returned ${response.statusCode}, using static products');
+        setState(() {
+          _similarProducts = _staticSimilarProducts;
+        });
       }
     } catch (error) {
+      // On error, use static products
       print('❌ Error fetching similar products: $error');
+      print('ℹ️ Using static products as fallback');
+      setState(() {
+        _similarProducts = _staticSimilarProducts;
+      });
     } finally {
       setState(() {
         _isLoadingSimilarProducts = false;
@@ -128,7 +192,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final String productId = widget.product['id'] ?? '1';
 
       print('=== MESSAGE ARTISAN DEBUG ===');
-      print('🔐 Current User ID: $_currentUserId');
+      print('🔍 Current User ID: $_currentUserId');
       print('🎯 Artisan ID: $artisanId');
       print('📦 Product ID: $productId');
       print('=============================');
@@ -265,15 +329,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildSimilarProductCard(dynamic product, ThemeProvider themeProvider) {
     final isDarkMode = themeProvider.isDarkMode;
     
+    // Check if this is a static product (has 'image' key) or API product
+    final isStaticProduct = product is Map<String, String> && product.containsKey('image');
+    
     String imageUrl = '';
-    if (product['image_data_base64'] != null && 
-        (product['image_data_base64'] as List).isNotEmpty) {
-      imageUrl = product['image_data_base64'][0];
-    } else if (product['image_url'] != null && product['image_url'].isNotEmpty) {
-      imageUrl = product['image_url'];
+    String title = '';
+    String price = '';
+    String productId = '';
+    String artisanName = '';
+    String artisanId = '';
+    String description = '';
+    
+    if (isStaticProduct) {
+      // Static product from assets
+      imageUrl = product['image']!;
+      title = product['title']!;
+      price = product['price']!;
+      productId = product['id']!;
+      artisanName = product['artisan']!;
+      artisanId = product['artisan_id']!;
+      description = product['description']!;
+    } else {
+      // API product
+      title = product['title'] ?? 'Untitled';
+      price = 'M${product['price']?.toString() ?? '0'}';
+      productId = product['id']?.toString() ?? '';
+      artisanName = product['creator_name'] ?? 'Unknown Artisan';
+      artisanId = product['artisan_id']?.toString() ?? '';
+      description = product['description'] ?? '';
+      
+      // Get image from API product
+      if (product['image_data_base64'] != null && 
+          (product['image_data_base64'] as List).isNotEmpty) {
+        imageUrl = product['image_data_base64'][0];
+      } else if (product['image_url'] != null && product['image_url'].isNotEmpty) {
+        imageUrl = product['image_url'];
+      }
     }
 
-    print('🖼️ Similar product image: ${imageUrl.isNotEmpty ? imageUrl.substring(0, min(50, imageUrl.length)) : "empty"}...');
+    print('🖼️ Similar product: $title, Image: ${isStaticProduct ? "asset" : "api"}, URL: ${imageUrl.isNotEmpty ? imageUrl.substring(0, min(50, imageUrl.length)) : "empty"}...');
 
     return GestureDetector(
       onTap: () {
@@ -282,13 +376,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           MaterialPageRoute(
             builder: (context) => ProductDetailScreen(
               product: {
-                'id': product['id'].toString(),
-                'title': product['title'] ?? 'Untitled',
-                'artisan': product['creator_name'] ?? 'Unknown Artisan',
-                'artisan_id': product['artisan_id']?.toString() ?? '',
-                'price': 'M${product['price']?.toString() ?? '0'}',
+                'id': productId,
+                'title': title,
+                'artisan': artisanName,
+                'artisan_id': artisanId,
+                'price': price,
                 'image': imageUrl,
-                'description': product['description'] ?? '',
+                'description': description,
               },
             ),
           ),
@@ -316,7 +410,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: SizedBox(
                 height: 92,
                 width: 120,
-                child: _buildSimilarProductImage(imageUrl, isDarkMode),
+                child: imageUrl.isEmpty
+                    ? _buildImagePlaceholder(isDarkMode)
+                    : (isStaticProduct
+                        ? Image.asset(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('❌ Error loading asset: $imageUrl');
+                              return _buildImagePlaceholder(isDarkMode);
+                            },
+                          )
+                        : _buildSimilarProductImage(imageUrl, isDarkMode)),
               ),
             ),
             Container(
@@ -327,7 +432,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    product['title'] ?? 'Untitled',
+                    title,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -338,7 +443,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    'M${product['price']?.toString() ?? '0'}',
+                    price,
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
