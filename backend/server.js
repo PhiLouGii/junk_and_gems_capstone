@@ -1539,7 +1539,7 @@ app.get("/api/products", async (req, res) => {
     const result = await pool.query(`
       SELECT 
         p.*,
-        u.name as creator_name,
+        COALESCE(u.name, p.creator_name, 'Unknown Artisan') as creator_name,
         u.profile_image_url as creator_avatar
       FROM products p
       LEFT JOIN users u ON p.artisan_id = u.id
@@ -1547,17 +1547,17 @@ app.get("/api/products", async (req, res) => {
     `);
     
     console.log(`✅ Found ${result.rows.length} products`);
+    if (result.rows.length > 0) {
+      console.log('📦 First product:', {
+        id: result.rows[0].id,
+        title: result.rows[0].title,
+        creator_name: result.rows[0].creator_name,
+        artisan_id: result.rows[0].artisan_id,
+        has_image_data: result.rows[0].image_data_base64 ? 'yes' : 'no'
+      });
+    }
     
-    // Ensure each product has the correct structure
-    const products = result.rows.map(product => ({
-      ...product,
-      creator_name: product.creator_name || 'Unknown Artist',
-      image_url: product.image_data_base64 && product.image_data_base64.length > 0 
-        ? product.image_data_base64[0] 
-        : null
-    }));
-    
-    res.json(products);
+    res.json(result.rows);
   } catch (err) {
     console.error("Get products error:", err);
     res.status(500).json({ error: "Server error" });
@@ -3718,8 +3718,6 @@ app.post("/api/seed-static-products", async (req, res) => {
     res.status(500).json({ error: "Seed failed: " + err.message });
   }
 });
-
-
 
 // Helper function to format time ago
 function formatTimeAgo(date) {

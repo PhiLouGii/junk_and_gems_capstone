@@ -39,7 +39,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   bool _isSearching = false;
   List<dynamic> _searchResults = [];
 
-  // ADD THIS: Static new products list with local assets
   final List<Map<String, String>> _staticNewProducts = [
     {
       'id': '17',
@@ -47,7 +46,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'artisan': 'Green Thumb Studios',
       'artisan_id': '14',
       'price': 'M320',
-      'image': 'assets/images/featured3.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'image': 'assets/images/featured3.jpg',
       'description': 'Eco-friendly planter made from recycled plastic bottles',
     },
     {
@@ -56,7 +55,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'artisan': 'Retro Revival',
       'artisan_id': '15',
       'price': 'M680',
-      'image': 'assets/images/featured4.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'image': 'assets/images/featured4.jpg',
       'description': 'Unique coffee table crafted from vintage suitcase',
     },
     {
@@ -65,7 +64,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'artisan': 'Cozy Corners',
       'artisan_id': '16',
       'price': 'M240',
-      'image': 'assets/images/featured6.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'image': 'assets/images/featured6.jpg',
       'description': 'Colorful cushions made from fabric scraps',
     },
     {
@@ -74,7 +73,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'artisan': 'Metal Magic',
       'artisan_id': '17',
       'price': 'M480',
-      'image': 'assets/images/featured5.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'image': 'assets/images/featured5.jpg',
       'description': 'Artistic bird sculpture from recycled wire',
     },
     {
@@ -83,7 +82,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'artisan': 'Paper Dreams',
       'artisan_id': '18',
       'price': 'M350',
-      'image': 'assets/images/featured9.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'image': 'assets/images/featured9.jpg',
       'description': 'Beautiful wall art made from old book pages',
     },
     {
@@ -92,7 +91,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       'artisan': 'Tidy Treasures',
       'artisan_id': '19',
       'price': 'M180',
-      'image': 'assets/images/featured7.jpg', // REPLACE WITH YOUR ACTUAL IMAGE
+      'image': 'assets/images/featured7.jpg',
       'description': 'Practical desk organizer from upcycled tin cans',
     },
   ];
@@ -257,7 +256,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     }
   }
 
-   void _addToCart(Map<String, dynamic> product) async {
+  void _addToCart(Map<String, dynamic> product) async {
     try {
       if (widget.userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -269,12 +268,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         return;
       }
 
-      // Check if this is a static product (doesn't exist in database)
       final productId = product['id']?.toString() ?? '';
       final isStaticProduct = int.tryParse(productId) != null && int.parse(productId) < 10;
 
       if (isStaticProduct) {
-        // Static products from _products list - show message
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -286,11 +283,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         }
         return;
       }
-
-      print('🛒 Adding to cart from Marketplace...');
-      print('User ID: ${widget.userId}');
-      print('Product ID: ${product['id']}');
-      print('Product Title: ${product['title']}');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -317,8 +309,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         product['id']?.toString() ?? '',
         quantity: 1,
       );
-
-      print('✅ Add to cart result: $result');
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
@@ -385,49 +375,46 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     });
   }
 
-  // UPDATED: Fetch new products with fallback to static
   Future<void> _fetchNewProducts() async {
-  if (_isLoadingNewProducts) return;
-  
-  setState(() {
-    _isLoadingNewProducts = true;
-  });
+    if (_isLoadingNewProducts) return;
+    
+    setState(() {
+      _isLoadingNewProducts = true;
+    });
 
-  try {
-    final response = await http.get(
-      Uri.parse('http://10.0.2.2:3003/api/products'),
-      headers: {'Content-Type': 'application/json'},
-    ).timeout(const Duration(seconds: 5));
+    try {
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:3003/api/products'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 5));
 
-    if (response.statusCode == 200) {
-      final List<dynamic> products = json.decode(response.body);
-      
-      // Filter out static products (IDs 1-16) - only show user-created products (ID >= 17)
-      final userCreatedProducts = products.where((product) {
-        final productId = int.tryParse(product['id']?.toString() ?? '0') ?? 0;
-        return productId >= 17; // Only show products with ID 17 and above
-      }).toList();
-      
-      setState(() {
-        _newProducts = userCreatedProducts;
-      });
-      print('✅ Loaded ${userCreatedProducts.length} user-created products (filtered out static products)');
-    } else {
+      if (response.statusCode == 200) {
+        final List<dynamic> products = json.decode(response.body);
+        
+        final userCreatedProducts = products.where((product) {
+          final productId = int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+          return productId >= 17;
+        }).toList();
+        
+        setState(() {
+          _newProducts = userCreatedProducts;
+        });
+      } else {
+        setState(() {
+          _newProducts = [];
+        });
+      }
+    } catch (error) {
+      print('❌ Error fetching new products: $error');
       setState(() {
         _newProducts = [];
       });
+    } finally {
+      setState(() {
+        _isLoadingNewProducts = false;
+      });
     }
-  } catch (error) {
-    print('❌ Error fetching new products: $error');
-    setState(() {
-      _newProducts = [];
-    });
-  } finally {
-    setState(() {
-      _isLoadingNewProducts = false;
-    });
   }
-}
 
   Future<void> _searchProducts(String query) async {
     if (query.isEmpty) {
@@ -444,26 +431,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     });
 
     try {
-      print('🔍 Searching products for: "$query"');
       final response = await http.get(
         Uri.parse('http://10.0.2.2:3003/api/products/search?query=$query'),
       );
 
-      print('📡 Search response status: ${response.statusCode}');
-      
       if (response.statusCode == 200) {
         final List<dynamic> products = json.decode(response.body);
-        print('✅ Found ${products.length} products matching "$query"');
-        
         setState(() {
           _searchResults = products;
         });
       } else {
-        print('❌ Search server error: ${response.statusCode}');
         _searchLocally(query);
       }
     } catch (error) {
-      print('❌ Error searching products: $error');
       _searchLocally(query);
     }
   }
@@ -530,7 +510,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         base64Decode(imageSource.split(',')[1]),
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
-          print('❌ Error loading base64 image: $error');
           return _buildImagePlaceholder();
         },
       );
@@ -540,7 +519,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         imageSource,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
-          print('❌ Error loading network image: $error');
           return _buildImagePlaceholder();
         },
       );
@@ -550,7 +528,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         imageSource,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
-          print('❌ Error loading asset image: $error');
           return _buildImagePlaceholder();
         },
       );
@@ -559,23 +536,77 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
   Widget _buildImagePlaceholder() {
     return Container(
-      color: const Color(0xFFE4E5C2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFBEC092).withOpacity(0.3),
+            const Color(0xFF88844D).withOpacity(0.1),
+          ],
+        ),
+      ),
       child: Icon(
-        Icons.recycling,
+        Icons.shopping_bag,
         size: 40,
-        color: Theme.of(context).textTheme.bodyLarge?.color,
+        color: const Color(0xFF88844D),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      bottomNavigationBar: _buildBottomNavBar(context),
-      floatingActionButton: FloatingActionButton(
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _fetchNewProducts,
+                color: const Color(0xFF88844D),
+                child: OrientationBuilder(
+                  builder: (context, orientation) {
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxWidth = constraints.maxWidth;
+                        
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: maxWidth > 600 ? 24.0 : 16.0,
+                            vertical: 16.0,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSearchBar(maxWidth),
+                              const SizedBox(height: 24),
+                              if (_isSearching) ...[
+                                _buildSearchResults(maxWidth),
+                              ] else ...[
+                                _buildFeaturedProducts(maxWidth),
+                                const SizedBox(height: 32),
+                                _buildNewProductsSection(maxWidth),
+                                const SizedBox(height: 32),
+                                _buildCategories(maxWidth),
+                                const SizedBox(height: 32),
+                                _buildProductsGrid(maxWidth),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
@@ -584,116 +615,152 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             _fetchNewProducts();
           });
         },
-        backgroundColor: const Color(0xFFBEC092),
-        foregroundColor: const Color(0xFF88844D),
-        child: const Icon(Icons.add, size: 30),
+        backgroundColor: const Color(0xFF88844D),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text(
+          'List Product',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 4,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        elevation: 0,
-        title: Text(
-          'Marketplace',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+      bottomNavigationBar: _buildBottomNavBar(context),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Stack(
-              children: [
-                IconButton(
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.arrow_back,
+                color: Color(0xFF88844D),
+                size: 24,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.store,
+              color: Color(0xFF88844D),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Marketplace',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+          ),
+          Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: IconButton(
                   icon: Icon(
                     Icons.shopping_cart_outlined,
-                    color: Theme.of(context).iconTheme.color,
-                    size: 28,
+                    color: const Color(0xFF88844D),
+                    size: 26,
                   ),
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => ShoppingCartScreen(userId: widget.userId ?? '')),
+                      MaterialPageRoute(
+                        builder: (context) => ShoppingCartScreen(userId: widget.userId ?? ''),
+                      ),
                     );
                   },
                 ),
-                if (_cartItemCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: AnimatedBuilder(
-                      animation: _animation,
-                      builder: (context, child) {
-                        return Opacity(
-                          opacity: _animation.value,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            child: Text(
-                              _cartItemCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+              ),
+              if (_cartItemCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: AnimatedBuilder(
+                    animation: _animation,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _animation.value,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
                           ),
-                        );
-                      },
-                    ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            _cartItemCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _fetchNewProducts,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSearchBar(),
-              const SizedBox(height: 24),
-              if (_isSearching) ...[
-                _buildSearchResults(),
-              ] else ...[
-                _buildFeaturedProducts(),
-                const SizedBox(height: 32),
-                _buildNewProductsSection(),
-                const SizedBox(height: 32),
-                _buildCategories(),
-                const SizedBox(height: 32),
-                _buildProductsGrid(),
-              ],
+                ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(double maxWidth) {
+    final isLargeScreen = maxWidth > 600;
+    
     return Container(
-      height: 50,
+      height: isLargeScreen ? 56 : 52,
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFBEC092),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBEC092), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFBEC092).withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -701,18 +768,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           children: [
             Icon(
               Icons.search,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              color: const Color(0xFF88844D),
+              size: 24,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
-                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontSize: 15,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Search products, artisans...',
                   hintStyle: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                   ),
                   border: InputBorder.none,
                 ),
@@ -728,7 +799,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             ),
             if (_searchController.text.isNotEmpty)
               IconButton(
-                icon: Icon(Icons.clear, size: 20, color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6)),
+                icon: Icon(Icons.clear, size: 20, color: const Color(0xFF88844D)),
                 onPressed: _clearSearch,
               ),
           ],
@@ -737,46 +808,49 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchResults(double maxWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              'Search Results',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '(${_searchResults.length} found)',
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: _clearSearch,
-              child: Text(
-                'Clear',
-                style: TextStyle(
-                  color: const Color(0xFF88844D),
-                  fontSize: 14,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFBEC092).withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092).withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search, size: 20, color: const Color(0xFF88844D)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Search Results (${_searchResults.length} found)',
+                  style: TextStyle(
+                    fontSize: maxWidth > 600 ? 18 : 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
                 ),
               ),
-            ),
-          ],
+              TextButton(
+                onPressed: _clearSearch,
+                child: const Text(
+                  'Clear',
+                  style: TextStyle(
+                    color: Color(0xFF88844D),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         if (_searchResults.isEmpty)
           _buildEmptySearchResults()
         else
-          _buildSearchResultsGrid(),
+          _buildSearchResultsGrid(maxWidth),
       ],
     );
   }
@@ -788,8 +862,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFBEC092),
-          width: 1,
+          color: const Color(0xFFBEC092).withOpacity(0.3),
+          width: 2,
         ),
       ),
       child: Center(
@@ -799,13 +873,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             Icon(
               Icons.search_off,
               size: 50,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+              color: const Color(0xFF88844D).withOpacity(0.5),
             ),
             const SizedBox(height: 16),
             Text(
               'No products found',
               style: TextStyle(
                 fontSize: 18,
+                fontWeight: FontWeight.bold,
                 color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
@@ -823,12 +898,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildSearchResultsGrid() {
+  Widget _buildSearchResultsGrid(double maxWidth) {
+    int crossAxisCount = 2;
+    if (maxWidth > 900) {
+      crossAxisCount = 4;
+    } else if (maxWidth > 600) {
+      crossAxisCount = 3;
+    }
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         childAspectRatio: 0.75,
@@ -836,12 +918,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final product = _searchResults[index];
-        return _buildProductCard(product);
+        return _buildProductCard(product, maxWidth);
       },
     );
   }
 
-  Widget _buildProductCard(dynamic product) {
+  Widget _buildProductCard(dynamic product, double maxWidth) {
     final isFromServer = product.containsKey('creator_name');
     final title = product['title'] ?? 'Untitled';
     final artisan = isFromServer ? (product['creator_name'] ?? 'Unknown Artisan') : product['artisan']!;
@@ -885,44 +967,73 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFBEC092).withOpacity(0.3),
+            width: 2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
+              color: const Color(0xFF88844D).withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 120,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                color: Color(0xFFE4E5C2),
-            ),
-            child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: _buildImage(image),
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(14),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(14),
+                      ),
+                      child: _buildImage(image),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.favorite_border,
+                        size: 16,
+                        color: const Color(0xFF88844D),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: maxWidth > 600 ? 15 : 14,
+                      fontWeight: FontWeight.bold,
                       color: Theme.of(context).textTheme.bodyLarge?.color,
                     ),
                     maxLines: 2,
@@ -935,8 +1046,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       fontSize: 12,
                       color: Theme.of(context).textTheme.bodyMedium?.color,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -945,7 +1058,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          color: const Color(0xFF88844D),
                         ),
                       ),
                       GestureDetector(
@@ -959,18 +1072,23 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFBEC092),
-                            borderRadius: BorderRadius.circular(8),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF88844D).withOpacity(0.3),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.shopping_bag_outlined,
-                            size: 16,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                            size: 18,
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -985,26 +1103,40 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildFeaturedProducts() {
+  Widget _buildFeaturedProducts(double maxWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Featured Products',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Featured Products',
+              style: TextStyle(
+                fontSize: maxWidth > 600 ? 20 : 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 220,
+          height: maxWidth > 600 ? 260 : 250,
           child: NotificationListener<ScrollNotification>(
             onNotification: (scrollNotification) {
-              if (scrollNotification is UserScrollNotification &&
-                  scrollNotification.direction != ScrollDirection.idle) {
-              }
               return false;
             },
             child: ListView.builder(
@@ -1026,14 +1158,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                     );
                   },
                   child: Container(
-                    width: 160,
+                    width: maxWidth > 600 ? 180 : 160,
                     margin: const EdgeInsets.only(right: 16),
                     decoration: BoxDecoration(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFBEC092).withOpacity(0.3),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: const Color(0xFF88844D).withOpacity(0.15),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -1043,87 +1179,84 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          height: 120,
+                          height: maxWidth > 600 ? 130 : 120,
                           width: double.infinity,
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
+                          decoration: const BoxDecoration(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(14),
                             ),
-                            color: const Color(0xFFE4E5C2),
                           ),
                           child: ClipRRect(
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
+                              top: Radius.circular(14),
                             ),
                             child: Image.asset(
                               product['image']!,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: const Color(0xFFE4E5C2),
-                                  child: Icon(
-                                    Icons.recycling,
-                                    size: 40,
-                                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                                  ),
-                                );
+                                return _buildImagePlaceholder();
                               },
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.all(12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                product['title']!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'By ${product['artisan']!}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                              SizedBox(
+                                height: 38,
+                                child: Text(
+                                  product['title']!,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                                    height: 1.2,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(height: 6),
+                              Text(
+                                'By ${product['artisan']!}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Text(
-                                    product['price']!,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                                  Flexible(
+                                    child: Text(
+                                      product['price']!,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF88844D),
+                                      ),
                                     ),
                                   ),
                                   GestureDetector(
-                                    onTap: () {
-                                      _addToCart(product);
-                                    },
+                                    onTap: () => _addToCart(product),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
+                                      padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFBEC092),
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: Icon(
+                                      child: const Icon(
                                         Icons.shopping_bag_outlined,
                                         size: 16,
-                                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                                        color: Colors.white,
                                       ),
                                     ),
                                   ),
@@ -1144,27 +1277,47 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildNewProductsSection() {
+  Widget _buildNewProductsSection(double maxWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'New Products',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF88844D),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.fiber_new,
+                color: Colors.white,
+                size: 20,
               ),
             ),
-            IconButton(
-              icon: Icon(
-                Icons.refresh,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'New Products',
+                style: TextStyle(
+                  fontSize: maxWidth > 600 ? 20 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
-              onPressed: _fetchNewProducts,
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.refresh,
+                  color: Color(0xFF88844D),
+                ),
+                onPressed: _fetchNewProducts,
+              ),
             ),
           ],
         ),
@@ -1173,56 +1326,35 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             ? _buildLoadingIndicator()
             : _newProducts.isEmpty
                 ? _buildEmptyNewProducts()
-                : _buildNewProductsList(),
+                : _buildNewProductsList(maxWidth),
       ],
     );
   }
 
   Widget _buildLoadingIndicator() {
-    return SizedBox(
-      height: 220,
-      child: Center(
-        child: CircularProgressIndicator(
-          color: const Color(0xFFBEC092),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyNewProducts() {
     return Container(
-      height: 150,
+      height: 220,
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFBEC092),
-          width: 1,
+          color: const Color(0xFFBEC092).withOpacity(0.3),
+          width: 2,
         ),
       ),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 40,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+            CircularProgressIndicator(
+              color: const Color(0xFF88844D),
+              strokeWidth: 3,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
-              'No products yet',
+              'Loading products...',
               style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Be the first to list a product!',
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                color: Theme.of(context).textTheme.bodyMedium?.color,
               ),
             ),
           ],
@@ -1231,17 +1363,58 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  // UPDATED: Build new products list with static/API product handling
-  Widget _buildNewProductsList() {
+  Widget _buildEmptyNewProducts() {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFBEC092).withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 48,
+              color: const Color(0xFF88844D).withOpacity(0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No products yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Be the first to list a product!',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewProductsList(double maxWidth) {
     return SizedBox(
-      height: 220,
+      height: maxWidth > 600 ? 240 : 220,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _newProducts.length,
         itemBuilder: (context, index) {
           final product = _newProducts[index];
           
-          // Check if this is a static product (has 'image' key) or API product
           final isStaticProduct = product is Map<String, String> && product.containsKey('image');
           
           String imageSource = '';
@@ -1253,7 +1426,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           String description = '';
           
           if (isStaticProduct) {
-            // Static product from assets
             imageSource = product['image']!;
             title = product['title']!;
             artisan = product['artisan']!;
@@ -1262,7 +1434,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             artisanId = product['artisan_id']!;
             description = product['description']!;
           } else {
-            // API product
             title = product['title'] ?? 'Untitled';
             artisan = product['creator_name'] ?? 'Unknown Artisan';
             price = 'M${product['price']?.toString() ?? '0'}';
@@ -1270,7 +1441,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             artisanId = product['artisan_id']?.toString() ?? '';
             description = product['description'] ?? '';
             
-            // Get image from API product
             if (product['image_data_base64'] != null && 
                 product['image_data_base64'] is List && 
                 (product['image_data_base64'] as List).isNotEmpty) {
@@ -1282,8 +1452,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
               imageSource = 'assets/images/placeholder.jpg';
             }
           }
-          
-          print('🖼️ New Product: $title, Type: ${isStaticProduct ? "static asset" : "API"}, Image: ${imageSource.substring(0, imageSource.length > 50 ? 50 : imageSource.length)}...');
           
           return GestureDetector(
             onTap: () {
@@ -1305,16 +1473,20 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
               );
             },
             child: Container(
-              width: 160,
+              width: maxWidth > 600 ? 180 : 160,
               margin: EdgeInsets.only(
                 right: index == _newProducts.length - 1 ? 0 : 16,
               ),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFBEC092).withOpacity(0.3),
+                  width: 2,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: const Color(0xFF88844D).withOpacity(0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -1324,86 +1496,92 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    height: 120,
+                    height: maxWidth > 600 ? 140 : 120,
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(14),
                       ),
-                      color: const Color(0xFFE4E5C2),
                     ),
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
+                        top: Radius.circular(14),
                       ),
                       child: _buildImage(imageSource),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).textTheme.bodyLarge?.color,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'By $artisan',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              price,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                _addToCart({
-                                  'id': productId,
-                                  'title': title,
-                                  'price': price,
-                                  'image': imageSource,
-                                  'artisan': artisan,
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFBEC092),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.shopping_bag_outlined,
-                                  size: 16,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
                                   color: Theme.of(context).textTheme.bodyLarge?.color,
                                 ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(height: 4),
+                              Text(
+                                'By $artisan',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                price,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF88844D),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  _addToCart({
+                                    'id': productId,
+                                    'title': title,
+                                    'price': price,
+                                    'image': imageSource,
+                                    'artisan': artisan,
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.shopping_bag_outlined,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1415,43 +1593,60 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildCategories() {
+  Widget _buildCategories(double maxWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Categories',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.category,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Categories',
+              style: TextStyle(
+                fontSize: maxWidth > 600 ? 20 : 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 100,
+          height: maxWidth > 600 ? 120 : 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _categories.length,
             itemBuilder: (context, index) {
               final category = _categories[index];
               return Container(
-                width: 120,
+                width: maxWidth > 600 ? 140 : 120,
                 margin: EdgeInsets.only(
                   right: index == _categories.length - 1 ? 0 : 16,
                 ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      color: const Color(0xFF88844D).withOpacity(0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: Stack(
                     children: [
                       Image.asset(
@@ -1461,7 +1656,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
-                            color: const Color(0xFFBEC092),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  const Color(0xFFBEC092).withOpacity(0.5),
+                                  const Color(0xFF88844D).withOpacity(0.3),
+                                ],
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -1471,7 +1675,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
                             colors: [
-                              Colors.black.withOpacity(0.6),
+                              Colors.black.withOpacity(0.7),
                               Colors.transparent,
                             ],
                           ),
@@ -1483,10 +1687,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                           padding: const EdgeInsets.all(12),
                           child: Text(
                             category['name']!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: maxWidth > 600 ? 15 : 14,
                             ),
                           ),
                         ),
@@ -1502,24 +1706,48 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildProductsGrid() {
+  Widget _buildProductsGrid(double maxWidth) {
+    int crossAxisCount = 2;
+    if (maxWidth > 900) {
+      crossAxisCount = 4;
+    } else if (maxWidth > 600) {
+      crossAxisCount = 3;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Popular Items',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF88844D),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.trending_up,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Popular Items',
+              style: TextStyle(
+                fontSize: maxWidth > 600 ? 20 : 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
             childAspectRatio: 0.75,
@@ -1527,124 +1755,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           itemCount: _products.length,
           itemBuilder: (context, index) {
             final product = _products[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProductDetailScreen(product: product),
-                  ),
-                );
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 120,
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                        color: Color(0xFFE4E5C2),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                        child: Image.asset(
-                          product['image']!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: const Color(0xFFE4E5C2),
-                              child: Icon(
-                                Icons.recycling,
-                                size: 40,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            product['title']!,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).textTheme.bodyLarge?.color,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'By ${product['artisan']!}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).textTheme.bodyMedium?.color,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                product['price']!,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  _addToCart(product);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBEC092),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.shopping_bag_outlined,
-                                    size: 16,
-                                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
+            return _buildProductCard(product, maxWidth);
           },
         ),
       ],
@@ -1687,9 +1798,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
               ),
             );
           }),
-          _navItem(Icons.shopping_bag_outlined, true, 'Shop', onTap: () {
-            // Already on marketplace
-          }),
+          _navItem(Icons.shopping_bag_outlined, true, 'Shop', onTap: () {}),
           _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
             Navigator.push(
               context,
@@ -1722,16 +1831,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
-              size: 24,
+              color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.5),
+              size: 26,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? const Color(0xFF88844D) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 11,
+                color: isSelected ? const Color(0xFF88844D) : const Color(0xFF88844D).withOpacity(0.5),
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ],

@@ -110,63 +110,63 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _fetchSimilarProducts() async {
-    setState(() {
-      _isLoadingSimilarProducts = true;
-    });
+  setState(() {
+    _isLoadingSimilarProducts = true;
+  });
 
-    try {
-      print('🔍 Fetching similar products...');
+  try {
+    print('🔍 Fetching similar products...');
+    
+    final response = await http.get(
+      Uri.parse('http://10.0.2.2:3003/api/products'),
+      headers: {'Content-Type': 'application/json'},
+    ).timeout(const Duration(seconds: 5));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> allProducts = json.decode(response.body);
       
-      // Try to fetch from API first with timeout
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/products'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> allProducts = json.decode(response.body);
-        
-        print('📦 Total products from API: ${allProducts.length}');
-        
-        // Filter out current product and take up to 4
-        final filtered = allProducts
-            .where((p) => p['id'].toString() != widget.product['id'])
-            .take(4)
-            .toList();
-        
-        // If we have API products, combine with static products
-        if (filtered.isNotEmpty) {
-          setState(() {
-            _similarProducts = [...filtered, ..._staticSimilarProducts.take(2)];
-          });
-          print('✅ Using ${filtered.length} API products + ${_staticSimilarProducts.take(2).length} static products');
-        } else {
-          // No API products, use static only
-          setState(() {
-            _similarProducts = _staticSimilarProducts;
-          });
-          print('✅ Using static products only');
-        }
+      print('📦 Total products from API: ${allProducts.length}');
+      if (allProducts.isNotEmpty) {
+        print('📦 First product keys: ${allProducts[0].keys.toList()}');
+        print('📦 First product creator_name: ${allProducts[0]['creator_name']}');
+      }
+      
+      // Filter out current product and take up to 6
+      final filtered = allProducts
+          .where((p) => p['id'].toString() != widget.product['id'])
+          .take(6)
+          .toList();
+      
+      if (filtered.isNotEmpty) {
+        setState(() {
+          _similarProducts = filtered;
+        });
+        print('✅ Using ${filtered.length} API products');
       } else {
-        // API failed, use static products
-        print('⚠️ API returned ${response.statusCode}, using static products');
         setState(() {
           _similarProducts = _staticSimilarProducts;
         });
+        print('✅ No other products available, using static products');
       }
-    } catch (error) {
-      // On error, use static products
-      print('❌ Error fetching similar products: $error');
-      print('ℹ️ Using static products as fallback');
+    } else {
+      print('⚠️ API returned ${response.statusCode}, using static products');
       setState(() {
         _similarProducts = _staticSimilarProducts;
       });
-    } finally {
-      setState(() {
-        _isLoadingSimilarProducts = false;
-      });
     }
+  } catch (error) {
+    print('❌ Error fetching similar products: $error');
+    print('ℹ️ Using static products as fallback');
+    setState(() {
+      _similarProducts = _staticSimilarProducts;
+    });
+  } finally {
+    setState(() {
+      _isLoadingSimilarProducts = false;
+    });
   }
+}
+
 
   void _messageArtisan(BuildContext context) async {
     try {
@@ -327,137 +327,129 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _buildSimilarProductCard(dynamic product, ThemeProvider themeProvider) {
-    final isDarkMode = themeProvider.isDarkMode;
+  final isDarkMode = themeProvider.isDarkMode;
+  
+  // Check if this is a static product (has 'image' key) or API product
+  final isStaticProduct = product is Map<String, String> && product.containsKey('image');
+  
+  String title = '';
+  String price = '';
+  String productId = '';
+  String artisanName = '';
+  String artisanId = '';
+  String description = '';
+  String? imageSource;
+  
+  if (isStaticProduct) {
+    // Static product from assets
+    title = product['title']!;
+    price = product['price']!;
+    productId = product['id']!;
+    artisanName = product['artisan']!;
+    artisanId = product['artisan_id']!;
+    description = product['description']!;
+    imageSource = product['image'];
+  } else {
+    // API product
+    title = product['title']?.toString() ?? 'Untitled';
+    price = product['price'] != null ? 'M${product['price']}' : 'M0';
+    productId = product['id']?.toString() ?? '';
+    artisanName = product['creator_name']?.toString() ?? 'Unknown Artisan';
+    artisanId = product['artisan_id']?.toString() ?? '';
+    description = product['description']?.toString() ?? '';
     
-    // Check if this is a static product (has 'image' key) or API product
-    final isStaticProduct = product is Map<String, String> && product.containsKey('image');
-    
-    String imageUrl = '';
-    String title = '';
-    String price = '';
-    String productId = '';
-    String artisanName = '';
-    String artisanId = '';
-    String description = '';
-    
-    if (isStaticProduct) {
-      // Static product from assets
-      imageUrl = product['image']!;
-      title = product['title']!;
-      price = product['price']!;
-      productId = product['id']!;
-      artisanName = product['artisan']!;
-      artisanId = product['artisan_id']!;
-      description = product['description']!;
-    } else {
-      // API product
-      title = product['title'] ?? 'Untitled';
-      price = 'M${product['price']?.toString() ?? '0'}';
-      productId = product['id']?.toString() ?? '';
-      artisanName = product['creator_name'] ?? 'Unknown Artisan';
-      artisanId = product['artisan_id']?.toString() ?? '';
-      description = product['description'] ?? '';
-      
-      // Get image from API product
-      if (product['image_data_base64'] != null && 
-          (product['image_data_base64'] as List).isNotEmpty) {
-        imageUrl = product['image_data_base64'][0];
-      } else if (product['image_url'] != null && product['image_url'].isNotEmpty) {
-        imageUrl = product['image_url'];
-      }
+    // Get image from API product
+    if (product['image_data_base64'] != null && 
+        product['image_data_base64'] is List &&
+        (product['image_data_base64'] as List).isNotEmpty) {
+      imageSource = product['image_data_base64'][0];
+    } else if (product['image_url'] != null && product['image_url'].toString().isNotEmpty) {
+      imageSource = product['image_url'];
     }
+  }
 
-    print('🖼️ Similar product: $title, Image: ${isStaticProduct ? "asset" : "api"}, URL: ${imageUrl.isNotEmpty ? imageUrl.substring(0, min(50, imageUrl.length)) : "empty"}...');
+  print('🖼️ Similar product: $title, Artisan: $artisanName, Image type: ${isStaticProduct ? "static" : "api"}');
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(
-              product: {
-                'id': productId,
-                'title': title,
-                'artisan': artisanName,
-                'artisan_id': artisanId,
-                'price': price,
-                'image': imageUrl,
-                'description': description,
-              },
+  return GestureDetector(
+    onTap: () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProductDetailScreen(
+            product: {
+              'id': productId,
+              'title': title,
+              'artisan': artisanName,
+              'artisan_id': artisanId,
+              'price': price,
+              'image': imageSource ?? '',
+              'description': description,
+            },
+          ),
+        ),
+      );
+    },
+    child: Container(
+      width: 120,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: SizedBox(
+              height: 92,
+              width: 120,
+              child: imageSource == null || imageSource.isEmpty
+                  ? _buildImagePlaceholder(isDarkMode)
+                  : _buildSimilarProductImage(imageSource, isDarkMode),
             ),
           ),
-        );
-      },
-      child: Container(
-        width: 120,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: SizedBox(
-                height: 92,
-                width: 120,
-                child: imageUrl.isEmpty
-                    ? _buildImagePlaceholder(isDarkMode)
-                    : (isStaticProduct
-                        ? Image.asset(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              print('❌ Error loading asset: $imageUrl');
-                              return _buildImagePlaceholder(isDarkMode);
-                            },
-                          )
-                        : _buildSimilarProductImage(imageUrl, isDarkMode)),
-              ),
-            ),
-            Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    price,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
-                    ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  price,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
