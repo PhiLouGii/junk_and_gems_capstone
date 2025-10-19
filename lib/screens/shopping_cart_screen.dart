@@ -34,59 +34,55 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   }
 
   Future<void> _checkAuthAndLoadData() async {
-  try {
-    print('=' * 50);
-    print('🔍 AUTHENTICATION CHECK STARTED');
-    print('=' * 50);
-    
-    // Debug: Print all auth data
-    await ApiService.debugAuthData();
-    
-    // Check if token exists
-    final token = await ApiService.getToken();
-    print('📋 Token exists: ${token != null}');
-    
-    if (token != null) {
-      print('📋 Token preview: ${token.substring(0, min(20, token.length))}...');
-    }
-    
-    // Check if user ID exists
-    final userId = await ApiService.getUserId();
-    print('📋 User ID from storage: $userId');
-    print('📋 User ID from widget: ${widget.userId}');
-    
-    // Check if they match
-    if (userId != null && userId != widget.userId) {
-      print('⚠️ WARNING: User ID mismatch!');
-    }
-    
-    // Verify token is valid
-    final isValid = await ApiService.verifyToken();
-    print('📋 Token validation: $isValid');
-    
-    if (!isValid) {
-      print('❌ Token is invalid or expired');
+    try {
+      print('=' * 50);
+      print('🔐 AUTHENTICATION CHECK STARTED');
+      print('=' * 50);
+      
+      await ApiService.debugAuthData();
+      
+      final token = await ApiService.getToken();
+      print('📋 Token exists: ${token != null}');
+      
+      if (token != null) {
+        print('📋 Token preview: ${token.substring(0, min(20, token.length))}...');
+      }
+      
+      final userId = await ApiService.getUserId();
+      print('📋 User ID from storage: $userId');
+      print('📋 User ID from widget: ${widget.userId}');
+      
+      if (userId != null && userId != widget.userId) {
+        print('⚠️ WARNING: User ID mismatch!');
+      }
+      
+      final isValid = await ApiService.verifyToken();
+      print('📋 Token validation: $isValid');
+      
+      if (!isValid) {
+        print('❌ Token is invalid or expired');
+        setState(() {
+          _hasAuthError = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      print('✅ Authentication verified - Loading cart data...');
+      print('=' * 50);
+      
+      await _loadCartData();
+      
+    } catch (e) {
+      print('❌ Auth check error: $e');
+      print('Stack trace: ${StackTrace.current}');
       setState(() {
         _hasAuthError = true;
         _isLoading = false;
       });
-      return;
     }
-
-    print('✅ Authentication verified - Loading cart data...');
-    print('=' * 50);
-    
-    await _loadCartData();
-    
-  } catch (e) {
-    print('❌ Auth check error: $e');
-    print('Stack trace: ${StackTrace.current}');
-    setState(() {
-      _hasAuthError = true;
-      _isLoading = false;
-    });
   }
-}
+
   Future<void> _loadCartData() async {
     try {
       print('🛒 Loading cart data for user: ${widget.userId}');
@@ -149,119 +145,6 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
     });
   }
 
-  void _showLoginRequiredDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Authentication Required'),
-        content: const Text('Please login to access your shopping cart.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              _navigateToLogin();
-            },
-            child: const Text('Login'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back
-            },
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _manualAuthCheck() async {
-  print('🔧 MANUAL AUTH CHECK');
-  
-  // Check SharedPreferences directly
-  final prefs = await SharedPreferences.getInstance();
-  final keys = prefs.getKeys();
-  
-  print('📋 All SharedPreferences keys: $keys');
-  
-  for (var key in keys) {
-    if (key.contains('token') || key.contains('user')) {
-      final value = prefs.get(key);
-      print('📋 $key: ${value.toString().substring(0, min(50, value.toString().length))}...');
-    }
-  }
-  
-  // Test the token
-  final token = await ApiService.getToken();
-  if (token != null) {
-    print('🧪 Testing token with API...');
-    try {
-      final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/materials'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
-      print('📡 API test response: ${response.statusCode}');
-    } catch (e) {
-      print('❌ API test failed: $e');
-    }
-  }
-}
-
-Widget _buildEnhancedDebugButtons() {
-  return Column(
-    mainAxisAlignment: MainAxisAlignment.end,
-    children: [
-      FloatingActionButton(
-        heroTag: "auth_debug",
-        mini: true,
-        backgroundColor: Colors.blue,
-        onPressed: () async {
-          await _manualAuthCheck();
-          _showSuccessSnackBar('Check console for auth debug info');
-        },
-        child: const Icon(Icons.bug_report),
-      ),
-      const SizedBox(height: 8),
-      FloatingActionButton(
-        heroTag: "reauth",
-        mini: true,
-        backgroundColor: Colors.orange,
-        onPressed: () async {
-          // Try to re-authenticate
-          final token = await ApiService.getToken();
-          if (token != null) {
-            final isValid = await ApiService.verifyToken();
-            _showSuccessSnackBar('Token valid: $isValid');
-            if (isValid) {
-              await _retryLoadData();
-            }
-          } else {
-            _showErrorSnackBar('No token found - please login');
-          }
-        },
-        child: const Icon(Icons.refresh),
-      ),
-      const SizedBox(height: 8),
-      FloatingActionButton(
-        heroTag: "force_login",
-        mini: true,
-        backgroundColor: Colors.red,
-        onPressed: () {
-          // Force navigation to login
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (route) => false,
-          );
-        },
-        child: const Icon(Icons.login),
-      ),
-    ],
-  );
-}
-
   void _navigateToLogin() {
     Navigator.pushAndRemoveUntil(
       context,
@@ -297,7 +180,7 @@ Widget _buildEnhancedDebugButtons() {
       });
     } catch (e) {
       print('❌ Error updating quantity: $e');
-      _showErrorSnackBar('Failed to update quantity: ${e.toString().replaceAll('Exception: ', '')}');
+      _showErrorSnackBar('Failed to update quantity');
       
       if (_isAuthError(e)) {
         _handleAuthError();
@@ -316,7 +199,7 @@ Widget _buildEnhancedDebugButtons() {
       _showSuccessSnackBar('Item removed from cart');
     } catch (e) {
       print('❌ Error removing item: $e');
-      _showErrorSnackBar('Failed to remove item: ${e.toString().replaceAll('Exception: ', '')}');
+      _showErrorSnackBar('Failed to remove item');
       
       if (_isAuthError(e)) {
         _handleAuthError();
@@ -339,7 +222,9 @@ Widget _buildEnhancedDebugButtons() {
         _showWarningSnackBar('Cannot apply more gems than you have');
       } else {
         _appliedGems = gems;
-        _showSuccessSnackBar('$gems gems applied successfully!');
+        if (gems > 0) {
+          _showSuccessSnackBar('$gems gems applied successfully! 💎');
+        }
       }
     });
   }
@@ -347,9 +232,17 @@ Widget _buildEnhancedDebugButtons() {
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -357,9 +250,17 @@ Widget _buildEnhancedDebugButtons() {
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF88844D),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -367,9 +268,17 @@ Widget _buildEnhancedDebugButtons() {
   void _showWarningSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
         backgroundColor: Colors.orange,
-        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -384,57 +293,86 @@ Widget _buildEnhancedDebugButtons() {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: Theme.of(context).iconTheme.color,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildBody()),
+          ],
         ),
-        title: Text(
-          'Shopping Cart',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          if (_hasAuthError || _isLoading)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _retryLoadData,
-              tooltip: 'Retry',
-            ),
         ],
       ),
-      body: _buildBody(),
-      floatingActionButton: _buildDebugButtons(),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+            onPressed: () => Navigator.pop(context),
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.shopping_cart, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Shopping Cart',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    if (!_isLoading && !_hasAuthError && _cartItems.isNotEmpty)
+                      Text(
+                        '${_cartItems.length} ${_cartItems.length == 1 ? 'item' : 'items'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF88844D),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Color(0xFF88844D)),
-            SizedBox(height: 16),
-            Text('Loading your cart...'),
-          ],
-        ),
-      );
+      return _buildLoadingState();
     }
 
     if (_hasAuthError) {
@@ -445,44 +383,117 @@ Widget _buildEnhancedDebugButtons() {
       return _buildEmptyCart();
     }
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        bool isWideScreen = constraints.maxWidth > 600;
+        
+        if (isWideScreen) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildCartItems(),
+                ),
+              ),
+              SizedBox(
+                width: 400,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildGemsSection(),
+                      const SizedBox(height: 20),
+                      _buildOrderSummary(),
+                      const SizedBox(height: 20),
+                      _buildCheckoutButton(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildCartItems(),
+                      const SizedBox(height: 20),
+                      _buildGemsSection(),
+                      const SizedBox(height: 20),
+                      _buildOrderSummary(),
+                    ],
+                  ),
+                ),
+              ),
+              _buildBottomButtons(),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _buildCartItems(),
-                const SizedBox(height: 24),
-                _buildGemsSection(),
-                const SizedBox(height: 24),
-                _buildOrderSummary(),
-              ],
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const CircularProgressIndicator(
+              color: Color(0xFF88844D),
+              strokeWidth: 3,
             ),
           ),
-        ),
-        _buildBottomButtons(),
-      ],
+          const SizedBox(height: 24),
+          Text(
+            'Loading your cart...',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildAuthErrorScreen() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 80,
-              color: Colors.orange,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_outline,
+                size: 64,
+                color: Colors.orange,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Text(
               'Authentication Required',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
@@ -492,30 +503,40 @@ Widget _buildEnhancedDebugButtons() {
               'Please login to access your shopping cart and gems.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(
+                ElevatedButton.icon(
                   onPressed: _navigateToLogin,
+                  icon: const Icon(Icons.login, size: 20),
+                  label: const Text('Login Now'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF88844D),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  child: const Text('Login Now'),
                 ),
                 const SizedBox(width: 12),
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: _retryLoadData,
+                  icon: const Icon(Icons.refresh, size: 20),
+                  label: const Text('Retry'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  child: const Text('Retry'),
                 ),
               ],
             ),
@@ -527,151 +548,209 @@ Widget _buildEnhancedDebugButtons() {
 
   Widget _buildEmptyCart() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.shopping_cart_outlined,
-            size: 80,
-            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Your cart is empty',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092).withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.shopping_cart_outlined,
+                size: 64,
+                color: const Color(0xFF88844D),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add some items to get started',
-            style: TextStyle(
-              fontSize: 14,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+            const SizedBox(height: 24),
+            Text(
+              'Your cart is empty',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF88844D),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            const SizedBox(height: 12),
+            Text(
+              'Add some amazing items to get started!',
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
             ),
-            child: const Text('Browse Marketplace'),
-          ),
-        ],
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.shopping_bag_outlined),
+              label: const Text('Browse Marketplace'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF88844D),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCartItems() {
     return Column(
-      children: _cartItems.map((item) {
+      children: _cartItems.asMap().entries.map((entry) {
+        final index = entry.key;
+        final item = entry.value;
         return Column(
           children: [
-            _buildCartItem(item),
-            if (_cartItems.indexOf(item) < _cartItems.length - 1) 
-              Divider(
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
-                thickness: 1,
-                height: 32,
-              ),
+            _buildCartItemCard(item),
+            if (index < _cartItems.length - 1) const SizedBox(height: 16),
           ],
         );
       }).toList(),
     );
   }
 
-  Widget _buildCartItem(Map<String, dynamic> item) {
+  Widget _buildCartItemCard(Map<String, dynamic> item) {
     final imageUrl = (item['image_data_base64'] != null && 
                      item['image_data_base64'].isNotEmpty) 
         ? 'data:image/jpeg;base64,${item['image_data_base64'][0]}'
         : null;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE4E5C2),
-            borderRadius: BorderRadius.circular(12),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: imageUrl != null
-                ? Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildImagePlaceholder();
-                    },
-                  )
-                : _buildImagePlaceholder(),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              width: 100,
+              height: 100,
+              color: const Color(0xFFBEC092).withOpacity(0.2),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                    )
+                  : _buildImagePlaceholder(),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item['title'] ?? 'Unknown Product',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'M${item['price'] ?? 0}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              const SizedBox(height: 8),
-              
-              Row(
-                children: [
-                  Container(
-                    width: 120,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBEC092)),
+          const SizedBox(width: 16),
+          
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item['title'] ?? 'Unknown Product',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: Icon(
-                            Icons.remove, 
+                    IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: Colors.red.shade400,
+                        size: 22,
+                      ),
+                      onPressed: () => _showDeleteDialog(item),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'M${item['price'] ?? 0}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                
+                Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBEC092), width: 2),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          final newQuantity = (item['quantity'] ?? 1) - 1;
+                          if (newQuantity >= 1) {
+                            _updateQuantity(item['cart_item_id'].toString(), newQuantity);
+                          }
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBEC092).withOpacity(0.2),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(10),
+                              bottomLeft: Radius.circular(10),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.remove,
                             size: 18,
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
-                          onPressed: () {
-                            final newQuantity = (item['quantity'] ?? 1) - 1;
-                            if (newQuantity >= 1) {
-                              _updateQuantity(item['cart_item_id'].toString(), newQuantity);
-                            }
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
                         ),
-                        Text(
+                      ),
+                      Container(
+                        width: 50,
+                        alignment: Alignment.center,
+                        child: Text(
                           (item['quantity'] ?? 1).toString(),
                           style: TextStyle(
                             fontSize: 16,
@@ -679,51 +758,47 @@ Widget _buildEnhancedDebugButtons() {
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.add, 
+                      ),
+                      InkWell(
+                        onTap: () {
+                          final newQuantity = (item['quantity'] ?? 1) + 1;
+                          _updateQuantity(item['cart_item_id'].toString(), newQuantity);
+                        },
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBEC092).withOpacity(0.2),
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(10),
+                              bottomRight: Radius.circular(10),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.add,
                             size: 18,
                             color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
-                          onPressed: () {
-                            final newQuantity = (item['quantity'] ?? 1) + 1;
-                            _updateQuantity(item['cart_item_id'].toString(), newQuantity);
-                          },
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      color: Colors.red.shade400,
-                    ),
-                    onPressed: () {
-                      _showDeleteDialog(item);
-                    },
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildImagePlaceholder() {
     return Container(
-      color: const Color(0xFFE4E5C2),
+      color: const Color(0xFFBEC092).withOpacity(0.2),
       child: Icon(
-        Icons.shopping_bag,
-        size: 30,
-        color: Theme.of(context).textTheme.bodyLarge?.color,
+        Icons.shopping_bag_outlined,
+        size: 40,
+        color: const Color(0xFF88844D),
       ),
     );
   }
@@ -732,19 +807,32 @@ Widget _buildEnhancedDebugButtons() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Item'),
-        content: Text('Are you sure you want to remove "${item['title']}" from your cart?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.red.shade400),
+            const SizedBox(width: 8),
+            const Text('Remove Item'),
+          ],
+        ),
+        content: Text('Remove "${item['title']}" from your cart?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _removeItem(item['cart_item_id'].toString());
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: const Text('Remove'),
           ),
         ],
@@ -756,57 +844,92 @@ Widget _buildEnhancedDebugButtons() {
     final maxAllowed = _maxAllowedGems;
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFBEC092).withOpacity(0.2),
+            const Color(0xFF88844D).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFBEC092).withOpacity(0.5),
+          width: 2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Apply Gems',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-          const SizedBox(height: 8),
-          RichText(
-            text: TextSpan(
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-              children: [
-                const TextSpan(text: 'You have '),
-                TextSpan(
-                  text: '$_availableGems Gems',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF88844D), Color(0xFFBEC092)],
                   ),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const TextSpan(text: ' available\n'),
-                TextSpan(
-                  text: 'Maximum allowed: $maxAllowed Gems (10% of total)',
+                child: const Icon(Icons.diamond, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Apply Gems',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: Color(0xFF88844D)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Available: $_availableGems Gems',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Max allowed: $maxAllowed Gems (10% of total)',
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                   ),
                 ),
-                const TextSpan(text: '\n(100 Gems = M100)'),
+                const SizedBox(height: 4),
+                Text(
+                  '100 Gems = M100',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF88844D),
+                  ),
+                ),
               ],
             ),
           ),
+          
           const SizedBox(height: 16),
           
           Row(
@@ -815,19 +938,22 @@ Widget _buildEnhancedDebugButtons() {
                 child: Container(
                   height: 50,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFBEC092)),
+                    border: Border.all(color: const Color(0xFFBEC092), width: 2),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: TextField(
                       controller: _gemsController,
-                      style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        fontWeight: FontWeight.w600,
+                      ),
                       decoration: InputDecoration(
-                        hintText: 'Enter amount of Gems (max: $maxAllowed)',
+                        hintText: 'Enter gems',
                         hintStyle: TextStyle(
-                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                         ),
                         border: InputBorder.none,
                       ),
@@ -840,11 +966,17 @@ Widget _buildEnhancedDebugButtons() {
                           setState(() {
                             _appliedGems = maxAllowed;
                             _gemsController.text = maxAllowed.toString();
+                            _gemsController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: _gemsController.text.length),
+                            );
                           });
                         } else if (gems > _availableGems) {
                           setState(() {
                             _appliedGems = _availableGems;
                             _gemsController.text = _availableGems.toString();
+                            _gemsController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: _gemsController.text.length),
+                            );
                           });
                         } else {
                           setState(() {
@@ -857,22 +989,19 @@ Widget _buildEnhancedDebugButtons() {
                 ),
               ),
               const SizedBox(width: 12),
-              Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextButton(
-                  onPressed: _applyGems,
-                  child: Text(
-                    'Apply',
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+              ElevatedButton(
+                onPressed: _applyGems,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF88844D),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                ),
+                child: const Text(
+                  'Apply',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ],
@@ -884,60 +1013,180 @@ Widget _buildEnhancedDebugButtons() {
 
   Widget _buildOrderSummary() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.receipt_long,
+                  color: const Color(0xFF88844D),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Order Summary',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
           _buildSummaryRow('Subtotal', 'M${_subtotal.toStringAsFixed(2)}'),
-          const SizedBox(height: 8),
-          if (_appliedGems > 0)
-            Column(
+          
+          if (_appliedGems > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF88844D).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.diamond, size: 16, color: Color(0xFF88844D)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Gems Discount',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '-M${_appliedGems.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF88844D),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
+          const SizedBox(height: 16),
+          Divider(
+            color: const Color(0xFFBEC092).withOpacity(0.5),
+            thickness: 1,
+          ),
+          const SizedBox(height: 16),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryRow('Gems Applied', '-M${_appliedGems.toStringAsFixed(2)}'),
-                const SizedBox(height: 8),
+                const Text(
+                  'Total',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  'M${_total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ],
             ),
-          _buildSummaryRow(
-            'Total',
-            'M${_total.toStringAsFixed(2)}',
-            isTotal: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+            fontSize: 15,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCheckoutButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CheckoutScreen(
+                cartItems: _cartItems.cast<Map<String, dynamic>>(),
+                subtotal: _subtotal,
+                gemsDiscount: _appliedGems.toDouble(),
+                total: _total,
+              ),
+            ),
+          ).then((_) => _loadCartData());
+        },
+        icon: const Icon(Icons.shopping_bag, size: 22),
+        label: const Text(
+          'Proceed to Checkout',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF88844D),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 4,
+        ),
+      ),
     );
   }
 
@@ -946,7 +1195,7 @@ Widget _buildEnhancedDebugButtons() {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -955,104 +1204,61 @@ Widget _buildEnhancedDebugButtons() {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-                side: BorderSide(color: const Color(0xFFBEC092)),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                'Add more items',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CheckoutScreen(
-                        cartItems: _cartItems.cast<Map<String, dynamic>>(),
-                        subtotal: _subtotal,
-                        gemsDiscount: _appliedGems.toDouble(),
-                        total: _total,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back, size: 20),
+                    label: const Text('Continue Shopping'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF88844D),
+                      side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                  ).then((_) {
-                    _loadCartData();
-                  });
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text(
-                  'Checkout',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CheckoutScreen(
+                            cartItems: _cartItems.cast<Map<String, dynamic>>(),
+                            subtotal: _subtotal,
+                            gemsDiscount: _appliedGems.toDouble(),
+                            total: _total,
+                          ),
+                        ),
+                      ).then((_) => _loadCartData());
+                    },
+                    icon: const Icon(Icons.shopping_bag, size: 20),
+                    label: const Text('Checkout'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF88844D),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 4,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildDebugButtons() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        FloatingActionButton(
-          heroTag: "debug1",
-          mini: true,
-          onPressed: () async {
-            print('🐛 DEBUG: Testing cart connection...');
-            try {
-              await CartService.testConnection();
-              final token = await ApiService.getToken();
-              print('🔐 Current token: $token');
-              _showSuccessSnackBar('Connection test completed');
-            } catch (e) {
-              _showErrorSnackBar('Connection test failed: $e');
-            }
-          },
-          child: const Icon(Icons.bug_report),
-        ),
-        const SizedBox(height: 8),
-        FloatingActionButton(
-          heroTag: "debug2",
-          mini: true,
-          onPressed: _retryLoadData,
-          child: const Icon(Icons.refresh),
-        ),
-      ],
     );
   }
 

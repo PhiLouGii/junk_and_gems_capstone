@@ -23,13 +23,11 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String _selectedPaymentMethod = 'Card (Credit/Debit)';
   
-  // Card payment form controllers
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
   final TextEditingController _cvcController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   
-  // Mobile payment form controllers
   final TextEditingController _ecocashPhoneController = TextEditingController();
   final TextEditingController _mpesaPhoneController = TextEditingController();
 
@@ -45,54 +43,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _showUnavailableDialog(BuildContext context, String paymentMethod) {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final isDarkMode = themeProvider.isDarkMode;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(
-              Icons.info_outline,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            ),
+            Icon(Icons.info_outline, color: Colors.orange),
             const SizedBox(width: 8),
-            Text(
-              'Oops!',
-              style: TextStyle(
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Coming Soon!'),
           ],
         ),
         content: Text(
-          '$paymentMethod is currently not available. Please come back soon or try card payment.',
-          style: TextStyle(
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-          ),
+          '$paymentMethod is currently not available. Please check back soon or use card payment.',
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Reset to card payment
               setState(() {
                 _selectedPaymentMethod = 'Card (Credit/Debit)';
               });
             },
-            child: Text(
-              'OK',
-              style: TextStyle(
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                fontWeight: FontWeight.bold,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF88844D),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -101,246 +81,356 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
-
     return Scaffold(
-      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
-      appBar: AppBar(
-        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: Text(
-          'Checkout',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Order Summary Section
-            _buildOrderSummary(isDarkMode),
-            const SizedBox(height: 32),
-            
-            // Payment Options Section
-            _buildPaymentOptions(isDarkMode),
-            const SizedBox(height: 32),
-            
-            // Card Payment Form (only visible when card is selected)
-            if (_selectedPaymentMethod == 'Card (Credit/Debit)')
-              _buildCardPaymentForm(isDarkMode),
-            
-            // EcoCash Payment Form (only visible when EcoCash is selected)
-            if (_selectedPaymentMethod == 'EcoCash')
-              _buildEcoCashPaymentForm(isDarkMode),
-            
-            // M-Pesa Payment Form (only visible when M-Pesa is selected)
-            if (_selectedPaymentMethod == 'M-Pesa')
-              _buildMPesaPaymentForm(isDarkMode),
-          ],
-        ),
-      ),
-      
-      // Confirm Payment Button
-      bottomNavigationBar: Container(
-        height: 90,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondary,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextButton(
-            onPressed: () {
-              _processPayment(context);
-            },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            _buildHeader(),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  bool isWideScreen = constraints.maxWidth > 700;
+                  
+                  if (isWideScreen) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                _buildPaymentOptions(),
+                                const SizedBox(height: 20),
+                                if (_selectedPaymentMethod == 'Card (Credit/Debit)')
+                                  _buildCardPaymentForm(),
+                                if (_selectedPaymentMethod == 'EcoCash')
+                                  _buildMobilePaymentForm('EcoCash', _ecocashPhoneController),
+                                if (_selectedPaymentMethod == 'M-Pesa')
+                                  _buildMobilePaymentForm('M-Pesa', _mpesaPhoneController),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 400,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(20),
+                            child: _buildOrderSummary(),
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          _buildOrderSummary(),
+                          const SizedBox(height: 20),
+                          _buildPaymentOptions(),
+                          const SizedBox(height: 20),
+                          if (_selectedPaymentMethod == 'Card (Credit/Debit)')
+                            _buildCardPaymentForm(),
+                          if (_selectedPaymentMethod == 'EcoCash')
+                            _buildMobilePaymentForm('EcoCash', _ecocashPhoneController),
+                          if (_selectedPaymentMethod == 'M-Pesa')
+                            _buildMobilePaymentForm('M-Pesa', _mpesaPhoneController),
+                        ],
+                      ),
+                    );
+                  }
+                },
               ),
             ),
-            child: Text(
-              'Confirm Payment',
-              style: TextStyle(
-                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+            _buildBottomButton(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildOrderSummary(bool isDarkMode) {
+  Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+            onPressed: () => Navigator.pop(context),
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.payment, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Checkout',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrderSummary() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Order Summary',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.receipt_long,
+                  color: Color(0xFF88844D),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Order Summary',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(16),
             ),
+            child: Column(
+              children: widget.cartItems.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${item['title']} x${item['quantity']}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        'M${(item['price'] * item['quantity']).toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          _buildSummaryRow('Subtotal', 'M${widget.subtotal.toStringAsFixed(2)}'),
+          
+          if (widget.gemsDiscount > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF88844D).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.diamond, size: 16, color: Color(0xFF88844D)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Gems Discount',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '-M${widget.gemsDiscount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF88844D),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          
+          const SizedBox(height: 16),
+          Divider(
+            color: const Color(0xFFBEC092).withOpacity(0.5),
+            thickness: 1,
           ),
           const SizedBox(height: 16),
           
-          // Cart Items List
-          Column(
-            children: widget.cartItems.map((item) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${item['title']} x${item['quantity']}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'M${(item['price'] * item['quantity']).toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-          
-          Divider(
-            color: Theme.of(context).colorScheme.secondary,
-            thickness: 1,
-            height: 24,
-          ),
-          
-          // Subtotal
-          _buildSummaryRow('Subtotal', 'M${widget.subtotal.toStringAsFixed(2)}', isDarkMode),
-          const SizedBox(height: 8),
-          
-          // Gems Discount
-          if (widget.gemsDiscount > 0)
-            Column(
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryRow('Gems Discount', '-M${widget.gemsDiscount.toStringAsFixed(2)}', isDarkMode),
-                const SizedBox(height: 8),
+                const Text(
+                  'Total',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  'M${widget.total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ],
             ),
-          
-          // Total
-          _buildSummaryRow(
-            'Total',
-            'M${widget.total.toStringAsFixed(2)}',
-            isDarkMode,
-            isTotal: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, bool isDarkMode, {bool isTotal = false}) {
+  Widget _buildSummaryRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            fontSize: 14,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPaymentOptions(bool isDarkMode) {
+  Widget _buildPaymentOptions() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Payment Options',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.payment,
+                  color: Color(0xFF88844D),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Payment Method',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           
-          // Card Payment Option
           _buildPaymentOption(
             title: 'Card (Credit/Debit)',
             isSelected: _selectedPaymentMethod == 'Card (Credit/Debit)',
@@ -350,11 +440,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               });
             },
             icon: Icons.credit_card,
-            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
-          // EcoCash Payment Option with Logo
           _buildPaymentOptionWithLogo(
             title: 'EcoCash',
             isSelected: _selectedPaymentMethod == 'EcoCash',
@@ -362,11 +450,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               _showUnavailableDialog(context, 'EcoCash');
             },
             logoPath: 'assets/images/ecocash_logo.png',
-            isDarkMode: isDarkMode,
           ),
           const SizedBox(height: 12),
           
-          // M-Pesa Payment Option with Logo
           _buildPaymentOptionWithLogo(
             title: 'M-Pesa',
             isSelected: _selectedPaymentMethod == 'M-Pesa',
@@ -374,7 +460,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               _showUnavailableDialog(context, 'M-Pesa');
             },
             logoPath: 'assets/images/mpesa_logo.png',
-            isDarkMode: isDarkMode,
           ),
         ],
       ),
@@ -386,43 +471,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required bool isSelected,
     required VoidCallback onTap,
     required IconData icon,
-    required bool isDarkMode,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.secondary.withOpacity(0.3) : 
-                 isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected 
+              ? const Color(0xFFBEC092).withOpacity(0.2) 
+              : Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.secondary : 
-                   Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+            color: isSelected 
+                ? const Color(0xFF88844D) 
+                : const Color(0xFFBEC092).withOpacity(0.5),
             width: 2,
           ),
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-              size: 24,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? const Color(0xFF88844D) 
+                    : const Color(0xFFBEC092).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: isSelected ? Colors.white : const Color(0xFF88844D),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Text(
               title,
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
             const Spacer(),
             if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF88844D),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 16),
               ),
           ],
         ),
@@ -435,44 +535,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required bool isSelected,
     required VoidCallback onTap,
     required String logoPath,
-    required bool isDarkMode,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.secondary.withOpacity(0.3) : 
-                 isDarkMode ? const Color(0xFF2D2D2D) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected 
+              ? const Color(0xFFBEC092).withOpacity(0.2) 
+              : Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.secondary : 
-                   Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+            color: isSelected 
+                ? const Color(0xFF88844D) 
+                : const Color(0xFFBEC092).withOpacity(0.5),
             width: 2,
           ),
         ),
         child: Row(
           children: [
-            Image.asset(
-              logoPath,
-              height: 32,
-              width: 32,
-              fit: BoxFit.contain,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Image.asset(
+                logoPath,
+                height: 24,
+                width: 24,
+                fit: BoxFit.contain,
+              ),
             ),
             const SizedBox(width: 12),
             Text(
               title,
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
             const Spacer(),
             if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF88844D),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 16),
               ),
           ],
         ),
@@ -480,176 +593,281 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildCardPaymentForm(bool isDarkMode) {
+  Widget _buildCardPaymentForm() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Card Details',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.credit_card,
+                  color: Color(0xFF88844D),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Card Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           
-          // Card Number
-          _buildCardTextField(
+          _buildTextField(
             label: 'Card Number',
             controller: _cardNumberController,
             hintText: '1234 5678 9012 3456',
             keyboardType: TextInputType.number,
-            isDarkMode: isDarkMode,
+            icon: Icons.credit_card,
           ),
           const SizedBox(height: 16),
           
-          // Expiry and CVC in one row
           Row(
             children: [
               Expanded(
-                child: _buildCardTextField(
-                  label: 'MM/YY',
+                child: _buildTextField(
+                  label: 'Expiry Date',
                   controller: _expiryController,
                   hintText: 'MM/YY',
-                  isDarkMode: isDarkMode,
+                  icon: Icons.calendar_today,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildCardTextField(
+                child: _buildTextField(
                   label: 'CVC',
                   controller: _cvcController,
                   hintText: '123',
                   keyboardType: TextInputType.number,
-                  isDarkMode: isDarkMode,
+                  icon: Icons.lock_outline,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           
-          // Name on Card
-          _buildCardTextField(
+          _buildTextField(
             label: 'Name on Card',
             controller: _nameController,
-            hintText: 'Mahloli Makhetha',
-            isDarkMode: isDarkMode,
+            hintText: 'John Doe',
+            icon: Icons.person_outline,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           
-          // Accepted Cards with Logos
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFBEC092).withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.verified_user, size: 16, color: Color(0xFF88844D)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'We Accept:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Image.asset(
+                      'assets/images/visa_logo.png',
+                      height: 28,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(width: 16),
+                    Image.asset(
+                      'assets/images/mastercard_logo.png',
+                      height: 28,
+                      fit: BoxFit.contain,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobilePaymentForm(String provider, TextEditingController controller) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                'We Accept:',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBEC092).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.phone_android,
+                  color: Color(0xFF88844D),
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Image.asset(
-                    'assets/images/visa_logo.png',
-                    height: 30,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(width: 12),
-                  Image.asset(
-                    'assets/images/mastercard_logo.png',
-                    height: 30,
-                    fit: BoxFit.contain,
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Text(
+                '$provider Payment',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEcoCashPaymentForm(bool isDarkMode) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 20),
+          
           Text(
-            'EcoCash Payment',
+            'Phone Number',
             style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
-          const SizedBox(height: 16),
-          
-          // Phone Number Input
-          _buildMobileTextField(
-            label: 'EcoCash Phone Number',
-            controller: _ecocashPhoneController,
-            hintText: 'xxxx xxxx',
-            keyboardType: TextInputType.phone,
-            prefixText: '+266 ',
-            isDarkMode: isDarkMode,
-          ),
-          const SizedBox(height: 12),
-          
-          // Instructions
+          const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
+              color: Theme.of(context).scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.secondary),
+              border: Border.all(color: const Color(0xFFBEC092), width: 2),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFBEC092).withOpacity(0.2),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      bottomLeft: Radius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    '+266',
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.phone,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'xxxx xxxx',
+                      hintStyle: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFBEC092).withOpacity(0.2),
+                  const Color(0xFF88844D).withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFBEC092).withOpacity(0.5),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Instructions:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                  ),
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: Color(0xFF88844D)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'How it works:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '1. Enter your EcoCash registered phone number\n2. Confirm payment to receive a prompt\n3. Enter your EcoCash PIN to complete payment',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
-                  ),
-                ),
+                const SizedBox(height: 12),
+                _buildInstructionStep('1', 'Enter your $provider registered phone number'),
+                const SizedBox(height: 8),
+                _buildInstructionStep('2', 'Confirm payment to receive a prompt'),
+                const SizedBox(height: 8),
+                _buildInstructionStep('3', 'Enter your $provider PIN to complete'),
               ],
             ),
           ),
@@ -658,117 +876,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildMPesaPaymentForm(bool isDarkMode) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'M-Pesa Payment',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Phone Number Input
-          _buildMobileTextField(
-            label: 'M-Pesa Phone Number',
-            controller: _mpesaPhoneController,
-            hintText: 'xxxx xxxx',
-            keyboardType: TextInputType.phone,
-            prefixText: '+266 ',
-            isDarkMode: isDarkMode,
-          ),
-          const SizedBox(height: 12),
-          
-          // Instructions
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.secondary),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Instructions:',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '1. Enter your M-Pesa registered phone number\n2. Confirm payment to receive a prompt\n3. Enter your M-Pesa PIN to complete payment',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hintText,
-    TextInputType keyboardType = TextInputType.text,
-    required bool isDarkMode,
-  }) {
-    return Column(
+  Widget _buildInstructionStep(String number, String text) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: const Color(0xFF88844D),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).colorScheme.secondary),
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            style: TextStyle(
-              color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-            ),
-            decoration: InputDecoration(
-              hintText: hintText,
-              hintStyle: TextStyle(
-                color: isDarkMode ? Colors.white70 : const Color(0xFF88844D).withOpacity(0.6),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+                height: 1.4,
               ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ),
@@ -776,13 +916,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildMobileTextField({
+  Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     required String hintText,
-    required TextInputType keyboardType,
-    required String prefixText,
-    required bool isDarkMode,
+    TextInputType keyboardType = TextInputType.text,
+    required IconData icon,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,26 +931,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFF7F2E4),
+            color: Theme.of(context).scaffoldBackgroundColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Theme.of(context).colorScheme.secondary),
+            border: Border.all(color: const Color(0xFFBEC092), width: 2),
           ),
           child: Row(
             children: [
               Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: Text(
-                  prefixText,
-                  style: TextStyle(
-                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                    fontWeight: FontWeight.bold,
-                  ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: const Color(0xFF88844D),
                 ),
               ),
               Expanded(
@@ -819,15 +956,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   controller: controller,
                   keyboardType: keyboardType,
                   style: TextStyle(
-                    color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                    fontWeight: FontWeight.w600,
                   ),
                   decoration: InputDecoration(
                     hintText: hintText,
                     hintStyle: TextStyle(
-                      color: isDarkMode ? Colors.white70 : const Color(0xFF88844D).withOpacity(0.6),
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
               ),
@@ -838,8 +976,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Widget _buildBottomButton() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton.icon(
+            onPressed: () => _processPayment(context),
+            icon: const Icon(Icons.lock_outline, size: 22),
+            label: Text(
+              'Confirm Payment • M${widget.total.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF88844D),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _processPayment(BuildContext context) {
-    // Validate form based on selected payment method
     if (_selectedPaymentMethod == 'Card (Credit/Debit)') {
       if (_cardNumberController.text.isEmpty ||
           _expiryController.text.isEmpty ||
@@ -860,127 +1039,139 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     }
 
-    // Show loading or processing dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF88844D),
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: Color(0xFF88844D),
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Processing payment...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
 
-    // Simulate payment processing
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context); // Remove loading dialog
-      
-      // Show success dialog
+      Navigator.pop(context);
       _showSuccessDialog(context);
     });
   }
 
   void _showSuccessDialog(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final isDarkMode = themeProvider.isDarkMode;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.check_circle,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF88844D).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: Color(0xFF88844D),
+                size: 64,
+              ),
             ),
-            const SizedBox(width: 8),
-            Text(
+            const SizedBox(height: 24),
+            const Text(
               'Payment Successful!',
               style: TextStyle(
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your order has been confirmed and will be delivered soon.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/marketplace',
+                    (route) => false,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF88844D),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Continue Shopping',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
         ),
-        content: Text(
-          'Your order has been confirmed and will be delivered soon.',
-          style: TextStyle(
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Navigate back to marketplace and clear the cart
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/marketplace',
-                (route) => false,
-              );
-            },
-            child: Text(
-              'Continue Shopping',
-              style: TextStyle(
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
   void _showErrorDialog(BuildContext context, String message) {
-    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-    final isDarkMode = themeProvider.isDarkMode;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(
-              Icons.error,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            ),
+            Icon(Icons.error_outline, color: Colors.red.shade400),
             const SizedBox(width: 8),
-            Text(
-              'Error',
-              style: TextStyle(
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Error'),
           ],
         ),
-        content: Text(
-          message,
-          style: TextStyle(
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-          ),
-        ),
+        content: Text(message),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text(
-              'OK',
-              style: TextStyle(
-                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                fontWeight: FontWeight.bold,
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF88844D),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
+            child: const Text('OK'),
           ),
         ],
       ),
