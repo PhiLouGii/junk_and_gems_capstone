@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class PaymentsEarningsScreen extends StatefulWidget {
   const PaymentsEarningsScreen({super.key});

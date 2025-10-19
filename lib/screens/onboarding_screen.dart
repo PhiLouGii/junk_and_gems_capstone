@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/learn_more_screen.dart';
 import 'package:junk_and_gems/screens/welcome_screen.dart'; 
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});

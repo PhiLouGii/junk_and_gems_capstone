@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CreateProductListingScreen extends StatefulWidget {

@@ -8,6 +8,7 @@ import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'dart:math';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Map<String, String> product;

@@ -13,6 +13,7 @@ import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userName;

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

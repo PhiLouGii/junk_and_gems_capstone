@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userName;

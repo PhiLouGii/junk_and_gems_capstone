@@ -7,6 +7,7 @@ import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'create_listing_screen.dart';
 
 class BrowseMaterialsScreen extends StatefulWidget {

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:junk_and_gems/services/material_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'browse_materials_screen.dart';
 
 class CreateListingScreen extends StatefulWidget {

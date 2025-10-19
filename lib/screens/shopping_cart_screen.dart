@@ -9,6 +9,7 @@ import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/services/cart_service.dart';
 import 'package:junk_and_gems/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class ShoppingCartScreen extends StatefulWidget {
   final String userId;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class LegalWebViewScreen extends StatefulWidget {
   final String title;

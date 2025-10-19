@@ -4,6 +4,7 @@ import 'package:junk_and_gems/providers/language_provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/screens/legal_webview_screen.dart';
 import 'package:junk_and_gems/utils/legal_content.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -11,6 +12,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.loc;
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
 
     return Scaffold(
@@ -23,7 +25,7 @@ class SettingsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Settings',
+          loc.settings,
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -36,15 +38,15 @@ class SettingsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader('QUICK SETTINGS'),
+            _buildSectionHeader(context, loc.quickSettings),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.notifications_outlined, 'Notifications'),
+            _buildSettingItem(context, Icons.notifications_outlined, loc.notifications),
             Consumer<ThemeProvider>(
               builder: (context, themeProvider, child) {
                 return _buildSettingItem(
                   context, 
                   Icons.dark_mode_outlined, 
-                  'Dark Mode', 
+                  loc.darkMode, 
                   hasToggle: true,
                   switchValue: themeProvider.isDarkMode,
                   onSwitchChanged: (value) {
@@ -54,38 +56,38 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 32),
-            _buildSectionHeader('PREFERENCES'),
+            _buildSectionHeader(context, loc.preferences),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.payment_outlined, 'Payments & Earnings', onTap: () {
+            _buildSettingItem(context, Icons.payment_outlined, loc.paymentsEarnings, onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const PaymentsEarningsScreen()),
-        );
-      }),
-            _buildSettingItem(context, Icons.settings_applications_outlined, 'App Preferences', onTap: () {
+              );
+            }),
+            _buildSettingItem(context, Icons.settings_applications_outlined, loc.appPreferences, onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AppPreferencesScreen()),
               );
             }),
             const SizedBox(height: 32),
-            _buildSectionHeader('SUPPORT'),
+            _buildSectionHeader(context, loc.support),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.help_outline, 'Help & Support'),
-            _buildSettingItem(context, Icons.info_outline, 'Legal & Info'),
+            _buildSettingItem(context, Icons.help_outline, loc.helpSupport),
+            _buildSettingItem(context, Icons.info_outline, loc.legalInfo),
             const SizedBox(height: 32),
-            _buildSectionHeader('ACCOUNT'),
+            _buildSectionHeader(context, loc.account),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.logout_outlined, 'Sign Out', isDestructive: true),
-            _buildSettingItem(context, Icons.delete_outline, 'Delete Account', isDestructive: true),
+            _buildSettingItem(context, Icons.logout_outlined, loc.signOut, isDestructive: true),
+            _buildSettingItem(context, Icons.delete_outline, loc.deleteAccount, isDestructive: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Builder(builder: (context) => Text(
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Text(
       title,
       style: TextStyle(
         fontSize: 16,
@@ -93,7 +95,7 @@ class SettingsScreen extends StatelessWidget {
         color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
         letterSpacing: 1.2,
       ),
-    ));
+    );
   }
 
   Widget _buildSettingItem(BuildContext context, IconData icon, String title,
@@ -102,6 +104,8 @@ class SettingsScreen extends StatelessWidget {
        VoidCallback? onTap,
        bool? switchValue,
        Function(bool)? onSwitchChanged}) {
+    final loc = context.loc;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -143,11 +147,11 @@ class SettingsScreen extends StatelessWidget {
                 color: isDestructive ? Colors.red.withOpacity(0.6) : Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 size: 16),
         onTap: onTap ?? () {
-          if (title == 'Sign Out') {
+          if (title == loc.signOut) {
             _showSignOutDialog(context);
-          } else if (title == 'Delete Account') {
+          } else if (title == loc.deleteAccount) {
             _showDeleteAccountDialog(context);
-          } else if (title == 'Legal & Info') {
+          } else if (title == loc.legalInfo) {
             _launchLegalInfo(context);
           }
         },
@@ -156,20 +160,22 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showSignOutDialog(BuildContext context) {
+    final loc = context.loc;
+    
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        title: Text('Sign Out', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to sign out?', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+        title: Text(loc.signOut, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontWeight: FontWeight.bold)),
+        content: Text(loc.signOutConfirm, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context), 
-            child: Text('Cancel', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
+            child: Text(loc.cancel, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
           ),
           TextButton(
             onPressed: () {}, 
-            child: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+            child: Text(loc.signOut, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
           ),
         ],
       ),
@@ -177,20 +183,22 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
+    final loc = context.loc;
+    
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        title: const Text('Delete Account', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: Text('This action cannot be undone. All your data will be permanently deleted.', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+        title: Text(loc.deleteAccount, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        content: Text(loc.deleteAccountWarning, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context), 
-            child: Text('Cancel', style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
+            child: Text(loc.cancel, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
           ),
           TextButton(
             onPressed: () {}, 
-            child: const Text('Delete', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+            child: Text(loc.delete, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
           ),
         ],
       ),
@@ -198,11 +206,13 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _launchLegalInfo(BuildContext context) {
+    final loc = context.loc;
+    
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => LegalWebViewScreen(
-          title: 'Legal & Information',
+          title: loc.legalInfo,
           htmlContent: LegalContent.legalInfo,
         ),
       ),
@@ -234,6 +244,8 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.loc;
+    
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -244,7 +256,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'App Preferences',
+          loc.appPreferences,
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -257,26 +269,26 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader('LANGUAGE'),
+            _buildSectionHeader(context, loc.language.toUpperCase()),
             const SizedBox(height: 16),
-            _buildLanguageToggle(),
+            _buildLanguageToggle(context),
             const SizedBox(height: 32),
-            _buildSectionHeader('DISPLAY'),
+            _buildSectionHeader(context, loc.display),
             const SizedBox(height: 16),
-            _buildFontSizeSlider(),
+            _buildFontSizeSlider(context),
             const SizedBox(height: 16),
-            _buildFontSizePreview(),
+            _buildFontSizePreview(context),
             const SizedBox(height: 32),
-            _buildSectionHeader('PREVIEW'),
+            _buildSectionHeader(context, loc.preview.toUpperCase()),
             const SizedBox(height: 16),
-            _buildPreviewCard(),
+            _buildPreviewCard(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Text(
       title,
       style: TextStyle(
@@ -288,7 +300,9 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     );
   }
 
-  Widget _buildLanguageToggle() {
+  Widget _buildLanguageToggle(BuildContext context) {
+    final loc = context.loc;
+    
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return Container(
@@ -314,7 +328,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
               child: const Icon(Icons.language, color: Color(0xFF88844D), size: 20),
             ),
             title: Text(
-              'App Language',
+              loc.appLanguage,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -322,7 +336,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
               ),
             ),
             subtitle: Text(
-              languageProvider.isSesotho ? 'Sesotho' : 'English',
+              languageProvider.isSesotho ? loc.sesotho : loc.english,
               style: TextStyle(
                 fontSize: 14,
                 color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
@@ -341,7 +355,9 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     );
   }
 
-  Widget _buildFontSizeSlider() {
+  Widget _buildFontSizeSlider(BuildContext context) {
+    final loc = context.loc;
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -362,7 +378,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Font Size',
+                loc.fontSize,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -398,14 +414,14 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Small',
+                loc.fontSizeSmall,
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
                 ),
               ),
               Text(
-                'Large',
+                loc.fontSizeLarge,
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
@@ -418,7 +434,9 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     );
   }
 
-  Widget _buildFontSizePreview() {
+  Widget _buildFontSizePreview(BuildContext context) {
+    final loc = context.loc;
+    
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return Container(
@@ -438,7 +456,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Preview',
+                loc.preview,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -447,9 +465,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                languageProvider.isSesotho
-                    ? 'Ena ke tsela eo mongolo oa hau o tla sheba boholo bo khethiloeng.'
-                    : 'This is how your text will look with the selected font size.',
+                loc.previewText,
                 style: TextStyle(
                   fontSize: 14 * _fontSize,
                   color: Theme.of(context).textTheme.bodyLarge?.color,
@@ -464,7 +480,9 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     );
   }
 
-  Widget _buildPreviewCard() {
+  Widget _buildPreviewCard(BuildContext context) {
+    final loc = context.loc;
+    
     return Consumer<LanguageProvider>(
       builder: (context, languageProvider, child) {
         return Container(
@@ -485,7 +503,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                languageProvider.isSesotho ? 'Ponelopele ea app' : 'App Preview',
+                loc.appPreview,
                 style: TextStyle(
                   fontSize: 18 * _fontSize,
                   fontWeight: FontWeight.bold,
@@ -517,9 +535,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
                         size: 20 * _fontSize),
                     const SizedBox(width: 8),
                     Text(
-                      languageProvider.isSesotho
-                          ? 'Ho fana ka Thepa'
-                          : 'Donate Materials',
+                      loc.donateMaterials,
                       style: TextStyle(
                         fontSize: 14 * _fontSize,
                         fontWeight: FontWeight.w600,

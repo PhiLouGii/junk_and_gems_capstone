@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class LearnMoreScreen extends StatelessWidget {
   const LearnMoreScreen({super.key});
