@@ -10,7 +10,7 @@ import cloudinary from 'cloudinary';
 import sgMail from '@sendgrid/mail';
 
 const app = express();
-const port = 3003;
+const port = process.env.PORT || 3003;
 
 // Configure SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -239,7 +239,7 @@ function getDonationConfirmationEmailHtml(name, materialTitle, gemsEarned) {
 }
 
 app.use(cors({
-  origin: ['http://localhost:3003', 'http://10.0.2.2:3003', 'http://127.0.0.1:3003', 'http://localhost:3000'],
+  origin: '*', // Allow all origins for mobile app
   credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -247,11 +247,20 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // PostgreSQL connection
 const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "junk_and_gems",
-  password: "philippa",
-  port: 5433, 
+  connectionString: process.env.DATABASE_URL || "postgresql://postgres:philippa@localhost:5433/junk_and_gems",
+  ssl: process.env.DATABASE_URL ? {
+    rejectUnauthorized: false
+  } : false
+});
+
+// Test the connection
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ Error connecting to database:', err.stack);
+  } else {
+    console.log('✅ Database connected successfully');
+    release();
+  }
 });
 
 // Configure Cloudinary
