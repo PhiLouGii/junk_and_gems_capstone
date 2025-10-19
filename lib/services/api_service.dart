@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:3003';
+  static const String baseUrl = 'https://junk-and-gems-api.onrender.com';
 
   // Store authentication token
   static Future<void> saveToken(String token) async {
@@ -255,7 +255,7 @@ class ApiService {
   static Future<void> testConnection() async {
     try {
       print('🔌 Testing server connection...');
-      final response = await http.get(Uri.parse('$baseUrl/materials'));
+      final response = await http.get(Uri.parse('$baseUrl/materials')).timeout(Duration(seconds: 90));
       if (response.statusCode == 200) {
         print('✅ Server connection successful');
       } else {

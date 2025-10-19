@@ -31,7 +31,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     });
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3003/signup');
+      final url = Uri.parse('https://junk-and-gems-api.onrender.com/signup');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},

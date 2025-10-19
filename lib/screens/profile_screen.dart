@@ -76,7 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('🌐 Fetching fresh profile data from server...');
       try {
         final response = await http.get(
-          Uri.parse('http://10.0.2.2:3003/api/users/$currentUserId/profile'),
+          Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$currentUserId/profile'),
         );
         
         if (response.statusCode == 200) {
@@ -167,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       print('💰 Loading user gems for user: $userId');
       
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
       );
       
       if (response.statusCode == 200) {
@@ -415,7 +415,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       String userType = 'contributor';
       try {
         final profileResponse = await http.get(
-          Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+          Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
         );
         if (profileResponse.statusCode == 200) {
           final profileData = json.decode(profileResponse.body);
@@ -427,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       final response = await http.put(
-        Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

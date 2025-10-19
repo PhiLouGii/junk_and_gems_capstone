@@ -70,7 +70,7 @@ class _NotificationsMessagesScreenState
 
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/users/$_currentUserId/conversations'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$_currentUserId/conversations'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_token',

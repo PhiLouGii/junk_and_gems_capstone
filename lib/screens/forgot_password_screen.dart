@@ -24,7 +24,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => isLoading = true);
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3003/request-password-reset');
+      final url = Uri.parse('https://junk-and-gems-api.onrender.com/request-password-reset');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -58,7 +58,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => isLoading = true);
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3003/verify-reset-code');
+      final url = Uri.parse('https://junk-and-gems-api.onrender.com/verify-reset-code');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -102,7 +102,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => isLoading = true);
 
     try {
-      final url = Uri.parse('http://10.0.2.2:3003/reset-password');
+      final url = Uri.parse('https://junk-and-gems-api.onrender.com/reset-password');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},

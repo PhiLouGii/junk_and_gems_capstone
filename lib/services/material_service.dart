@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'cloudinary_service.dart';
 
 class MaterialService {
-  static const String _baseUrl = 'http://10.0.2.2:3003';
+  static const String _baseUrl = 'https://junk-and-gems-api.onrender.com';
 
   static Future<bool> createMaterial(
       Map<String, dynamic> materialData, List<XFile> images) async {
@@ -66,7 +66,7 @@ class MaterialService {
   // Get all materials
   static Future<List<dynamic>> getMaterials() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/materials'));
+      final response = await http.get(Uri.parse('$_baseUrl/materials')).timeout(Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         return json.decode(response.body);

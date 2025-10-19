@@ -119,7 +119,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     print('🔍 Fetching similar products...');
     
     final response = await http.get(
-      Uri.parse('http://10.0.2.2:3003/api/products'),
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
       headers: {'Content-Type': 'application/json'},
     ).timeout(const Duration(seconds: 5));
 
@@ -199,7 +199,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       print('=============================');
 
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:3003/api/conversations/start'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/start'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'currentUserId': _currentUserId,

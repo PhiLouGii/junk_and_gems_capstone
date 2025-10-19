@@ -50,7 +50,7 @@ JWT_SECRET=your_jwt_secret
 ```bash
 node server.js
 ```
-The backend should now run on ```http://localhost:3003```
+The backend should now run on ```https://junk-and-gems-api.onrender.com```
 
 ### Mobile App Setup (Flutter)
 1. Navigate to where the Flutter app is:

@@ -114,7 +114,7 @@ function getWelcomeEmailHtml(name) {
 
 // Password reset email template
 function getPasswordResetEmailHtml(name, resetToken) {
-  const resetUrl = `http://localhost:3003/reset-password?token=${resetToken}`;
+  const resetUrl = `https://junk-and-gems-api.onrender.com/reset-password?token=${resetToken}`;
   
   return `
     <!DOCTYPE html>

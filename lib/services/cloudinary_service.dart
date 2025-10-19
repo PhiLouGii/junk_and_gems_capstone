@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 class CloudinaryService {
-  static const String _baseUrl = 'http://10.0.2.2:3003';
+  static const String _baseUrl = 'https://junk-and-gems-api.onrender.com';
 
   static Future<String?> uploadImage(File imageFile) async {
     try {

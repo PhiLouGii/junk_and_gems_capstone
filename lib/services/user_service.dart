@@ -5,12 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserService {
-  static const String baseUrl = 'http://10.0.2.2:3003';
+  static const String baseUrl = 'https://junk-and-gems-api.onrender.com';
 
   // Get featured artisans
   static Future<List<dynamic>> getArtisans() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/artisans'));
+      final response = await http.get(Uri.parse('$baseUrl/api/artisans')).timeout(Duration(seconds: 90));
       
       if (response.statusCode == 200) {
         final List<dynamic> artisans = json.decode(response.body);
@@ -28,7 +28,7 @@ class UserService {
   // Get top contributors
   static Future<List<dynamic>> getContributors() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/contributors'));
+      final response = await http.get(Uri.parse('$baseUrl/api/contributors')).timeout(Duration(seconds: 90));
       
       if (response.statusCode == 200) {
         final List<dynamic> contributors = json.decode(response.body);
@@ -241,7 +241,7 @@ class UserService {
   // Get user impact
   static Future<Map<String, dynamic>> getUserImpact(String userId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/users/$userId/impact'));
+      final response = await http.get(Uri.parse('$baseUrl/api/users/$userId/impact')).timeout(Duration(seconds: 90));
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -261,7 +261,7 @@ class UserService {
   // Get user profile
   static Future<Map<String, dynamic>> getUserProfile(String userId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/users/$userId/profile'));
+      final response = await http.get(Uri.parse('$baseUrl/api/users/$userId/profile')).timeout(Duration(seconds: 90));
       
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -279,15 +279,15 @@ class UserService {
       print('🧪 Testing all endpoints...');
       
       // Test artisans endpoint
-      final artisansResponse = await http.get(Uri.parse('$baseUrl/api/debug/artisans'));
+      final artisansResponse = await http.get(Uri.parse('$baseUrl/api/debug/artisans')).timeout(Duration(seconds: 90));
       print('🎨 Debug artisans: ${artisansResponse.body}');
       
       // Test contributors endpoint  
-      final contributorsResponse = await http.get(Uri.parse('$baseUrl/api/debug/contributors'));
+      final contributorsResponse = await http.get(Uri.parse('$baseUrl/api/debug/contributors')).timeout(Duration(seconds: 90));
       print('👥 Debug contributors: ${contributorsResponse.body}');
       
       // Test impact endpoint (use user ID 1 for testing)
-      final impactResponse = await http.get(Uri.parse('$baseUrl/api/users/1/impact'));
+      final impactResponse = await http.get(Uri.parse('$baseUrl/api/users/1/impact')).timeout(Duration(seconds: 90));
       print('📊 Debug impact: ${impactResponse.body}');
       
     } catch (e) {

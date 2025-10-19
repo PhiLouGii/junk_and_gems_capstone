@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3003';
+const API_BASE_URL = 'https://junk-and-gems-api.onrender.com';
 
 export interface User {
   id: number;

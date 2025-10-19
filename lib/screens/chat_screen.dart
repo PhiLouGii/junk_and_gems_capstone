@@ -95,7 +95,7 @@ class _ChatScreenState extends State<ChatScreen> {
     print('🔑 Using token: ${_token!.substring(0, 20)}...');
     
     final response = await http.get(
-      Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/${widget.conversationId}/messages'),
       headers: {
         'Authorization': 'Bearer $_token',
         'Content-Type': 'application/json',
@@ -194,7 +194,7 @@ class _ChatScreenState extends State<ChatScreen> {
     
     try {
       final response = await http.put(
-        Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/read'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/${widget.conversationId}/read'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_token',
@@ -239,7 +239,7 @@ class _ChatScreenState extends State<ChatScreen> {
     print('👤 From user: ${widget.currentUserId}');
     
     final response = await http.post(
-      Uri.parse('http://10.0.2.2:3003/api/conversations/${widget.conversationId}/messages'),
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/${widget.conversationId}/messages'),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $_token',

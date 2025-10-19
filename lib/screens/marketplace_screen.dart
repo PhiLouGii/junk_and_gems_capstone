@@ -384,9 +384,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/products'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
         headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         final List<dynamic> products = json.decode(response.body);
@@ -432,7 +432,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
 
     try {
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/api/products/search?query=$query'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/products/search?query=$query'),
       );
 
       if (response.statusCode == 200) {

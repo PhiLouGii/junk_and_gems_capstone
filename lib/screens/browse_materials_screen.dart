@@ -66,9 +66,9 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
 
   Future<void> _loadMaterials() async {
     try {
-      print('🔄 Loading materials from: http://10.0.2.2:3003/materials');
+      print('🔄 Loading materials from: https://junk-and-gems-api.onrender.com/materials');
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:3003/materials'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/materials'),
       );
 
       print('📡 Response status: ${response.statusCode}');
@@ -200,7 +200,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       print('🎯 Claiming material $materialId for user ${authProvider.user!.id}');
       
       final response = await http.put(
-        Uri.parse('http://10.0.2.2:3003/materials/$materialId/claim'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId/claim'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'claimed_by': authProvider.user!.id,

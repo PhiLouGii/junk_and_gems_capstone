@@ -44,3 +44,12 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 node_modules
+
+
+node_modules/
+   .env
+   *.dump
+   *.sql
+   .DS_Store
+   junk_and_gems_backup/
+   build/

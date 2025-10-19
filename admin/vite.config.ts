@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3005,
     proxy: {
       '/api': {
-        target: 'http://localhost:3003',
+        target: 'https://junk-and-gems-api.onrender.com',
         changeOrigin: true,
       },
     },

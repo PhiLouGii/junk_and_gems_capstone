@@ -371,7 +371,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     }
 
     final setupResponse = await http.post(
-      Uri.parse('http://10.0.2.2:3003/api/setup-products-table'),
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/setup-products-table'),
       headers: {'Content-Type': 'application/json'},
     );
 
@@ -417,7 +417,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
 
     // Send to backend
     final response = await http.post(
-      Uri.parse('http://10.0.2.2:3003/api/products'),
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
       headers: {
         'Content-Type': 'application/json',
       },

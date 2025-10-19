@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // STEP 2: Make login API call
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:3003/login'),
+        Uri.parse('https://junk-and-gems-api.onrender.com/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': _emailController.text.trim(),
@@ -108,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
         print('🌐 Fetching fresh profile data...');
         try {
           final profileResponse = await http.get(
-            Uri.parse('http://10.0.2.2:3003/api/users/$userId/profile'),
+            Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
           );
           
           if (profileResponse.statusCode == 200) {
