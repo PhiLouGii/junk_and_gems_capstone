@@ -1,6 +1,27 @@
-import { User, DashboardStats } from '../types';
-
 const API_BASE_URL = 'http://localhost:3003';
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  username: string;
+  user_type: 'contributor' | 'artisan' | 'both';
+  available_gems: number;
+  donation_count: number;
+  created_at: string;
+  profile_image_url?: string;
+}
+
+export interface DashboardStats {
+  totalUsers: number;
+  totalMaterials: number;
+  totalProducts: number;
+  totalGems: number;
+  activeConversations: number;
+  todayRegistrations: number;
+  pendingMaterials: number;
+  suspendedAccounts: number;
+}
 
 class ApiService {
   private token: string | null = null;
@@ -29,7 +50,7 @@ class ApiService {
     };
 
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {

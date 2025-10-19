@@ -21,7 +21,7 @@ class WebSocketService {
         const data = JSON.parse(event.data);
         this.emit(data.type, data.payload);
       } catch (error) {
-        console.error('WebSocket parse error:', error);
+        console.error('WebSocket message parse error:', error);
       }
     };
 
@@ -38,6 +38,7 @@ class WebSocketService {
   private attemptReconnect(token: string) {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
+      console.log(`Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
       setTimeout(() => this.connect(token), 3000);
     }
   }
@@ -54,7 +55,7 @@ class WebSocketService {
   }
 
   private emit(event: string, data: any) {
-    this.callbacks.get(event)?.forEach(cb => cb(data));
+    this.callbacks.get(event)?.forEach(callback => callback(data));
   }
 
   disconnect() {
