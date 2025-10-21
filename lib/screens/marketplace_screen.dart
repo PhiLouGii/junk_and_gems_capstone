@@ -1504,13 +1504,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             }
   
             // Fallback to image_url
-            if (imageSource.isEmpty && product['image_url'] != null) {
-              final url = product['image_url'].toString();
-              if (url.isNotEmpty && url.startsWith('http')) {
-                imageSource = url;
-                print('New Products: Using image_url');
-              }
+            if (imageSource.isEmpty) {
+              final possibleKeys = [
+                'secure_url', 
+                'url', 
+                'image_url'
+              ];
+
+              for (final key in possibleKeys) {
+                final url = product[key]?.toString() ?? '';
+                if (url.startsWith('http')) {
+                  imageSource = url;
+                  print('New Products: Using Cloudinary URL from $key');
+                break;
+                }         
             }
+          }
   
             // Final fallback
             if (imageSource.isEmpty) {
