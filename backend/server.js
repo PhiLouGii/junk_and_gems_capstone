@@ -1677,107 +1677,69 @@ app.get("/api/products/search", async (req, res) => {
 // Create new product listing
 app.post("/api/products", async (req, res) => {
   console.log('📝 Received product creation request');
-  console.log('Request body keys:', Object.keys(req.body));
   
   const { 
-    title, 
-    description, 
-    price, 
-    category, 
-    condition, 
-    materials_used, 
-    dimensions, 
-    location,
-    artisan_id,
-    creator_name, // Accept creator_name from frontend
-    image_data_base64
+    title, description, price, category, condition, 
+    materials_used, dimensions, location,
+    artisan_id, creator_name,
+    image_urls  // ✅ Use image_urls from Cloudinary
   } = req.body;
 
   try {
-    // Basic validation
     if (!title || !description || !price || !artisan_id) {
       return res.status(400).json({ 
-        error: "Missing required fields: title, description, price, and artisan_id are required" 
+        error: "Missing required fields" 
       });
     }
 
-    console.log('✅ Validating product data:', {
-      title,
-      price,
-      category,
-      condition,
-      artisan_id,
-      image_count: image_data_base64 ? image_data_base64.length : 0
-    });
+    console.log('📸 Received image URLs:', image_urls?.length || 0);
 
-    // Verify user exists and get their name
+    // Verify user exists
     const userResult = await pool.query(
       "SELECT id, name FROM users WHERE id = $1",
       [artisan_id]
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(400).json({ error: "Invalid creator: User does not exist" });
+      return res.status(400).json({ error: "Invalid creator" });
     }
 
     const actualCreatorName = userResult.rows[0].name;
-    console.log('✅ Creator verified:', actualCreatorName);
 
-    // Handle images - ensure it's an array
+    // Handle images - store Cloudinary URLs
     let imageUrls = [];
-    if (image_data_base64) {
-      if (Array.isArray(image_data_base64)) {
-        imageUrls = image_data_base64;
-      } else if (typeof image_data_base64 === 'string') {
-        imageUrls = [image_data_base64];
-      }
+    if (image_urls && Array.isArray(image_urls)) {
+      imageUrls = image_urls;
     }
 
-    console.log('📸 Processing', imageUrls.length, 'images');
+    console.log('✅ Storing', imageUrls.length, 'Cloudinary URLs');
 
-    // Insert the new product
+    // Insert with image_urls (Cloudinary URLs) 
     const result = await pool.query(
       `INSERT INTO products 
-       (title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_data_base64) 
+       (title, description, price, category, condition, materials_used, 
+        dimensions, location, artisan_id, image_data_base64) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
        RETURNING *`,
       [
-        title,
-        description,
-        price,
-        category,
-        condition || null,
-        materials_used || null,
-        dimensions || null,
-        location || null,
+        title, description, price, category, condition || null,
+        materials_used || null, dimensions || null, location || null,
         artisan_id,
-        imageUrls // Store the array of base64 images
+        imageUrls  // ✅ Store Cloudinary URLs in image_data_base64 column
       ]
     );
 
     const product = result.rows[0];
-    console.log('✅ Product created successfully with ID:', product.id);
+    console.log('✅ Product created with ID:', product.id);
 
-    // Return product with creator info
-    const fullProduct = {
+    res.status(201).json({
       ...product,
       creator_name: actualCreatorName,
-      image_url: imageUrls.length > 0 ? imageUrls[0] : null, // First image as main
-      image_data_base64: imageUrls // All images
-    };
-
-    console.log('✅ Sending response with creator:', actualCreatorName);
-    res.status(201).json(fullProduct);
+      image_urls: imageUrls
+    });
 
   } catch (err) {
     console.error("❌ Create product error:", err);
-    console.error("❌ Error details:", err.stack);
-    
-    // Check if it's a foreign key constraint error
-    if (err.code === '23503') {
-      return res.status(400).json({ error: "Invalid creator: User does not exist" });
-    }
-    
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
