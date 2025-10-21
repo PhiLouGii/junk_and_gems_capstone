@@ -136,7 +136,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         _buildTextField(
           label: 'Location', 
           controller: _locationController, 
-          hintText: 'Western West, Lesotho'
+          hintText: 'Maseru West, Lesotho'
         ),
       ],
     );

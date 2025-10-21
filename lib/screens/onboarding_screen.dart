@@ -59,7 +59,7 @@ const SizedBox(height: 16),
 
                     // Subtitle
                     const Text(
-                      'Turn your junk into treasure, together',
+                      'Turn your trash into treasure, together',
                       style: TextStyle(
                         fontSize: 22,
                         color: Colors.black,

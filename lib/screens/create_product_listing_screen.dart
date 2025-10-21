@@ -377,7 +377,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     // Show uploading message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📸 Uploading images to Cloudinary...'),
+        content: Text('Uploading images to Cloudinary...'),
         backgroundColor: Colors.blue,
         duration: Duration(seconds: 3),
       ),
@@ -397,7 +397,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       'creator_name': userName,
     };
 
-    print('📋 Product data prepared: $productData');
+    print('Product data prepared: $productData');
 
     // Create the product using the service (same as materials!)
     bool success = await ProductService.createProduct(productData, _images);
@@ -405,7 +405,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Product uploaded successfully!'),
+          content: Text('Product uploaded successfully!'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),
