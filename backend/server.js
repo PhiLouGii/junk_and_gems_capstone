@@ -719,7 +719,7 @@ app.post("/materials", async (req, res) => {
       const user = userResult.rows[0];
       sendEmail({
         to: user.email,
-        subject: 'Donation Posted Successfully! 🎉',
+        subject: 'Donation Posted Successfully!',
         text: `Hi ${user.name}! Your donation "${title}" has been posted successfully. You earned 5 gems!`,
         html: getDonationConfirmationEmailHtml(user.name, title, 5)
       }).catch(err => console.error('Failed to send donation confirmation email:', err));
@@ -748,7 +748,7 @@ app.post("/materials", async (req, res) => {
 
     res.status(201).json(formattedMaterial);
   } catch (err) {
-    console.error("❌ Create material error:", err);
+    console.error("Create material error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
@@ -1690,107 +1690,88 @@ app.get("/api/products/search", async (req, res) => {
 
 // Create new product listing
 app.post("/api/products", async (req, res) => {
-  console.log(' Received product creation request');
-  
-  const { 
-    title, description, price, category, condition, 
-    materials_used, dimensions, location,
-    artisan_id, creator_name,
-    image_urls  
-  } = req.body;
+  const { title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_urls } = req.body;
 
   try {
-    // Validation
     if (!title || !description || !price || !artisan_id) {
-      console.log('Missing required fields');
-      return res.status(400).json({ 
-        error: "Missing required fields (title, description, price, artisan_id)" 
-      });
-    }
-
-    console.log('   Product data:');
-    console.log('   Title:', title);
-    console.log('   Price:', price);
-    console.log('   Artisan ID:', artisan_id);
-    console.log('   Images received:', image_urls?.length || 0);
-
-    if (image_urls && Array.isArray(image_urls)) {
-      image_urls.forEach((url, index) => {
-        console.log(`    Image ${index + 1}: ${url}`);
-      });
-    } else {
-      console.log('   No images or wrong format:', typeof image_urls);
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Verify user exists
-    const userResult = await pool.query(
-      "SELECT id, name FROM users WHERE id = $1",
-      [artisan_id]
-    );
-
-    if (userResult.rows.length === 0) {
-      console.log('Invalid artisan_id:', artisan_id);
-      return res.status(400).json({ error: "Invalid creator/artisan" });
-    }
+    const userResult = await pool.query("SELECT id, name FROM users WHERE id = $1", [artisan_id]);
+    if (userResult.rows.length === 0) return res.status(400).json({ error: "Invalid creator/artisan" });
 
     const actualCreatorName = userResult.rows[0].name;
-    console.log('Creator found:', actualCreatorName);
 
-    // Handle Cloudinary URLs
-    let imageUrls = [];
-    if (image_urls && Array.isArray(image_urls) && image_urls.length > 0) {
-      imageUrls = image_urls.filter(url => 
-        url && (url.startsWith('http://') || url.startsWith('https://'))
-      );
-      console.log('Storing', imageUrls.length, 'valid Cloudinary URLs');
-    } else {
-      console.log('No valid image URLs to store');
+    // Normalize image URLs
+    let urls = [];
+    if (image_urls && Array.isArray(image_urls)) {
+      urls = image_urls.filter(url => url?.startsWith('http'));
+    } else if (image_urls && typeof image_urls === 'string' && image_urls.startsWith('http')) {
+      urls = [image_urls];
     }
 
+    const imageUrls = urls;
+    const imageUrl = urls.length > 0 ? urls[0] : null;
+
+    // Insert into DB
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
-        dimensions, location, artisan_id, image_data_base64) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
-       RETURNING *`,
-      [
-        title, 
-        description, 
-        price, 
-        category, 
-        condition || null,
-        materials_used || null, 
-        dimensions || null, 
-        location || null,
-        artisan_id,
-        imageUrls 
-      ]
+        dimensions, location, artisan_id, image_url, image_urls) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [title, description, price, category, condition || null, materials_used || null, dimensions || null, location || null, artisan_id, imageUrl, imageUrls]
     );
 
     const product = result.rows[0];
-    console.log('Product created with ID:', product.id);
-    console.log('Images stored:', product.image_data_base64?.length || 0);
 
-    if (product.image_data_base64 && product.image_data_base64.length > 0) {
-      console.log('Verified images in database:');
-      product.image_data_base64.forEach((url, index) => {
-        console.log(`   ${index + 1}. ${url}`);
-      });
-    } else {
-      console.log('WARNING: No images were saved to database!');
-    }
-
-    // Return product with all necessary fields
     res.status(201).json({
       ...product,
-      creator_name: actualCreatorName,
-      image_urls: imageUrls,  
-      image_data_base64: imageUrls  
+      creator_name: actualCreatorName
     });
-
   } catch (err) {
-    console.error("Create product error:", err);
-    res.status(500).json({ error: "Server error: " + err.message });
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/fix-products-image-urls-column", async (req, res) => {
+  try {
+    console.log('Adding image_urls column to products table...');
+
+    // Check if column exists
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'products' AND column_name = 'image_urls'
+    `);
+
+    if (columnCheck.rows.length === 0) {
+      // Add the column
+      await pool.query(`
+        ALTER TABLE products 
+        ADD COLUMN image_urls TEXT[]
+      `);
+      console.log('Added image_urls column');
+    } else {
+      console.log('image_urls column already exists');
+    }
+
+    // Copy data from image_data_base64 to image_urls for existing products
+    await pool.query(`
+      UPDATE products 
+      SET image_urls = image_data_base64 
+      WHERE image_data_base64 IS NOT NULL AND image_urls IS NULL
+    `);
+    console.log('Copied existing image data');
+
+    res.json({ 
+      success: true, 
+      message: "Products table image_urls column added successfully" 
+    });
+  } catch (err) {
+    console.error("Fix error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
   }
 });
 

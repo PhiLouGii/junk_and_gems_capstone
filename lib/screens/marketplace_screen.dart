@@ -505,7 +505,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   }
 
   Widget _buildImage(String imageSource) {
-    if (imageSource.startsWith('data:image')) {
+  // If it's a base64 image
+  if (imageSource.startsWith('data:image')) {
+    try {
       return Image.memory(
         base64Decode(imageSource.split(',')[1]),
         fit: BoxFit.cover,
@@ -513,17 +515,36 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           return _buildImagePlaceholder();
         },
       );
+    } catch (e) {
+      print('Base64 image error: $e');
+      return _buildImagePlaceholder();
     }
-    else if (imageSource.startsWith('http')) {
-      return Image.network(
-        imageSource,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return _buildImagePlaceholder();
-        },
-      );
-    }
-    else {
+  }
+  // If it's a network URL (Cloudinary)
+  else if (imageSource.startsWith('http')) {
+    return Image.network(
+      imageSource,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Center(
+          child: CircularProgressIndicator(
+            value: loadingProgress.expectedTotalBytes != null
+                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                : null,
+            color: const Color(0xFF88844D),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        print('Network image error: $error');
+        return _buildImagePlaceholder();
+      },
+    );
+  }
+  // If it's a local asset
+  else {
+    try {
       return Image.asset(
         imageSource,
         fit: BoxFit.cover,
@@ -531,28 +552,44 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           return _buildImagePlaceholder();
         },
       );
+    } catch (e) {
+      return _buildImagePlaceholder();
     }
   }
+}
 
   Widget _buildImagePlaceholder() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFBEC092).withOpacity(0.3),
-            const Color(0xFF88844D).withOpacity(0.1),
-          ],
+  return Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          const Color(0xFFBEC092).withOpacity(0.3),
+          const Color(0xFF88844D).withOpacity(0.1),
+        ],
+      ),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.photo,
+          size: 40,
+          color: const Color(0xFF88844D).withOpacity(0.5),
         ),
-      ),
-      child: Icon(
-        Icons.shopping_bag,
-        size: 40,
-        color: const Color(0xFF88844D),
-      ),
-    );
-  }
+        SizedBox(height: 8),
+        Text(
+          'No Image',
+          style: TextStyle(
+            color: const Color(0xFF88844D).withOpacity(0.7),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -1455,85 +1492,33 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       itemCount: _newProducts.length,
       itemBuilder: (context, index) {
         final product = _newProducts[index];
-        
-        // Get product data
+
+        // Basic product data
         String title = product['title'] ?? 'Untitled';
         String artisan = product['creator_name'] ?? 'Unknown Artisan';
         String price = 'M${product['price']?.toString() ?? '0'}';
         String productId = product['id']?.toString() ?? '';
         String artisanId = product['artisan_id']?.toString() ?? '';
         String description = product['description'] ?? '';
-        
-        // ✅ FIXED IMAGE LOADING - Check image_data_base64 first (that's where server stores URLs)
-        String imageSource = '';
-        
-        print('═══════════════════════════════════════');
-        print('📦 Loading product: $title');
-        print('Product ID: $productId');
-        
-        // Priority 1: Check image_data_base64 (this is where your server stores Cloudinary URLs)
-        if (product['image_data_base64'] != null) {
-          print('✅ Has image_data_base64');
-          
-          if (product['image_data_base64'] is List) {
-            final imageList = product['image_data_base64'] as List;
-            print('📋 image_data_base64 is List with ${imageList.length} items');
-            
-            if (imageList.isNotEmpty) {
-              final firstImage = imageList[0].toString();
-              print('🔍 First image: ${firstImage.substring(0, firstImage.length > 100 ? 100 : firstImage.length)}...');
-              
-              if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
-                imageSource = firstImage;
-                print('✅ Using Cloudinary URL from image_data_base64: $imageSource');
-              } else if (firstImage.startsWith('data:image')) {
-                imageSource = firstImage;
-                print('✅ Using base64 from image_data_base64');
-              } else {
-                print('⚠️ Unknown format in image_data_base64');
-              }
-            } else {
-              print('⚠️ image_data_base64 list is empty');
-            }
-          } else if (product['image_data_base64'] is String) {
-            final imageStr = product['image_data_base64'].toString();
-            print('📋 image_data_base64 is String');
-            
-            if (imageStr.startsWith('http://') || imageStr.startsWith('https://')) {
-              imageSource = imageStr;
-              print('✅ Using Cloudinary URL from image_data_base64 string: $imageSource');
-            }
-          }
-        } else {
-          print('❌ No image_data_base64 field');
+
+        // Determine image source
+        String imageSource = 'assets/images/placeholder.jpg'; // default placeholder
+
+        // Priority 1: single Cloudinary image_url
+        if (product['image_url'] != null &&
+            product['image_url'].toString().startsWith('http')) {
+          imageSource = product['image_url'];
         }
-        
-        // Priority 2: Check image_urls if image_data_base64 didn't work
-        if (imageSource.isEmpty && product['image_urls'] != null) {
-          print('🔄 Trying image_urls...');
-          
-          if (product['image_urls'] is List) {
-            final urlList = product['image_urls'] as List;
-            print('📋 image_urls is List with ${urlList.length} items');
-            
-            if (urlList.isNotEmpty) {
-              final firstUrl = urlList[0].toString();
-              if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
-                imageSource = firstUrl;
-                print('✅ Using Cloudinary URL from image_urls: $imageSource');
-              }
-            }
+        // Priority 2: first image in image_urls array
+        else if (product['image_urls'] != null &&
+            product['image_urls'] is List &&
+            (product['image_urls'] as List).isNotEmpty) {
+          final firstUrl = product['image_urls'][0].toString();
+          if (firstUrl.startsWith('http')) {
+            imageSource = firstUrl;
           }
         }
-        
-        // Final fallback
-        if (imageSource.isEmpty) {
-          print('❌ NO VALID IMAGE FOUND - Using placeholder');
-          imageSource = 'assets/images/placeholder.jpg';
-        }
-        
-        print('═══════════════════════════════════════');
-        
+
         return GestureDetector(
           onTap: () {
             Navigator.push(
@@ -1576,6 +1561,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Image section
                 Container(
                   height: maxWidth > 600 ? 140 : 120,
                   width: double.infinity,
@@ -1591,6 +1577,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                     child: _buildImage(imageSource),
                   ),
                 ),
+
+                // Details section
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
@@ -1598,6 +1586,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        // Title & Artisan
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1606,7 +1595,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.color,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -1616,13 +1608,18 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                               'By $artisan',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Theme.of(context).textTheme.bodyMedium?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.color,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
+
+                        // Price & Add to Cart
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -1648,7 +1645,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                                    colors: [
+                                      Color(0xFF88844D),
+                                      Color(0xFFBEC092)
+                                    ],
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -1673,6 +1673,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     ),
   );
 }
+
 
   Widget _buildCategories(double maxWidth) {
     return Column(

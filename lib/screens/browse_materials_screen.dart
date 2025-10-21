@@ -51,9 +51,9 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   Future<void> _initializeAndLoad() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isInitialized) {
-      print('⏳ Waiting for auth provider to initialize...');
+      print('Waiting for auth provider to initialize...');
       await authProvider.initialize();
-      print('✅ Auth provider ready!');
+      print('Auth provider ready!');
     }
     _loadMaterials();
   }
@@ -66,16 +66,16 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
 
   Future<void> _loadMaterials() async {
     try {
-      print('🔄 Loading materials from: https://junk-and-gems-api.onrender.com/materials');
+      print('Loading materials from: https://junk-and-gems-api.onrender.com/materials');
       final response = await http.get(
         Uri.parse('https://junk-and-gems-api.onrender.com/materials'),
       );
 
-      print('📡 Response status: ${response.statusCode}');
+      print('Response status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final List<dynamic> materials = json.decode(response.body);
-        print('✅ Loaded ${materials.length} materials');
+        print('Loaded ${materials.length} materials');
         
         setState(() {
           _materials = materials;
@@ -84,11 +84,11 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           _hasError = false;
         });
       } else {
-        print('❌ Server error: ${response.statusCode}');
+        print('Server error: ${response.statusCode}');
         throw Exception('Failed to load materials: ${response.statusCode}');
       }
     } catch (error) {
-      print('❌ Error loading materials: $error');
+      print('Error loading materials: $error');
       setState(() {
         _isLoading = false;
         _hasError = true;
@@ -159,7 +159,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     print('=' * 50);
-    print('🎯 CLAIM MATERIAL ATTEMPT');
+    print('CLAIM MATERIAL ATTEMPT');
     print('User object: ${authProvider.user}');
     print('User ID: ${authProvider.user?.id}');
     print('User name: ${authProvider.user?.name}');
@@ -168,10 +168,10 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     print('=' * 50);
 
     if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
-      print('❌ User not authenticated or ID is null');
+      print('User not authenticated or ID is null');
       
       if (!authProvider.isInitialized) {
-        print('🔄 Auth not initialized, initializing now...');
+        print('Auth not initialized, initializing now...');
         await authProvider.initialize();
         
         if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
@@ -194,10 +194,10 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       }
     }
 
-    print('✅ User authenticated, proceeding with claim...');
+    print('User authenticated, proceeding with claim...');
 
     try {
-      print('🎯 Claiming material $materialId for user ${authProvider.user!.id}');
+      print('Claiming material $materialId for user ${authProvider.user!.id}');
       
       final response = await http.put(
         Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId/claim'),
@@ -207,8 +207,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         }),
       );
 
-      print('📡 Claim response status: ${response.statusCode}');
-      print('📡 Claim response body: ${response.body}');
+      print('Claim response status: ${response.statusCode}');
+      print('Claim response body: ${response.body}');
 
       if (response.statusCode == 200) {
         setState(() {
@@ -230,7 +230,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         throw Exception('Failed to claim material: ${response.body}');
       }
     } catch (error) {
-      print('❌ Error claiming material: $error');
+      print('Error claiming material: $error');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
