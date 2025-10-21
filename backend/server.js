@@ -1690,14 +1690,6 @@ app.get("/api/products/search", async (req, res) => {
 
 // Create new product listing
 app.post("/api/products", async (req, res) => {
-  console.log('═══════════════════════════════════════');
-  console.log('📦 RECEIVED PRODUCT DATA:');
-  console.log('Title:', req.body.title);
-  console.log('image_urls from request:', req.body.image_urls);
-  console.log('Type:', typeof req.body.image_urls);
-  console.log('Is Array:', Array.isArray(req.body.image_urls));
-  console.log('Length:', req.body.image_urls?.length);
-  console.log('═══════════════════════════════════════');
   const { title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_urls } = req.body;
 
   try {
@@ -1705,41 +1697,38 @@ app.post("/api/products", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Verify user exists
     const userResult = await pool.query("SELECT id, name FROM users WHERE id = $1", [artisan_id]);
     if (userResult.rows.length === 0) return res.status(400).json({ error: "Invalid creator/artisan" });
 
     const actualCreatorName = userResult.rows[0].name;
 
-    // Normalize image URLs
-    let urls = [];
+    // Get Cloudinary URLs
+    let imageUrls = [];
     if (image_urls && Array.isArray(image_urls)) {
-      urls = image_urls.filter(url => url?.startsWith('http'));
-    } else if (image_urls && typeof image_urls === 'string' && image_urls.startsWith('http')) {
-      urls = [image_urls];
+      imageUrls = image_urls.filter(url => url?.startsWith('http'));
     }
 
-    const imageUrls = urls;
-    const imageUrl = urls.length > 0 ? urls[0] : null;
+    console.log('Saving', imageUrls.length, 'Cloudinary URLs to BOTH columns');
 
-    // Insert into DB
+    // Save to BOTH image_data_base64 AND image_urls for compatibility
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
-        dimensions, location, artisan_id, image_url, image_urls) 
+        dimensions, location, artisan_id, image_data_base64, image_urls) 
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [title, description, price, category, condition || null, materials_used || null, dimensions || null, location || null, artisan_id, imageUrl, imageUrls]
+      [title, description, price, category, condition || null, materials_used || null, 
+       dimensions || null, location || null, artisan_id, imageUrls, imageUrls]
     );
 
-    const product = result.rows[0];
+    console.log('Product saved with', result.rows[0].image_data_base64?.length || 0, 'images');
 
     res.status(201).json({
-      ...product,
+      ...result.rows[0],
       creator_name: actualCreatorName
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
