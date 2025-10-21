@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:junk_and_gems/services/cloudinary_service.dart';
-import 'package:junk_and_gems/services/product_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CreateProductListingScreen extends StatefulWidget {
@@ -30,6 +27,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   final _materialsController = TextEditingController();
   final _dimensionsController = TextEditingController();
   final _locationController = TextEditingController();
+
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -45,7 +43,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -85,65 +83,40 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'List Your Upcycled Product',
-          style: TextStyle(
-            fontSize: 20, 
-            fontWeight: FontWeight.bold, 
-            color: Theme.of(context).textTheme.bodyLarge?.color
-          ),
-        ),
-        const SizedBox(height: 24),
-        _buildTextField(
-          label: 'Product Name *', 
-          controller: _titleController, 
-          hintText: 'e.g., Bottle Cap Coaster Set'
-        ),
+        _buildTextField('Product Name *', _titleController, 'e.g., Bottle Cap Coaster Set'),
         const SizedBox(height: 20),
         _buildTextField(
-          label: 'Product Description *',
-          controller: _descriptionController,
-          hintText: 'Describe your upcycled creation, its features, and unique qualities...',
+          'Product Description *',
+          _descriptionController,
+          'Describe your upcycled creation...',
           maxLines: 4,
         ),
         const SizedBox(height: 20),
         _buildImageUpload(),
         const SizedBox(height: 20),
         _buildDropdown(
-          label: 'Product Category *',
-          hintText: 'Select a category',
-          value: _selectedCategory,
-          items: const ['Home Decor', 'Furniture', 'Fashion', 'Jewelry', 'Art', 'Crafts', 'Other'],
-          onChanged: (value) => setState(() => _selectedCategory = value),
+          'Product Category *',
+          'Select a category',
+          _selectedCategory,
+          const ['Home Decor', 'Furniture', 'Fashion', 'Jewelry', 'Art', 'Crafts', 'Other'],
+          (value) => setState(() => _selectedCategory = value),
         ),
         const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Original Materials Used',
-          controller: _materialsController,
-          hintText: 'e.g., Detergent bottle, wood scraps, denim fabric...',
-        ),
+        _buildTextField('Original Materials Used', _materialsController, 'e.g., Denim, Wood scraps'),
         const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Dimensions/Size',
-          controller: _dimensionsController,
-          hintText: 'e.g., 12" height, 6" diameter',
-        ),
+        _buildTextField('Dimensions/Size', _dimensionsController, 'e.g., 12" height, 6" diameter'),
         const SizedBox(height: 20),
         _buildDropdown(
-          label: 'Condition *',
-          hintText: 'Select condition',
-          value: _selectedCondition,
-          items: const ['New', 'Like New', 'Excellent', 'Good', 'Fair'],
-          onChanged: (value) => setState(() => _selectedCondition = value),
+          'Condition *',
+          'Select condition',
+          _selectedCondition,
+          const ['New', 'Like New', 'Excellent', 'Good', 'Fair'],
+          (value) => setState(() => _selectedCondition = value),
         ),
         const SizedBox(height: 20),
         _buildPriceField(),
         const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Location', 
-          controller: _locationController, 
-          hintText: 'Enter your location'
-        ),
+        _buildTextField('Location', _locationController, 'Enter your location'),
         const SizedBox(height: 10),
         Text(
           '* Required fields',
@@ -157,24 +130,21 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     );
   }
 
-  Widget _buildTextField({required String label, required TextEditingController controller, required String hintText, int maxLines = 1}) {
+  Widget _buildTextField(String label, TextEditingController controller, String hintText, {int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label, 
-          style: TextStyle(
-            fontSize: 16, 
-            fontWeight: FontWeight.w600, 
-            color: Theme.of(context).textTheme.bodyLarge?.color
-          )
-        ),
+        Text(label,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color)),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor, 
-            borderRadius: BorderRadius.circular(12), 
-            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
           ),
           child: TextField(
             controller: controller,
@@ -182,7 +152,8 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
             style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
+              hintStyle: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
@@ -192,51 +163,40 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     );
   }
 
-  Widget _buildImageUpload() {
-    return ImageUploadWidget(
-      onImagesChanged: (images) {
-        setState(() => _images = images);
-      },
-    );
-  }
-
-  Widget _buildDropdown({required String label, required String hintText, required String? value, required List<String> items, required Function(String?) onChanged}) {
+  Widget _buildDropdown(
+      String label, String hintText, String? value, List<String> items, Function(String?) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label, 
-          style: TextStyle(
-            fontSize: 16, 
-            fontWeight: FontWeight.w600, 
-            color: Theme.of(context).textTheme.bodyLarge?.color
-          )
-        ),
+        Text(label,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color)),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor, 
-            borderRadius: BorderRadius.circular(12), 
-            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: DropdownButton<String>(
               value: value,
               hint: Text(
-                hintText, 
-                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6))
+                hintText,
+                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
               ),
               isExpanded: true,
               underline: const SizedBox(),
               dropdownColor: Theme.of(context).cardColor,
-              items: items.map((item) => DropdownMenuItem(
-                value: item, 
-                child: Text(
-                  item, 
-                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
-                )
-              )).toList(),
+              items: items
+                  .map((item) => DropdownMenuItem(
+                        value: item,
+                        child: Text(item, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
+                      ))
+                  .toList(),
               onChanged: onChanged,
             ),
           ),
@@ -249,46 +209,39 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Price *', 
-          style: TextStyle(
-            fontSize: 16, 
-            fontWeight: FontWeight.w600, 
-            color: Theme.of(context).textTheme.bodyLarge?.color
-          )
-        ),
+        Text('Price *',
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color)),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor, 
-            borderRadius: BorderRadius.circular(12), 
-            border: Border.all(color: const Color(0xFFBEC092), width: 1)
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
-                Text(
-                  'M', 
-                  style: TextStyle(
-                    fontSize: 16, 
-                    color: Theme.of(context).textTheme.bodyLarge?.color, 
-                    fontWeight: FontWeight.bold
-                  )
-                ),
+                Text('M',
+                    style: TextStyle(
+                        fontSize: 16,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                        fontWeight: FontWeight.bold)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     keyboardType: TextInputType.number,
                     style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-                    onChanged: (value) {
-                      setState(() {
-                        _price = double.tryParse(value) ?? 0.0;
-                      });
-                    },
+                    onChanged: (value) => setState(() {
+                      _price = double.tryParse(value) ?? 0.0;
+                    }),
                     decoration: InputDecoration(
                       hintText: '0.00',
-                      hintStyle: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
+                      hintStyle: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6)),
                       border: InputBorder.none,
                     ),
                   ),
@@ -298,6 +251,12 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildImageUpload() {
+    return ImageUploadWidget(
+      onImagesChanged: (images) => setState(() => _images = images),
     );
   }
 
@@ -328,144 +287,73 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 
   Future<void> _submitProduct() async {
-  // Validate required fields
-  if (_titleController.text.isEmpty) {
-    _showErrorDialog('Please enter a product name');
-    return;
-  }
+    if (_titleController.text.isEmpty) return _showErrorDialog('Please enter a product name');
+    if (_descriptionController.text.isEmpty) return _showErrorDialog('Please enter a product description');
+    if (_selectedCategory == null) return _showErrorDialog('Please select a product category');
+    if (_selectedCondition == null) return _showErrorDialog('Please select the product condition');
+    if (_price <= 0) return _showErrorDialog('Please enter a valid price');
+    if (_images.isEmpty) return _showErrorDialog('Please select at least one image');
 
-  if (_descriptionController.text.isEmpty) {
-    _showErrorDialog('Please enter a product description');
-    return;
-  }
+    setState(() => _isSubmitting = true);
 
-  if (_selectedCategory == null) {
-    _showErrorDialog('Please select a product category');
-    return;
-  }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      final userName = prefs.getString('userName') ?? 'Unknown User';
+      if (userId == null) return _showErrorDialog('Please login to list a product');
 
-  if (_selectedCondition == null) {
-    _showErrorDialog('Please select the product condition');
-    return;
-  }
-
-  if (_price <= 0) {
-    _showErrorDialog('Please enter a valid price');
-    return;
-  }
-
-  setState(() {
-    _isSubmitting = true;
-  });
-
-  try {
-    print('🏁 Starting product creation process...');
-
-    // Get user ID and name from shared preferences
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
-    final userName = prefs.getString('userName') ?? 'Unknown User';
-      
-    if (userId == null) {
-      _showErrorDialog('Please login to list a product');
-      setState(() {
-        _isSubmitting = false;
-      });
-      return;
-    }
-
-    // Show uploading message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Uploading images to Cloudinary...'),
-        backgroundColor: Colors.blue,
-        duration: Duration(seconds: 3),
-      ),
-    );
-
-    // Prepare the product data
-    final productData = {
-      'title': _titleController.text,
-      'description': _descriptionController.text,
-      'price': _price,
-      'category': _selectedCategory,
-      'condition': _selectedCondition,
-      'materials_used': _materialsController.text.isEmpty ? null : _materialsController.text,
-      'dimensions': _dimensionsController.text.isEmpty ? null : _dimensionsController.text,
-      'location': _locationController.text.isEmpty ? null : _locationController.text,
-      'artisan_id': int.parse(userId),
-      'creator_name': userName,
-    };
-
-    print('Product data prepared: $productData');
-
-    // Create the product using the service (same as materials!)
-    bool success = await ProductService.createProduct(productData, _images);
-
-    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Product uploaded successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
+        const SnackBar(content: Text('Uploading images and creating product...')),
       );
-      _showSuccessDialog();
-    }
 
-  } catch (e) {
-    print('❌ Detailed error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: ${e.toString()}'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 5),
-      ),
-    );
-  } finally {
-    setState(() {
-      _isSubmitting = false;
-    });
+      final uri = Uri.parse('https://your-backend.com/api/products');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Add text fields
+      final productData = {
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'price': _price.toString(),
+        'category': _selectedCategory,
+        'condition': _selectedCondition,
+        'materials_used': _materialsController.text,
+        'dimensions': _dimensionsController.text,
+        'location': _locationController.text,
+        'artisan_id': userId,
+        'creator_name': userName,
+      };
+      productData.forEach((key, value) {
+        if (value != null && value.isNotEmpty) request.fields[key] = value.toString();
+      });
+
+      // Add images
+      for (var img in _images) {
+        request.files.add(await http.MultipartFile.fromPath('images', img.path));
+      }
+
+      final response = await request.send();
+      final respStr = await response.stream.bytesToString();
+      if (response.statusCode == 201) {
+        _showSuccessDialog();
+      } else {
+        print('Upload failed: $respStr');
+        _showErrorDialog('Product upload failed');
+      }
+    } catch (e) {
+      _showErrorDialog('Error: $e');
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
   }
-}
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(
-              Icons.error_outline, 
-              color: Colors.red,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Error', 
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-                fontWeight: FontWeight.bold,
-              )
-            ),
-          ],
-        ),
-        content: Text(
-          message, 
-          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
-        ),
+        title: const Text('Error', style: TextStyle(color: Colors.red)),
+        content: Text(message),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'OK', 
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-                fontWeight: FontWeight.w600,
-              )
-            ),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
         ],
       ),
     );
@@ -475,41 +363,15 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(
-              Icons.check_circle, 
-              color: Colors.green,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Success!', 
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-                fontWeight: FontWeight.bold,
-              )
-            ),
-          ],
-        ),
-        content: Text(
-          'Your upcycled product has been listed successfully!', 
-          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
-        ),
+        title: const Text('Success!', style: TextStyle(color: Colors.green)),
+        content: const Text('Your upcycled product has been listed successfully!'),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to previous screen
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
-            child: Text(
-              'OK', 
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-                fontWeight: FontWeight.w600,
-              )
-            ),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -526,7 +388,6 @@ class ImageUploadWidget extends StatefulWidget {
 }
 
 class _ImageUploadWidgetState extends State<ImageUploadWidget> {
-  final ImagePicker _picker = ImagePicker();
   List<XFile> _images = [];
 
   Future<void> _pickImages() async {
@@ -535,24 +396,20 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
         allowMultiple: true,
         type: FileType.image,
       );
-
       if (result != null && result.files.isNotEmpty) {
         List<XFile> pickedImages = result.files.map((f) => XFile(f.path!)).toList();
-        
         setState(() {
           if (_images.length + pickedImages.length > 5) {
             int availableSlots = 5 - _images.length;
             _images.addAll(pickedImages.take(availableSlots));
-            // You could show a snackbar here to inform the user about the limit
           } else {
             _images.addAll(pickedImages);
           }
         });
-
         widget.onImagesChanged(_images);
       }
-    } catch (error) {
-      print('Error picking images: $error');
+    } catch (e) {
+      print('Error picking images: $e');
     }
   }
 
@@ -561,42 +418,24 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Upload product images (up to 5)',
-          style: TextStyle(
-            fontSize: 16, 
-            fontWeight: FontWeight.w600, 
-            color: Theme.of(context).textTheme.bodyLarge?.color
-          ),
-        ),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: _pickImages,
           child: Container(
             height: 120,
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor, 
-              borderRadius: BorderRadius.circular(12), 
-              border: Border.all(color: const Color(0xFFBEC092), width: 1)
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBEC092), width: 1),
             ),
             child: _images.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.cloud_upload_outlined, 
-                          size: 40, 
-                          color: Theme.of(context).textTheme.bodyLarge?.color
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap to upload product images', 
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodyLarge?.color, 
-                            fontSize: 14
-                          )
-                        ),
+                      children: const [
+                        Icon(Icons.cloud_upload_outlined, size: 40),
+                        SizedBox(height: 8),
+                        Text('Tap to upload product images'),
                       ],
                     ),
                   )
@@ -629,10 +468,8 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                                 });
                               },
                               child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54, 
-                                  shape: BoxShape.circle
-                                ),
+                                decoration:
+                                    const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                                 child: const Icon(Icons.close, size: 20, color: Colors.white),
                               ),
                             ),

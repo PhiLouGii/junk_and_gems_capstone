@@ -6,7 +6,8 @@ import cors from "cors";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import cloudinary from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
+import multer from 'multer';
 import sgMail from '@sendgrid/mail';
 
 const app = express();
@@ -169,7 +170,7 @@ function getPasswordResetEmailHtml(name, resetToken) {
         <h1 style="text-align: center; color: #88844D; letter-spacing: 5px;">${resetToken}</h1>
         <p>Enter this code in the app to reset your password. This code will expire in 1 hour.</p>
         <div class="warning">
-          <strong>⚠️ Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+          <strong>Security Notice:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
         </div>
       </div>
     </body>
@@ -256,19 +257,23 @@ const pool = new Pool({
 // Test the connection
 pool.connect((err, client, release) => {
   if (err) {
-    console.error('❌ Error connecting to database:', err.stack);
+    console.error('Error connecting to database:', err.stack);
   } else {
-    console.log('✅ Database connected successfully');
+    console.log('Database connected successfully');
     release();
   }
 });
 
 // Configure Cloudinary
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET,
 });
+
+// Set up multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // --- AUTHENTICATION MIDDLEWARE ---
 function authenticateToken(req, res, next) {
@@ -1689,8 +1694,8 @@ app.get("/api/products/search", async (req, res) => {
 });
 
 // Create new product listing
-app.post("/api/products", async (req, res) => {
-  const { title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_urls } = req.body;
+app.post("/api/products", upload.array('images', 5), async (req, res) => {
+  const { title, description, price, category, condition, materials_used, dimensions, location, artisan_id } = req.body;
 
   try {
     if (!title || !description || !price || !artisan_id) {
@@ -1702,33 +1707,52 @@ app.post("/api/products", async (req, res) => {
 
     const actualCreatorName = userResult.rows[0].name;
 
-    // Get Cloudinary URLs
-    let imageUrls = [];
-    if (image_urls && Array.isArray(image_urls)) {
-      imageUrls = image_urls.filter(url => url?.startsWith('http'));
+    // Upload images from memory to Cloudinary
+    let uploadedUrls = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const result = await cloudinary.uploader.upload_stream({ resource_type: 'image' }, (error, result) => {
+            if (error) throw error;
+            return result;
+          });
+
+          // Cloudinary uploader using buffer
+          const uploadResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              { resource_type: 'image' },
+              (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+              }
+            );
+            stream.end(file.buffer);
+          });
+
+          uploadedUrls.push(uploadResult.secure_url);
+        } catch (err) {
+          console.error("Cloudinary upload failed for file:", file.originalname, err);
+        }
+      }
     }
 
-    console.log('Saving', imageUrls.length, 'Cloudinary URLs to BOTH columns');
+    const mainImageUrl = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
 
-    // Save to BOTH image_data_base64 AND image_urls for compatibility
     const result = await pool.query(
       `INSERT INTO products 
-       (title, description, price, category, condition, materials_used, 
-        dimensions, location, artisan_id, image_data_base64, image_urls) 
+       (title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_url, image_urls) 
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [title, description, price, category, condition || null, materials_used || null, 
-       dimensions || null, location || null, artisan_id, imageUrls, imageUrls]
+      [title, description, price, category, condition || null, materials_used || null, dimensions || null, location || null, artisan_id, mainImageUrl, uploadedUrls]
     );
-
-    console.log('Product saved with', result.rows[0].image_data_base64?.length || 0, 'images');
 
     res.status(201).json({
       ...result.rows[0],
       creator_name: actualCreatorName
     });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error: " + err.message });
+    console.error("Server error creating product:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
