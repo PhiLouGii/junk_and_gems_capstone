@@ -1714,6 +1714,14 @@ app.post("/api/products", async (req, res) => {
     console.log('   Artisan ID:', artisan_id);
     console.log('   Images received:', image_urls?.length || 0);
 
+    if (image_urls && Array.isArray(image_urls)) {
+      image_urls.forEach((url, index) => {
+        console.log(`    Image ${index + 1}: ${url}`);
+      });
+    } else {
+      console.log('   No images or wrong format:', typeof image_urls);
+    }
+
     // Verify user exists
     const userResult = await pool.query(
       "SELECT id, name FROM users WHERE id = $1",
@@ -1730,17 +1738,15 @@ app.post("/api/products", async (req, res) => {
 
     // Handle Cloudinary URLs
     let imageUrls = [];
-    if (image_urls && Array.isArray(image_urls)) {
-      imageUrls = image_urls;
-      console.log('Storing', imageUrls.length, 'Cloudinary URLs');
-      
-      // Log each URL for verification
-      imageUrls.forEach((url, index) => {
-        console.log(`   Image ${index + 1}: ${url}`);
-      });
+    if (image_urls && Array.isArray(image_urls) && image_urls.length > 0) {
+      imageUrls = image_urls.filter(url => 
+        url && (url.startsWith('http://') || url.startsWith('https://'))
+      );
+      console.log('Storing', imageUrls.length, 'valid Cloudinary URLs');
     } else {
-      console.log('No images provided or wrong format');
+      console.log('No valid image URLs to store');
     }
+
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
@@ -1764,6 +1770,15 @@ app.post("/api/products", async (req, res) => {
     const product = result.rows[0];
     console.log('Product created with ID:', product.id);
     console.log('Images stored:', product.image_data_base64?.length || 0);
+
+    if (product.image_data_base64 && product.image_data_base64.length > 0) {
+      console.log('Verified images in database:');
+      product.image_data_base64.forEach((url, index) => {
+        console.log(`   ${index + 1}. ${url}`);
+      });
+    } else {
+      console.log('WARNING: No images were saved to database!');
+    }
 
     // Return product with all necessary fields
     res.status(201).json({

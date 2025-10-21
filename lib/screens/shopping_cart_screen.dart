@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -107,6 +108,11 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       try {
         cartItems = await CartService.getCartItems(widget.userId);
         print('✅ Cart items loaded: ${cartItems.length} items');
+        
+        // Debug: Print image data for first item
+        if (cartItems.isNotEmpty) {
+          print('🖼️ First cart item image_data_base64: ${cartItems[0]['image_data_base64']}');
+        }
       } catch (e) {
         print('❌ Could not load cart items: $e');
         
@@ -621,10 +627,25 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   }
 
   Widget _buildCartItemCard(Map<String, dynamic> item) {
-    final imageUrl = (item['image_data_base64'] != null && 
-                     item['image_data_base64'].isNotEmpty) 
-        ? 'data:image/jpeg;base64,${item['image_data_base64'][0]}'
-        : null;
+    // Handle different image data formats from API
+    String? imageUrl;
+    
+    if (item['image_data_base64'] != null) {
+      if (item['image_data_base64'] is List && (item['image_data_base64'] as List).isNotEmpty) {
+        final firstImage = item['image_data_base64'][0];
+        // Check if it's a Cloudinary URL or base64 data
+        if (firstImage.toString().startsWith('http://') || firstImage.toString().startsWith('https://')) {
+          imageUrl = firstImage.toString();
+        } else if (firstImage.toString().startsWith('data:image')) {
+          imageUrl = firstImage.toString();
+        } else {
+          // Assume it's base64 without prefix
+          imageUrl = 'data:image/jpeg;base64,$firstImage';
+        }
+      }
+    }
+    
+    print('🖼️ Cart item "${item['title']}" image URL: $imageUrl');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -649,11 +670,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
               height: 100,
               color: const Color(0xFFBEC092).withOpacity(0.2),
               child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
-                    )
+                  ? _buildImageWidget(imageUrl)
                   : _buildImagePlaceholder(),
             ),
           ),
@@ -791,6 +808,54 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildImageWidget(String imageSource) {
+    // Handle Cloudinary URLs (http/https)
+    if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+      return Image.network(
+        imageSource,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              color: const Color(0xFF88844D),
+              strokeWidth: 2,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Image load error: $error');
+          return _buildImagePlaceholder();
+        },
+      );
+    }
+    // Handle base64 data URLs
+    else if (imageSource.startsWith('data:image')) {
+      try {
+        final base64String = imageSource.split(',')[1];
+        return Image.memory(
+          base64Decode(base64String),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('❌ Base64 decode error: $error');
+            return _buildImagePlaceholder();
+          },
+        );
+      } catch (e) {
+        print('❌ Base64 processing error: $e');
+        return _buildImagePlaceholder();
+      }
+    }
+    // Fallback
+    else {
+      print('⚠️ Unknown image format: ${imageSource.substring(0, min(50, imageSource.length))}...');
+      return _buildImagePlaceholder();
+    }
   }
 
   Widget _buildImagePlaceholder() {

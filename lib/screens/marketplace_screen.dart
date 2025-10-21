@@ -1448,225 +1448,231 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   }
 
   Widget _buildNewProductsList(double maxWidth) {
-    return SizedBox(
-      height: maxWidth > 600 ? 240 : 220,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _newProducts.length,
-        itemBuilder: (context, index) {
-          final product = _newProducts[index];
+  return SizedBox(
+    height: maxWidth > 600 ? 240 : 220,
+    child: ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: _newProducts.length,
+      itemBuilder: (context, index) {
+        final product = _newProducts[index];
+        
+        // Get product data
+        String title = product['title'] ?? 'Untitled';
+        String artisan = product['creator_name'] ?? 'Unknown Artisan';
+        String price = 'M${product['price']?.toString() ?? '0'}';
+        String productId = product['id']?.toString() ?? '';
+        String artisanId = product['artisan_id']?.toString() ?? '';
+        String description = product['description'] ?? '';
+        
+        // ✅ FIXED IMAGE LOADING - Check image_data_base64 first (that's where server stores URLs)
+        String imageSource = '';
+        
+        print('═══════════════════════════════════════');
+        print('📦 Loading product: $title');
+        print('Product ID: $productId');
+        
+        // Priority 1: Check image_data_base64 (this is where your server stores Cloudinary URLs)
+        if (product['image_data_base64'] != null) {
+          print('✅ Has image_data_base64');
           
-          final isStaticProduct = product is Map<String, String> && product.containsKey('image');
-          
-          String imageSource = '';
-          String title = '';
-          String artisan = '';
-          String price = '';
-          String productId = '';
-          String artisanId = '';
-          String description = '';
-          
-          if (isStaticProduct) {
-            imageSource = product['image']!;
-            title = product['title']!;
-            artisan = product['artisan']!;
-            price = product['price']!;
-            productId = product['id']!;
-            artisanId = product['artisan_id']!;
-            description = product['description']!;
-          } else {
-            title = product['title'] ?? 'Untitled';
-            artisan = product['creator_name'] ?? 'Unknown Artisan';
-            price = 'M${product['price']?.toString() ?? '0'}';
-            productId = product['id']?.toString() ?? '';
-            artisanId = product['artisan_id']?.toString() ?? '';
-            description = product['description'] ?? '';
+          if (product['image_data_base64'] is List) {
+            final imageList = product['image_data_base64'] as List;
+            print('📋 image_data_base64 is List with ${imageList.length} items');
             
-            if (product['image_urls'] != null && 
-                product['image_urls'] is List && 
-                (product['image_urls'] as List).isNotEmpty) {
-              final url = product['image_urls'][0].toString();
-              if (url.startsWith('http')) {
-                imageSource = url;
-                print('New Products: Using Cloudinary URL from image_urls');
+            if (imageList.isNotEmpty) {
+              final firstImage = imageList[0].toString();
+              print('🔍 First image: ${firstImage.substring(0, firstImage.length > 100 ? 100 : firstImage.length)}...');
+              
+              if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
+                imageSource = firstImage;
+                print('✅ Using Cloudinary URL from image_data_base64: $imageSource');
+              } else if (firstImage.startsWith('data:image')) {
+                imageSource = firstImage;
+                print('✅ Using base64 from image_data_base64');
+              } else {
+                print('⚠️ Unknown format in image_data_base64');
               }
+            } else {
+              print('⚠️ image_data_base64 list is empty');
             }
-  
-            // Fallback to image_data_base64
-            if (imageSource.isEmpty && product['image_data_base64'] != null && 
-                product['image_data_base64'] is List && 
-                (product['image_data_base64'] as List).isNotEmpty) {
-              final data = product['image_data_base64'][0].toString();
-              if (data.startsWith('http')) {
-                imageSource = data;
-                print('New Products: Using Cloudinary URL from image_data_base64');
-              }
-            }
-  
-            // Fallback to image_url
-            if (imageSource.isEmpty) {
-              final possibleKeys = [
-                'secure_url', 
-                'url', 
-                'image_url'
-              ];
-
-              for (final key in possibleKeys) {
-                final url = product[key]?.toString() ?? '';
-                if (url.startsWith('http')) {
-                  imageSource = url;
-                  print('New Products: Using Cloudinary URL from $key');
-                break;
-                }         
+          } else if (product['image_data_base64'] is String) {
+            final imageStr = product['image_data_base64'].toString();
+            print('📋 image_data_base64 is String');
+            
+            if (imageStr.startsWith('http://') || imageStr.startsWith('https://')) {
+              imageSource = imageStr;
+              print('✅ Using Cloudinary URL from image_data_base64 string: $imageSource');
             }
           }
-  
-            // Final fallback
-            if (imageSource.isEmpty) {
-              print('New Products: NO IMAGE, using placeholder');
-              imageSource = 'assets/images/placeholder.jpg';
-            }
-          }
+        } else {
+          print('❌ No image_data_base64 field');
+        }
+        
+        // Priority 2: Check image_urls if image_data_base64 didn't work
+        if (imageSource.isEmpty && product['image_urls'] != null) {
+          print('🔄 Trying image_urls...');
           
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProductDetailScreen(
-                    product: {
-                      'title': title,
-                      'artisan': artisan,
-                      'price': price,
-                      'image': imageSource,
-                      'artisan_id': artisanId,
-                      'id': productId,
-                      'description': description,
-                    },
-                  ),
+          if (product['image_urls'] is List) {
+            final urlList = product['image_urls'] as List;
+            print('📋 image_urls is List with ${urlList.length} items');
+            
+            if (urlList.isNotEmpty) {
+              final firstUrl = urlList[0].toString();
+              if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+                imageSource = firstUrl;
+                print('✅ Using Cloudinary URL from image_urls: $imageSource');
+              }
+            }
+          }
+        }
+        
+        // Final fallback
+        if (imageSource.isEmpty) {
+          print('❌ NO VALID IMAGE FOUND - Using placeholder');
+          imageSource = 'assets/images/placeholder.jpg';
+        }
+        
+        print('═══════════════════════════════════════');
+        
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ProductDetailScreen(
+                  product: {
+                    'title': title,
+                    'artisan': artisan,
+                    'price': price,
+                    'image': imageSource,
+                    'artisan_id': artisanId,
+                    'id': productId,
+                    'description': description,
+                  },
                 ),
-              );
-            },
-            child: Container(
-              width: maxWidth > 600 ? 180 : 160,
-              margin: EdgeInsets.only(
-                right: index == _newProducts.length - 1 ? 0 : 16,
               ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFBEC092).withOpacity(0.3),
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF88844D).withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: maxWidth > 600 ? 140 : 120,
-                    width: double.infinity,
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(14),
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14),
-                      ),
-                      child: _buildImage(imageSource),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'By $artisan',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Theme.of(context).textTheme.bodyMedium?.color,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                price,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF88844D),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  _addToCart({
-                                    'id': productId,
-                                    'title': title,
-                                    'price': price,
-                                    'image': imageSource,
-                                    'artisan': artisan,
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFF88844D), Color(0xFFBEC092)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.shopping_bag_outlined,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            );
+          },
+          child: Container(
+            width: maxWidth > 600 ? 180 : 160,
+            margin: EdgeInsets.only(
+              right: index == _newProducts.length - 1 ? 0 : 16,
             ),
-          );
-        },
-      ),
-    );
-  }
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFBEC092).withOpacity(0.3),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF88844D).withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: maxWidth > 600 ? 140 : 120,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(14),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(14),
+                    ),
+                    child: _buildImage(imageSource),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'By $artisan',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).textTheme.bodyMedium?.color,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              price,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF88844D),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                _addToCart({
+                                  'id': productId,
+                                  'title': title,
+                                  'price': price,
+                                  'image': imageSource,
+                                  'artisan': artisan,
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
 
   Widget _buildCategories(double maxWidth) {
     return Column(
