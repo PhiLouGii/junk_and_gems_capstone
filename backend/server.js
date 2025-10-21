@@ -1690,6 +1690,14 @@ app.get("/api/products/search", async (req, res) => {
 
 // Create new product listing
 app.post("/api/products", async (req, res) => {
+  console.log('═══════════════════════════════════════');
+  console.log('📦 RECEIVED PRODUCT DATA:');
+  console.log('Title:', req.body.title);
+  console.log('image_urls from request:', req.body.image_urls);
+  console.log('Type:', typeof req.body.image_urls);
+  console.log('Is Array:', Array.isArray(req.body.image_urls));
+  console.log('Length:', req.body.image_urls?.length);
+  console.log('═══════════════════════════════════════');
   const { title, description, price, category, condition, materials_used, dimensions, location, artisan_id, image_urls } = req.body;
 
   try {
