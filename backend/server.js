@@ -1555,15 +1555,29 @@ app.get("/api/products", async (req, res) => {
       ORDER BY p.created_at DESC
     `);
     
-    console.log(`✅ Found ${result.rows.length} products`);
+    console.log(`Returning ${result.rows.length} products`);
+    
+    // Log first product for debugging
     if (result.rows.length > 0) {
-      console.log('📦 First product:', {
-        id: result.rows[0].id,
-        title: result.rows[0].title,
-        creator_name: result.rows[0].creator_name,
-        artisan_id: result.rows[0].artisan_id,
-        has_image_data: result.rows[0].image_data_base64 ? 'yes' : 'no'
-      });
+      const firstProduct = result.rows[0];
+      console.log('   First product:');
+      console.log('   ID:', firstProduct.id);
+      console.log('   Title:', firstProduct.title);
+      console.log('   Has image_data_base64:', firstProduct.image_data_base64 ? 'Yes' : 'No');
+      
+      if (firstProduct.image_data_base64) {
+        console.log('   image_data_base64 type:', typeof firstProduct.image_data_base64);
+        console.log('   image_data_base64 is array:', Array.isArray(firstProduct.image_data_base64));
+        
+        if (Array.isArray(firstProduct.image_data_base64)) {
+          console.log('   Images count:', firstProduct.image_data_base64.length);
+          if (firstProduct.image_data_base64.length > 0) {
+            const firstUrl = firstProduct.image_data_base64[0];
+            console.log('   First URL:', firstUrl);
+            console.log('   Is valid URL:', firstUrl.startsWith('http'));
+          }
+        }
+      }
     }
     
     res.json(result.rows);
@@ -1665,7 +1679,7 @@ app.get("/api/products/search", async (req, res) => {
       ORDER BY p.created_at DESC
     `, [`%${query}%`]);
 
-    console.log(`✅ Found ${result.rows.length} products matching "${query}"`);
+    console.log(` Found ${result.rows.length} products matching "${query}"`);
 
     res.json(result.rows);
   } catch (err) {
@@ -1676,23 +1690,29 @@ app.get("/api/products/search", async (req, res) => {
 
 // Create new product listing
 app.post("/api/products", async (req, res) => {
-  console.log('📝 Received product creation request');
+  console.log(' Received product creation request');
   
   const { 
     title, description, price, category, condition, 
     materials_used, dimensions, location,
     artisan_id, creator_name,
-    image_urls  // ✅ Use image_urls from Cloudinary
+    image_urls  
   } = req.body;
 
   try {
+    // Validation
     if (!title || !description || !price || !artisan_id) {
+      console.log('Missing required fields');
       return res.status(400).json({ 
-        error: "Missing required fields" 
+        error: "Missing required fields (title, description, price, artisan_id)" 
       });
     }
 
-    console.log('📸 Received image URLs:', image_urls?.length || 0);
+    console.log('   Product data:');
+    console.log('   Title:', title);
+    console.log('   Price:', price);
+    console.log('   Artisan ID:', artisan_id);
+    console.log('   Images received:', image_urls?.length || 0);
 
     // Verify user exists
     const userResult = await pool.query(
@@ -1701,20 +1721,26 @@ app.post("/api/products", async (req, res) => {
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(400).json({ error: "Invalid creator" });
+      console.log('Invalid artisan_id:', artisan_id);
+      return res.status(400).json({ error: "Invalid creator/artisan" });
     }
 
     const actualCreatorName = userResult.rows[0].name;
+    console.log('Creator found:', actualCreatorName);
 
-    // Handle images - store Cloudinary URLs
+    // Handle Cloudinary URLs
     let imageUrls = [];
     if (image_urls && Array.isArray(image_urls)) {
       imageUrls = image_urls;
+      console.log('Storing', imageUrls.length, 'Cloudinary URLs');
+      
+      // Log each URL for verification
+      imageUrls.forEach((url, index) => {
+        console.log(`   Image ${index + 1}: ${url}`);
+      });
+    } else {
+      console.log('No images provided or wrong format');
     }
-
-    console.log('✅ Storing', imageUrls.length, 'Cloudinary URLs');
-
-    // Insert with image_urls (Cloudinary URLs) 
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
@@ -1722,24 +1748,33 @@ app.post("/api/products", async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
        RETURNING *`,
       [
-        title, description, price, category, condition || null,
-        materials_used || null, dimensions || null, location || null,
+        title, 
+        description, 
+        price, 
+        category, 
+        condition || null,
+        materials_used || null, 
+        dimensions || null, 
+        location || null,
         artisan_id,
-        imageUrls  // ✅ Store Cloudinary URLs in image_data_base64 column
+        imageUrls 
       ]
     );
 
     const product = result.rows[0];
-    console.log('✅ Product created with ID:', product.id);
+    console.log('Product created with ID:', product.id);
+    console.log('Images stored:', product.image_data_base64?.length || 0);
 
+    // Return product with all necessary fields
     res.status(201).json({
       ...product,
       creator_name: actualCreatorName,
-      image_urls: imageUrls
+      image_urls: imageUrls,  
+      image_data_base64: imageUrls  
     });
 
   } catch (err) {
-    console.error("❌ Create product error:", err);
+    console.error("Create product error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });

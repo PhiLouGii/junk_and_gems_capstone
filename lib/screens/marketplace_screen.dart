@@ -930,32 +930,58 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     final price = isFromServer ? 'M${product['price']?.toString() ?? '0'}' : product['price']!;
     
     String image = '';
-if (isFromServer) {
+    if (isFromServer) {
   // Check for image_urls (plural - from Cloudinary)
-  if (product['image_urls'] != null && 
+   if (product['image_urls'] != null && 
       product['image_urls'] is List && 
       (product['image_urls'] as List).isNotEmpty) {
-    image = product['image_urls'][0];
-    print('🖼️ Using image_urls: $image');
+    final imageUrl = product['image_urls'][0].toString();
+    // Check if it's a valid URL (starts with http/https)
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      image = imageUrl;
+      print('Using image_urls (Cloudinary): $image');
+    } else {
+      print('image_urls[0] is not a valid URL: $imageUrl');
+    }
   }
-  // Check for image_url (singular)
-  else if (product['image_url'] != null && 
-           product['image_url'].toString().isNotEmpty) {
-    image = product['image_url'];
-    print(' Using image_url: $image');
+  
+  // Fallback to image_data_base64 if image_urls didn't work
+  if (image.isEmpty && 
+      product['image_data_base64'] != null && 
+      product['image_data_base64'] is List && 
+      (product['image_data_base64'] as List).isNotEmpty) {
+    final imageData = product['image_data_base64'][0].toString();
+    // Check if it's a Cloudinary URL or base64
+    if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+      image = imageData;
+      print('✅ Using image_data_base64 (Cloudinary URL): $image');
+    } else if (imageData.startsWith('data:image')) {
+      image = imageData;
+      print('Using image_data_base64 (base64)');
+    } else {
+      print('image_data_base64[0] format unknown: ${imageData.substring(0, 50)}...');
+    }
   }
-  // Check for base64
-  else if (product['image_data_base64'] != null && 
-           product['image_data_base64'] is List && 
-           (product['image_data_base64'] as List).isNotEmpty) {
-    image = product['image_data_base64'][0];
-    print(' Using image_data_base64');
-  } 
-  else {
-    print(' NO IMAGE FOUND, using placeholder');
+  
+  // Fallback to single image_url
+  if (image.isEmpty && 
+      product['image_url'] != null && 
+      product['image_url'].toString().isNotEmpty) {
+    final imageUrl = product['image_url'].toString();
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      image = imageUrl;
+      print('Using image_url: $image');
+    }
+  }
+  
+  // Final fallback to placeholder
+  if (image.isEmpty) {
+    print('NO IMAGE FOUND, using placeholder');
+    print('Product data: ${product.toString()}');
     image = 'assets/images/placeholder.jpg';
   }
 } else {
+  // For static products, use local assets
   image = product['image'] ?? 'assets/images/placeholder.jpg';
 }
 
@@ -1459,18 +1485,35 @@ if (isFromServer) {
             if (product['image_urls'] != null && 
                 product['image_urls'] is List && 
                 (product['image_urls'] as List).isNotEmpty) {
-              imageSource = product['image_urls'][0];
-              print('New Products: Using image_urls');
-            } else if (product['image_url'] != null && 
-                       product['image_url'].toString().isNotEmpty) {
-              imageSource = product['image_url'];
-              print('New Products: Using image_url');
-            } else if (product['image_data_base64'] != null && 
-                       product['image_data_base64'] is List && 
-                       (product['image_data_base64'] as List).isNotEmpty) {
-              imageSource = product['image_data_base64'][0];
-              print('New Products: Using base64');
-            } else {
+              final url = product['image_urls'][0].toString();
+              if (url.startsWith('http')) {
+                imageSource = url;
+                print('New Products: Using Cloudinary URL from image_urls');
+              }
+            }
+  
+            // Fallback to image_data_base64
+            if (imageSource.isEmpty && product['image_data_base64'] != null && 
+                product['image_data_base64'] is List && 
+                (product['image_data_base64'] as List).isNotEmpty) {
+              final data = product['image_data_base64'][0].toString();
+              if (data.startsWith('http')) {
+                imageSource = data;
+                print('New Products: Using Cloudinary URL from image_data_base64');
+              }
+            }
+  
+            // Fallback to image_url
+            if (imageSource.isEmpty && product['image_url'] != null) {
+              final url = product['image_url'].toString();
+              if (url.isNotEmpty && url.startsWith('http')) {
+                imageSource = url;
+                print('New Products: Using image_url');
+              }
+            }
+  
+            // Final fallback
+            if (imageSource.isEmpty) {
               print('New Products: NO IMAGE, using placeholder');
               imageSource = 'assets/images/placeholder.jpg';
             }
