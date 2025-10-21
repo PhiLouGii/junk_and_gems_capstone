@@ -930,19 +930,34 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     final price = isFromServer ? 'M${product['price']?.toString() ?? '0'}' : product['price']!;
     
     String image = '';
-    if (isFromServer) {
-      if (product['image_data_base64'] != null && product['image_data_base64'] is List && (product['image_data_base64'] as List).isNotEmpty) {
-        image = product['image_data_base64'][0];
-      } 
-      else if (product['image_url'] != null && product['image_url'].toString().isNotEmpty) {
-        image = product['image_url'];
-      } 
-      else {
-        image = 'assets/images/placeholder.jpg';
-      }
-    } else {
-      image = product['image'] ?? 'assets/images/placeholder.jpg';
-    }
+if (isFromServer) {
+  // Check for image_urls (plural - from Cloudinary)
+  if (product['image_urls'] != null && 
+      product['image_urls'] is List && 
+      (product['image_urls'] as List).isNotEmpty) {
+    image = product['image_urls'][0];
+    print('🖼️ Using image_urls: $image');
+  }
+  // Check for image_url (singular)
+  else if (product['image_url'] != null && 
+           product['image_url'].toString().isNotEmpty) {
+    image = product['image_url'];
+    print(' Using image_url: $image');
+  }
+  // Check for base64
+  else if (product['image_data_base64'] != null && 
+           product['image_data_base64'] is List && 
+           (product['image_data_base64'] as List).isNotEmpty) {
+    image = product['image_data_base64'][0];
+    print(' Using image_data_base64');
+  } 
+  else {
+    print(' NO IMAGE FOUND, using placeholder');
+    image = 'assets/images/placeholder.jpg';
+  }
+} else {
+  image = product['image'] ?? 'assets/images/placeholder.jpg';
+}
 
     return GestureDetector(
       onTap: () {
@@ -1441,14 +1456,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             artisanId = product['artisan_id']?.toString() ?? '';
             description = product['description'] ?? '';
             
-            if (product['image_data_base64'] != null && 
-                product['image_data_base64'] is List && 
-                (product['image_data_base64'] as List).isNotEmpty) {
-              imageSource = product['image_data_base64'][0];
+            if (product['image_urls'] != null && 
+                product['image_urls'] is List && 
+                (product['image_urls'] as List).isNotEmpty) {
+              imageSource = product['image_urls'][0];
+              print('New Products: Using image_urls');
             } else if (product['image_url'] != null && 
                        product['image_url'].toString().isNotEmpty) {
               imageSource = product['image_url'];
+              print('New Products: Using image_url');
+            } else if (product['image_data_base64'] != null && 
+                       product['image_data_base64'] is List && 
+                       (product['image_data_base64'] as List).isNotEmpty) {
+              imageSource = product['image_data_base64'][0];
+              print('New Products: Using base64');
             } else {
+              print('New Products: NO IMAGE, using placeholder');
               imageSource = 'assets/images/placeholder.jpg';
             }
           }

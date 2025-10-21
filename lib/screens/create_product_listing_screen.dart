@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:junk_and_gems/services/cloudinary_service.dart';
+import 'package:junk_and_gems/services/product_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:http/http.dart' as http;
@@ -357,6 +359,8 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   });
 
   try {
+    print('🏁 Starting product creation process...');
+
     // Get user ID and name from shared preferences
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('userId');
@@ -370,33 +374,14 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       return;
     }
 
-    final setupResponse = await http.post(
-      Uri.parse('https://junk-and-gems-api.onrender.com/api/setup-products-table'),
-      headers: {'Content-Type': 'application/json'},
+    // Show uploading message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📸 Uploading images to Cloudinary...'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 3),
+      ),
     );
-
-    if (setupResponse.statusCode != 200) {
-      _showErrorDialog('Failed to setup products table. Please try again.');
-      setState(() {
-        _isSubmitting = false;
-      });
-      return;
-    }
-
-    // Convert images to base64
-    List<String> imageBase64List = [];
-    if (_images.isNotEmpty) {
-      for (var imageFile in _images) {
-        try {
-          final bytes = await File(imageFile.path).readAsBytes();
-          final base64Image = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-          imageBase64List.add(base64Image);
-          print('✅ Converted image to base64: ${base64Image.substring(0, 50)}...');
-        } catch (e) {
-          print('⚠️ Error converting image: $e');
-        }
-      }
-    }
 
     // Prepare the product data
     final productData = {
@@ -409,34 +394,34 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       'dimensions': _dimensionsController.text.isEmpty ? null : _dimensionsController.text,
       'location': _locationController.text.isEmpty ? null : _locationController.text,
       'artisan_id': int.parse(userId),
-      'creator_name': userName, // Add creator name explicitly
-      'image_data_base64': imageBase64List, // Send as array of base64 strings
+      'creator_name': userName,
     };
 
-    print('📤 Submitting product: ${json.encode(productData).substring(0, 200)}...');
+    print('📋 Product data prepared: $productData');
 
-    // Send to backend
-    final response = await http.post(
-      Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode(productData),
-    ).timeout(const Duration(seconds: 30));
+    // Create the product using the service (same as materials!)
+    bool success = await ProductService.createProduct(productData, _images);
 
-    print('Response status: ${response.statusCode}');
-    print('Response body: ${response.body}');
-
-    if (response.statusCode == 201) {
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ Product uploaded successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
       _showSuccessDialog();
-    } else {
-      final errorData = json.decode(response.body);
-      final errorMessage = errorData['error'] ?? 'Failed to create product (Status: ${response.statusCode})';
-      _showErrorDialog(errorMessage);
     }
-  } catch (error) {
-    print('Error submitting product: $error');
-    _showErrorDialog('Network error: $error');
+
+  } catch (e) {
+    print('❌ Detailed error: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${e.toString()}'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 5),
+      ),
+    );
   } finally {
     setState(() {
       _isSubmitting = false;
