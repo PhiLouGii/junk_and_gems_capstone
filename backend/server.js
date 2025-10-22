@@ -319,6 +319,10 @@ app.post("/signup", async (req, res) => {
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
     
+    //NOTIFY ALL USERS BEFORE SENDING RESPONSE
+    console.log(`Notifying all users about new member: ${user.name} (ID: ${user.id})`);
+    await notifyAllUsersAboutNewUser(user.id, user.name);
+    
     // Send welcome email (don't await - let it send in background)
     sendEmail({
       to: email,
@@ -338,11 +342,6 @@ app.post("/signup", async (req, res) => {
       }
     });
 
-    // After user is created successfully:
-  const newUser = result.rows[0];
-  
-  // Notify all existing users about the new member
-  await notifyAllUsersAboutNewUser(newUser.id, newUser.name);
   } catch (err) {
     console.error("Signup error:", err); 
     res.status(500).json({ error: "Server error: " + err.message });
@@ -609,6 +608,8 @@ app.post("/api/setup-daily-rewards-table", async (req, res) => {
 
 async function notifyAllUsersAboutNewUser(newUserId, newUserName) {
   try {
+    console.log(`Creating notifications for new user: ${newUserName} (ID: ${newUserId})`);
+    
     // Get all user IDs except the new user
     const usersResult = await pool.query(
       'SELECT id FROM users WHERE id != $1 AND id IS NOT NULL',
@@ -616,26 +617,62 @@ async function notifyAllUsersAboutNewUser(newUserId, newUserName) {
     );
 
     if (usersResult.rows.length === 0) {
-      console.log('No existing users to notify');
+      console.log('ℹ️ No existing users to notify');
       return;
     }
 
-    // Create notification for each user
+    console.log(`Found ${usersResult.rows.length} users to notify`);
+
+    // Create notification for each user - FIXED: No extra space in title
     const notificationValues = usersResult.rows.map(user => 
-      `(${user.id}, 'new_user', 'New Member! ', 'Say hello to ${newUserName} who just joined Junk & Gems!', ${newUserId}, FALSE, NOW(), NOW() + INTERVAL '7 days')`
+      `(${user.id}, 'new_user', 'New Member! 🎉', 'Say hello to ${newUserName} who just joined Junk & Gems!', ${newUserId}, FALSE, NOW(), NOW() + INTERVAL '7 days')`
     ).join(',');
 
-    await pool.query(`
+    const insertQuery = `
       INSERT INTO user_notifications 
         (user_id, notification_type, title, message, related_user_id, is_read, created_at, expires_at)
       VALUES ${notificationValues}
-    `);
+      RETURNING id
+    `;
 
-    console.log(`Created ${usersResult.rows.length} notifications for new user: ${newUserName}`);
+    console.log('Executing insert query...');
+    const result = await pool.query(insertQuery);
+
+    console.log(`Created ${result.rows.length} notifications for new user: ${newUserName}`);
+    return result.rows.length;
+    
   } catch (error) {
     console.error('Error creating new user notifications:', error);
+    console.error('Error details:', error.message);
+    console.error('Error code:', error.code);
+    // Don't throw - we don't want to break signup if notifications fail
+    return 0;
   }
 }
+
+// Helper function to format notification time
+function formatNotificationTime(timestamp) {
+  if (!timestamp) return 'Just now';
+  
+  try {
+    const now = new Date();
+    const notifTime = new Date(timestamp);
+    const diffMs = now - notifTime;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return notifTime.toLocaleDateString();
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
 
 // Get notifications for a specific user
 app.get('/api/users/:userId/notifications', async (req, res) => {
