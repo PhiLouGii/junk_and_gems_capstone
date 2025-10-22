@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class User {
   final int? id;
@@ -68,31 +69,27 @@ class AuthProvider with ChangeNotifier {
   bool get isInitialized => _isInitialized;
 
   AuthProvider() {
-    print('🔧 AuthProvider constructor called');
-    // Don't call async methods in constructor
+    print('AuthProvider constructor called');
   }
 
   // Call this method to initialize the provider
   Future<void> initialize() async {
     if (_isInitialized) {
-      print('✅ AuthProvider already initialized');
+      print('AuthProvider already initialized');
       return;
     }
 
-    print('🔧 Initializing AuthProvider...');
+    print('Initializing AuthProvider...');
     await _loadStoredAuth();
     
-    // Auto-login test user for development if no user exists
-    if (_user == null) {
-      print('👤 No stored user found, creating test user...');
-      await setTestUser();
+    _isInitialized = true;
+    
+    if (_user != null) {
+      print('Loaded user: ${_user?.name} (ID: ${_user?.id})');
     } else {
-      print('✅ Loaded stored user: ${_user?.name} (ID: ${_user?.id})');
+      print('ℹ️ No user logged in - user needs to login');
     }
     
-    _isInitialized = true;
-    print('✅ AuthProvider initialization complete');
-    print('📊 Final state - User: ${_user?.name}, ID: ${_user?.id}, Authenticated: $isAuthenticated');
     notifyListeners();
   }
 
@@ -105,74 +102,139 @@ class AuthProvider with ChangeNotifier {
       if (token != null && userData != null) {
         _token = token;
         _user = User.fromJson(json.decode(userData));
-        print('✅ Loaded stored user: ${_user?.name} (ID: ${_user?.id})');
+        print('Loaded stored user: ${_user?.name} (ID: ${_user?.id})');
       } else {
         print('ℹ️ No stored auth found');
       }
     } catch (e) {
-      print('⚠️ Error loading stored auth: $e');
+      print('Error loading stored auth: $e');
     }
   }
 
-  // For testing - you can remove this later
-  Future<void> setTestUser() async {
-    print('👤 Creating test user...');
-    
-    _user = User(
-      id: 1,
-      name: 'Test User',
-      email: 'test@example.com',
-      username: 'testuser',
-      availableGems: 840,
-      userType: 'contributor',
-    );
-    _token = 'test_token_123';
-    
-    // Store test user
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', _token!);
-      await prefs.setString('user_data', json.encode(_user!.toJson()));
-      print('✅ Test user stored in preferences');
-    } catch (e) {
-      print('⚠️ Error storing test user: $e');
-    }
-    
-    print('✅ Test user created: ${_user?.name} (ID: ${_user?.id})');
-    notifyListeners();
-  }
-
-  Future<void> login(String email, String password) async {
+  // REAL login that connects to the API
+  Future<bool> login(String email, String password) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // Simulate API call - replace with your actual login logic
-      await Future.delayed(Duration(seconds: 2));
+      print('Attempting login for: $email');
       
-      _user = User(
-        id: 1,
-        name: 'Test User',
-        email: email,
-        availableGems: 840,
+      final response = await http.post(
+        Uri.parse('https://junk-and-gems-api.onrender.com/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
       );
-      _token = 'dummy_token';
 
-      // Store auth data
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', _token!);
-      await prefs.setString('user_data', json.encode(_user!.toJson()));
+      print('Login response status: ${response.statusCode}');
 
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        _token = data['token'];
+        _user = User.fromJson(data['user']);
+
+        print('   Login successful!');
+        print('   User ID: ${_user?.id}');
+        print('   User Name: ${_user?.name}');
+        print('   User Email: ${_user?.email}');
+
+        // Store auth data
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', _token!);
+        await prefs.setString('user_data', json.encode(_user!.toJson()));
+        
+        // Also store individual fields for backwards compatibility
+        await prefs.setString('userId', _user!.id.toString());
+        await prefs.setString('token', _token!);
+
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final errorData = json.decode(response.body);
+        _error = errorData['error'] ?? 'Login failed';
+        print('Login failed: $_error');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
     } catch (error) {
       _error = 'Login failed: $error';
-    } finally {
+      print('Login error: $error');
       _isLoading = false;
       notifyListeners();
+      return false;
+    }
+  }
+
+  // REAL signup that connects to your API
+  Future<bool> signup(String name, String email, String password) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      print('Attempting signup for: $email');
+      
+      final response = await http.post(
+        Uri.parse('https://junk-and-gems-api.onrender.com/signup'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'name': name,
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      print('Signup response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        _token = data['token'];
+        _user = User.fromJson(data['user']);
+
+        print('   Signup successful!');
+        print('   User ID: ${_user?.id}');
+        print('   User Name: ${_user?.name}');
+        print('   User Email: ${_user?.email}');
+
+        // Store auth data
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', _token!);
+        await prefs.setString('user_data', json.encode(_user!.toJson()));
+        
+        // Also store individual fields for backwards compatibility
+        await prefs.setString('userId', _user!.id.toString());
+        await prefs.setString('token', _token!);
+
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        final errorData = json.decode(response.body);
+        _error = errorData['error'] ?? 'Signup failed';
+        print('Signup failed: $_error');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } catch (error) {
+      _error = 'Signup failed: $error';
+      print('Signup error: $error');
+      _isLoading = false;
+      notifyListeners();
+      return false;
     }
   }
 
   Future<void> logout() async {
+    print('Logging out user: ${_user?.name}');
+    
     _user = null;
     _token = null;
     _error = null;
@@ -181,7 +243,10 @@ class AuthProvider with ChangeNotifier {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
+    await prefs.remove('userId');
+    await prefs.remove('token');
 
+    print('Logout complete');
     notifyListeners();
   }
 
@@ -204,7 +269,40 @@ class AuthProvider with ChangeNotifier {
         userType: _user!.userType,
         availableGems: newGems,
       );
+      
+      // Update stored user data
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('user_data', json.encode(_user!.toJson()));
+      });
+      
       notifyListeners();
+    }
+  }
+
+  // Refresh user data from server
+  Future<void> refreshUserData() async {
+    if (_user?.id == null || _token == null) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/${_user!.id}/profile'),
+        headers: {
+          'Authorization': 'Bearer $_token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final userData = json.decode(response.body);
+        _user = User.fromJson(userData);
+        
+        // Update stored data
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_data', json.encode(_user!.toJson()));
+        
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error refreshing user data: $e');
     }
   }
 }

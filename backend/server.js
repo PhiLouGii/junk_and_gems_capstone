@@ -950,7 +950,9 @@ app.get("/materials", async (req, res) => {
 
 // Create new material/donation with base64 images
 app.post("/materials", async (req, res) => {
-  console.log('📝 Received material creation request');
+  console.log('Received material creation request');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
   const { 
     title, description, category, quantity, location, delivery_option, 
     available_from, available_until, is_fragile, contact_preferences,
@@ -958,15 +960,35 @@ app.post("/materials", async (req, res) => {
   } = req.body;
  
   try {
+    // Validate required fields
     if (!title || !description || !category || !uploader_id) {
+      console.log('Missing required fields');
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    console.log(`Validated input - Uploader ID: ${uploader_id}`);
+
+    // IMPORTANT: Verify the user exists and get their actual name
+    const userCheck = await pool.query(
+      'SELECT id, name, email FROM users WHERE id = $1',
+      [uploader_id]
+    );
+
+    if (userCheck.rows.length === 0) {
+      console.log(`User with ID ${uploader_id} not found`);
+      return res.status(400).json({ error: "Invalid uploader_id - user not found" });
+    }
+
+    const uploaderInfo = userCheck.rows[0];
+    console.log(`User verified: ${uploaderInfo.name} (${uploaderInfo.email})`);
+
+    // Process images
     let imageUrls = [];
     if (image_urls && Array.isArray(image_urls)) {
       imageUrls = image_urls;
     }
 
+    // Process contact preferences
     let contactPrefs = {};
     if (contact_preferences) {
       if (typeof contact_preferences === 'string') {
@@ -980,6 +1002,9 @@ app.post("/materials", async (req, res) => {
       }
     }
 
+    console.log('Inserting material into database...');
+
+    // Insert the material
     const result = await pool.query(
       `INSERT INTO materials 
        (title, description, category, quantity, location, delivery_option, 
@@ -988,8 +1013,13 @@ app.post("/materials", async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
        RETURNING *`,
       [
-        title, description, category, quantity || 'Not specified', location, 
-        delivery_option || 'Needs Pickup', available_from || new Date().toISOString(),
+        title, 
+        description, 
+        category, 
+        quantity || 'Not specified', 
+        location, 
+        delivery_option || 'Needs Pickup', 
+        available_from || new Date().toISOString(),
         available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         is_fragile || false, 
         contactPrefs, 
@@ -998,52 +1028,66 @@ app.post("/materials", async (req, res) => {
       ]
     );
 
-    // Award gems
-    await pool.query(
-      "UPDATE users SET available_gems = available_gems + 5 WHERE id = $1",
-      [uploader_id]
-    );
-    await pool.query(
-      "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
-      [uploader_id, 5, `Earned for donating material: ${title}`]
-    );
+    const insertedMaterial = result.rows[0];
+    console.log(`Material inserted with ID: ${insertedMaterial.id}`);
 
-    // Get user info and send confirmation email
-    const userResult = await pool.query("SELECT name, email FROM users WHERE id = $1", [uploader_id]);
-    if (userResult.rows.length > 0) {
-      const user = userResult.rows[0];
-      sendEmail({
-        to: user.email,
-        subject: 'Donation Posted Successfully!',
-        text: `Hi ${user.name}! Your donation "${title}" has been posted successfully. You earned 5 gems!`,
-        html: getDonationConfirmationEmailHtml(user.name, title, 5)
-      }).catch(err => console.error('Failed to send donation confirmation email:', err));
+    // Award gems to uploader
+    try {
+      await pool.query(
+        "UPDATE users SET available_gems = available_gems + 5 WHERE id = $1",
+        [uploader_id]
+      );
+      await pool.query(
+        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+        [uploader_id, 5, `Earned for donating material: ${title}`]
+      );
+      console.log(`💎 Awarded 5 gems to user ${uploader_id}`);
+    } catch (gemErr) {
+      console.log('⚠️ Could not award gems:', gemErr.message);
     }
 
-    const materialWithUploader = await pool.query(`
-      SELECT 
-        m.*,
-        u.name as uploader_name,
-        u.email as uploader_email,
-        u.profile_image_url as uploader_avatar
-      FROM materials m
-      JOIN users u ON m.uploader_id = u.id
-      WHERE m.id = $1
-    `, [result.rows[0].id]);
+    // Send confirmation email (background - don't wait)
+    sendEmail({
+      to: uploaderInfo.email,
+      subject: 'Donation Posted Successfully!',
+      text: `Hi ${uploaderInfo.name}! Your donation "${title}" has been posted successfully. You earned 5 gems!`,
+      html: getDonationConfirmationEmailHtml(uploaderInfo.name, title, 5)
+    }).catch(err => console.error('Failed to send donation confirmation email:', err));
 
-    const material = materialWithUploader.rows[0];
-
+    // CRITICAL FIX: Return the material with the ACTUAL user data
     const formattedMaterial = {
-      ...material,
-      image_urls: material.image_data_base64 || [],
-      uploader: material.uploader_name,
-      amount: material.quantity,
-      time: formatTimeAgo(material.created_at)
+      id: insertedMaterial.id,
+      title: insertedMaterial.title,
+      description: insertedMaterial.description,
+      category: insertedMaterial.category,
+      quantity: insertedMaterial.quantity,
+      location: insertedMaterial.location,
+      delivery_option: insertedMaterial.delivery_option,
+      available_from: insertedMaterial.available_from,
+      available_until: insertedMaterial.available_until,
+      is_fragile: insertedMaterial.is_fragile,
+      contact_preferences: insertedMaterial.contact_preferences,
+      image_urls: insertedMaterial.image_data_base64 || [],
+      uploader_id: uploader_id, // IMPORTANT: Include uploader_id
+      uploader: uploaderInfo.name, // Use ACTUAL user name from database
+      uploader_name: uploaderInfo.name, // Also include as uploader_name for compatibility
+      uploader_email: uploaderInfo.email,
+      uploader_avatar: userCheck.rows[0].profile_image_url,
+      amount: insertedMaterial.quantity,
+      time: formatTimeAgo(insertedMaterial.created_at),
+      created_at: insertedMaterial.created_at,
+      is_claimed: false,
+      claimed_by: null,
+      claimed_at: null
     };
+
+    console.log('Sending response with uploader:', uploaderInfo.name);
+    console.log('Full response:', JSON.stringify(formattedMaterial, null, 2));
 
     res.status(201).json(formattedMaterial);
   } catch (err) {
     console.error("Create material error:", err);
+    console.error("Stack trace:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
