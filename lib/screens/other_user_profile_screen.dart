@@ -3,7 +3,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/services/user_service.dart';
+import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class OtherUserProfileScreen extends StatefulWidget {
@@ -25,16 +27,32 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   List<dynamic> donations = [];
   List<dynamic> products = [];
   bool isLoading = true;
+  String? _currentUserId;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _loadUserData();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _currentUserId = prefs.getString('userId');
+        _token = prefs.getString('token');
+      });
+      print('✅ Current User ID loaded: $_currentUserId');
+    } catch (e) {
+      print('❌ Error loading current user: $e');
+    }
   }
 
   Future<void> _loadUserData() async {
     try {
-      print('🔄 Loading user data for user ID: ${widget.userId}');
+      print('📄 Loading user data for user ID: ${widget.userId}');
       
       final profileData = await UserService.getOtherUserProfile(widget.userId);
       final donationsData = await UserService.getDonationsByUserId(widget.userId);
@@ -55,6 +73,123 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _startConversationAndNavigate(String initialMessage) async {
+    if (_currentUserId == null || _token == null) {
+      _showErrorSnackbar('Please log in to send messages');
+      return;
+    }
+
+    if (_currentUserId == widget.userId) {
+      _showErrorSnackbar('You cannot message yourself');
+      return;
+    }
+
+    try {
+      print('🚀 Starting conversation...');
+      print('Current User ID: $_currentUserId');
+      print('Other User ID: ${widget.userId}');
+      print('Initial Message: $initialMessage');
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: const Color(0xFF88844D)),
+                const SizedBox(height: 16),
+                Text(
+                  'Starting conversation...',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final response = await http.post(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/start'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+        body: json.encode({
+          'currentUserId': _currentUserId,
+          'otherUserId': widget.userId,
+          'initialMessage': initialMessage,
+        }),
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      print('📨 Response status: ${response.statusCode}');
+      print('📨 Response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        final conversationId = data['id'].toString();
+
+        print('✅ Conversation created/found: $conversationId');
+
+        // Navigate to chat screen
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                userName: widget.userName,
+                otherUserId: widget.userId,
+                currentUserId: _currentUserId!,
+                conversationId: conversationId,
+              ),
+            ),
+          );
+        }
+      } else {
+        print('❌ Failed to start conversation: ${response.statusCode}');
+        print('❌ Error body: ${response.body}');
+        _showErrorSnackbar('Failed to start conversation. Please try again.');
+      }
+    } catch (e) {
+      // Close loading dialog if it's still open
+      if (mounted) Navigator.pop(context);
+      
+      print('❌ Error starting conversation: $e');
+      _showErrorSnackbar('Network error. Please check your connection.');
+    }
+  }
+
+  void _showErrorSnackbar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            message,
+            style: const TextStyle(color: Colors.white),
+          ),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
@@ -262,11 +397,9 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
-  // NEW: Combined action buttons with message and report
   Widget _buildActionButtons(BuildContext context) {
     return Row(
       children: [
-        // Message Button
         Expanded(
           child: ElevatedButton(
             onPressed: () {
@@ -298,8 +431,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        
-        // Report Button (Flag Icon)
         Container(
           width: 60,
           child: ElevatedButton(
@@ -324,7 +455,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
-  // NEW: Report dialog method
   void _showReportDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -464,7 +594,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   Widget _buildDonationCard(Map<String, dynamic> donation) {
-    // Debug print to see what data we're receiving
     print('🎁 Donation data: $donation');
     
     return Container(
@@ -548,7 +677,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   Widget _buildDonationImage(Map<String, dynamic> donation) {
-    // Handle different possible image field names
     final imageUrls = donation['image_urls'] ?? donation['image_data_base64'] ?? [];
     final firstImage = imageUrls is List && imageUrls.isNotEmpty ? imageUrls[0] : null;
     
@@ -771,6 +899,8 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   void _showMessageDialog(BuildContext context) {
+    final TextEditingController messageController = TextEditingController();
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -787,7 +917,9 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
             ),
           ),
           content: TextField(
+            controller: messageController,
             maxLines: 5,
+            autofocus: true,
             decoration: InputDecoration(
               hintText: 'Type your message here...',
               hintStyle: TextStyle(
@@ -812,7 +944,10 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+                messageController.dispose();
+              },
               child: Text(
                 'Cancel',
                 style: TextStyle(
@@ -822,8 +957,15 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
             ),
             ElevatedButton(
               onPressed: () {
+                final message = messageController.text.trim();
+                if (message.isEmpty) {
+                  _showErrorSnackbar('Please enter a message');
+                  return;
+                }
+                
                 Navigator.pop(context);
-                _showMessageSentSnackbar(context);
+                _startConversationAndNavigate(message);
+                messageController.dispose();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF88844D),
@@ -834,23 +976,6 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
           ],
         );
       },
-    );
-  }
-
-  void _showMessageSentSnackbar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF88844D),
-        content: Text(
-          'Message sent to ${widget.userName}',
-          style: const TextStyle(color: Colors.white),
-        ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
     );
   }
 }
