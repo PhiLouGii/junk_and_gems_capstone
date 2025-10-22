@@ -970,7 +970,7 @@ app.post("/materials", async (req, res) => {
 
     // IMPORTANT: Verify the user exists and get their actual name
     const userCheck = await pool.query(
-      'SELECT id, name, email FROM users WHERE id = $1',
+      'SELECT id, name, email, profile_image_url FROM users WHERE id = $1',
       [uploader_id]
     );
 
@@ -980,7 +980,7 @@ app.post("/materials", async (req, res) => {
     }
 
     const uploaderInfo = userCheck.rows[0];
-    console.log(`User verified: ${uploaderInfo.name} (${uploaderInfo.email})`);
+    console.log(`✅ User verified: ${uploaderInfo.name} (${uploaderInfo.email})`);
 
     // Process images
     let imageUrls = [];
@@ -1054,7 +1054,7 @@ app.post("/materials", async (req, res) => {
       html: getDonationConfirmationEmailHtml(uploaderInfo.name, title, 5)
     }).catch(err => console.error('Failed to send donation confirmation email:', err));
 
-    // CRITICAL FIX: Return the material with the ACTUAL user data
+    // CRITICAL FIX: Return the material with the ACTUAL user data from the database
     const formattedMaterial = {
       id: insertedMaterial.id,
       title: insertedMaterial.title,
@@ -1068,11 +1068,11 @@ app.post("/materials", async (req, res) => {
       is_fragile: insertedMaterial.is_fragile,
       contact_preferences: insertedMaterial.contact_preferences,
       image_urls: insertedMaterial.image_data_base64 || [],
-      uploader_id: uploader_id, // IMPORTANT: Include uploader_id
-      uploader: uploaderInfo.name, // Use ACTUAL user name from database
-      uploader_name: uploaderInfo.name, // Also include as uploader_name for compatibility
+      uploader_id: uploader_id,
+      uploader: uploaderInfo.name, // ✅ Use ACTUAL user name from database query
+      uploader_name: uploaderInfo.name, // ✅ Also include as uploader_name
       uploader_email: uploaderInfo.email,
-      uploader_avatar: userCheck.rows[0].profile_image_url,
+      uploader_avatar: uploaderInfo.profile_image_url,
       amount: insertedMaterial.quantity,
       time: formatTimeAgo(insertedMaterial.created_at),
       created_at: insertedMaterial.created_at,
@@ -1091,6 +1091,21 @@ app.post("/materials", async (req, res) => {
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
+
+// Helper function to format time ago
+function formatTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - new Date(date);
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} mins ago`;
+  if (diffHours < 24) return `${diffHours} hrs ago`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return new Date(date).toLocaleDateString();
+}
 
 
 // Search materials by category or title
@@ -2670,7 +2685,7 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
       text: emailText
     }).catch(err => console.error('Failed to send order confirmation email:', err));
 
-    console.log(`✅ Order created: #${order.id} - ${paymentMethod}`);
+    console.log(`Order created: #${order.id} - ${paymentMethod}`);
 
     res.status(201).json({
       success: true,
