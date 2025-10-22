@@ -5,10 +5,10 @@ import 'package:junk_and_gems/screens/browse_materials_screen.dart';
 import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
+import 'package:junk_and_gems/screens/other_user_profile_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class NotificationsMessagesScreen extends StatefulWidget {
   const NotificationsMessagesScreen({super.key});
@@ -25,8 +25,11 @@ class _NotificationsMessagesScreenState
   String? _currentUserId;
   String? _token;
   List<Map<String, dynamic>> _conversations = [];
-  bool _isLoading = true;
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoadingMessages = true;
+  bool _isLoadingNotifications = true;
   String? _errorMessage;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -43,7 +46,10 @@ class _NotificationsMessagesScreenState
 
   Future<void> _initializeData() async {
     await _loadCurrentUser();
-    await _loadConversations();
+    await Future.wait([
+      _loadConversations(),
+      _loadNotifications(),
+    ]);
   }
 
   Future<void> _loadCurrentUser() async {
@@ -59,10 +65,155 @@ class _NotificationsMessagesScreenState
     }
   }
 
+  Future<void> _loadNotifications() async {
+    if (_currentUserId == null) {
+      setState(() {
+        _isLoadingNotifications = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoadingNotifications = true;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$_currentUserId/notifications?limit=50'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic> rawNotifications = data['notifications'] ?? [];
+        
+        setState(() {
+          _notifications = rawNotifications.map((notif) {
+            return _parseNotification(notif);
+          }).toList();
+          _unreadNotificationCount = data['unreadCount'] ?? 0;
+          _isLoadingNotifications = false;
+        });
+      } else {
+        print('❌ Error loading notifications: ${response.statusCode}');
+        setState(() {
+          _isLoadingNotifications = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Exception loading notifications: $e');
+      setState(() {
+        _isLoadingNotifications = false;
+      });
+    }
+  }
+
+  Map<String, dynamic> _parseNotification(Map<String, dynamic> notif) {
+    final type = notif['type'] ?? 'general';
+    
+    return {
+      'id': notif['id'],
+      'type': type,
+      'title': notif['title'] ?? 'Notification',
+      'subtitle': notif['message'] ?? '',
+      'time': notif['time'] ?? 'Recently',
+      'isUnread': !(notif['isRead'] ?? false),
+      'relatedUserId': notif['relatedUserId'],
+      'relatedUserName': notif['relatedUserName'],
+      'relatedUserImage': notif['relatedUserImage'],
+      'action': _getActionForType(type),
+      'icon': _getIconForType(type),
+      'color': _getColorForType(type),
+    };
+  }
+
+  String _getActionForType(String type) {
+    switch (type) {
+      case 'new_user':
+        return 'Say Hi';
+      case 'material_claimed':
+        return 'View';
+      case 'product_sold':
+        return 'Details';
+      case 'message':
+        return 'Reply';
+      default:
+        return 'View';
+    }
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'new_user':
+        return Icons.person_add;
+      case 'material_claimed':
+        return Icons.inventory;
+      case 'product_sold':
+        return Icons.shopping_bag;
+      case 'message':
+        return Icons.message;
+      case 'achievement':
+        return Icons.stars;
+      default:
+        return Icons.notifications;
+    }
+  }
+
+  Color _getColorForType(String type) {
+    switch (type) {
+      case 'new_user':
+        return Colors.green;
+      case 'material_claimed':
+        return Colors.orange;
+      case 'product_sold':
+        return Colors.blue;
+      case 'message':
+        return Colors.purple;
+      case 'achievement':
+        return Colors.amber;
+      default:
+        return const Color(0xFF88844D);
+    }
+  }
+
+  Future<void> _markNotificationAsRead(int notificationId) async {
+    if (_currentUserId == null) return;
+
+    try {
+      final response = await http.put(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$_currentUserId/notifications/read'),
+        headers: {
+          'Content-Type': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+        body: json.encode({
+          'notificationIds': [notificationId],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          final index = _notifications.indexWhere((n) => n['id'] == notificationId);
+          if (index != -1) {
+            _notifications[index]['isUnread'] = false;
+            if (_unreadNotificationCount > 0) {
+              _unreadNotificationCount--;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print('❌ Error marking notification as read: $e');
+    }
+  }
+
   Future<void> _loadConversations() async {
     if (_currentUserId == null || _token == null) {
       setState(() {
-        _isLoading = false;
+        _isLoadingMessages = false;
         _errorMessage = 'Please log in to view messages';
       });
       return;
@@ -81,18 +232,18 @@ class _NotificationsMessagesScreenState
         final List<dynamic> data = json.decode(response.body);
         setState(() {
           _conversations = data.cast<Map<String, dynamic>>();
-          _isLoading = false;
+          _isLoadingMessages = false;
           _errorMessage = null;
         });
       } else {
         setState(() {
-          _isLoading = false;
+          _isLoadingMessages = false;
           _errorMessage = 'Failed to load conversations';
         });
       }
     } catch (error) {
       setState(() {
-        _isLoading = false;
+        _isLoadingMessages = false;
         _errorMessage = 'Network error';
       });
     }
@@ -185,7 +336,10 @@ class _NotificationsMessagesScreenState
               ),
               IconButton(
                 icon: Icon(Icons.refresh, color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D)),
-                onPressed: _loadConversations,
+                onPressed: () {
+                  _loadNotifications();
+                  _loadConversations();
+                },
               ),
             ],
           ),
@@ -224,18 +378,41 @@ class _NotificationsMessagesScreenState
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
-              tabs: const [
+              tabs: [
                 Tab(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.notifications, size: 18),
-                      SizedBox(width: 8),
-                      Text('Notifications'),
+                      const Icon(Icons.notifications, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('Notifications'),
+                      if (_unreadNotificationCount > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                          child: Text(
+                            _unreadNotificationCount > 9 ? '9+' : _unreadNotificationCount.toString(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                Tab(
+                const Tab(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -254,9 +431,11 @@ class _NotificationsMessagesScreenState
   }
 
   Widget _buildNotificationsTab(bool isDarkMode) {
-    final notifications = _generateDynamicNotifications();
+    if (_isLoadingNotifications) {
+      return _buildLoadingState(isDarkMode, 'Loading notifications...');
+    }
 
-    if (notifications.isEmpty) {
+    if (_notifications.isEmpty) {
       return _buildEmptyState(
         isDarkMode: isDarkMode,
         icon: Icons.notifications_off,
@@ -270,16 +449,14 @@ class _NotificationsMessagesScreenState
         final isTablet = constraints.maxWidth > 600;
         
         return RefreshIndicator(
-          onRefresh: () async {
-            setState(() {});
-          },
+          onRefresh: _loadNotifications,
           color: const Color(0xFF88844D),
           child: ListView.builder(
             padding: EdgeInsets.all(isTablet ? 24 : 16),
-            itemCount: notifications.length,
+            itemCount: _notifications.length,
             itemBuilder: (context, index) {
               return _buildNotificationCard(
-                notifications[index],
+                _notifications[index],
                 isDarkMode,
                 index,
                 isTablet,
@@ -289,67 +466,6 @@ class _NotificationsMessagesScreenState
         );
       },
     );
-  }
-
-  List<Map<String, dynamic>> _generateDynamicNotifications() {
-    final now = DateTime.now();
-    final notifications = <Map<String, dynamic>>[];
-
-    final hour = now.hour;
-    String greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
-    notifications.add({
-      'type': 'welcome',
-      'title': '$greeting! 👋',
-      'subtitle': 'Welcome back to Junk & Gems',
-      'time': 'Just now',
-      'action': 'Explore',
-      'icon': Icons.waving_hand,
-      'color': Colors.blue,
-      'isUnread': false,
-    });
-
-    notifications.add({
-      'type': 'stats',
-      'title': 'Community Update 📊',
-      'subtitle': '12 new materials were listed today',
-      'time': '2 hours ago',
-      'action': 'Browse',
-      'icon': Icons.trending_up,
-      'color': Colors.green,
-      'isUnread': true,
-    });
-
-    notifications.add({
-      'type': 'recommendation',
-      'title': 'New in Your Area 📍',
-      'subtitle': 'Plastic bottles and glass jars available nearby',
-      'time': '4 hours ago',
-      'action': 'View',
-      'icon': Icons.local_shipping,
-      'color': Colors.orange,
-      'isUnread': true,
-    });
-
-    final tips = [
-      'Clean materials get better responses ✨',
-      'Upcycling reduces landfill waste by 80% 🌍',
-      'Take clear photos in natural light 📸',
-      '50+ artisans joined this week! 🎉'
-    ];
-    
-    notifications.add({
-      'type': 'tip',
-      'title': 'Upcycling Tip 💡',
-      'subtitle': tips[now.day % tips.length],
-      'time': '1 day ago',
-      'action': 'Learn',
-      'icon': Icons.lightbulb,
-      'color': Colors.purple,
-      'isUnread': false,
-    });
-
-    return notifications;
   }
 
   Widget _buildNotificationCard(
@@ -475,18 +591,43 @@ class _NotificationsMessagesScreenState
   }
 
   void _handleNotificationTap(Map<String, dynamic> notification) {
+    // Mark as read
+    if (notification['isUnread'] == true && notification['id'] != null) {
+      _markNotificationAsRead(notification['id']);
+    }
+
     final type = notification['type'];
     
     switch (type) {
-      case 'welcome':
-      case 'stats':
+      case 'new_user':
+        // Navigate to the new user's profile
+        if (notification['relatedUserId'] != null && notification['relatedUserName'] != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtherUserProfileScreen(
+                userName: notification['relatedUserName'],
+                userId: notification['relatedUserId'].toString(),
+              ),
+            ),
+          );
+        }
+        break;
+      case 'material_claimed':
       case 'recommendation':
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
         );
         break;
-      case 'tip':
+      case 'product_sold':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const MarketplaceScreen(userName: 'User')),
+        );
+        break;
+      case 'message':
+        // Would navigate to chat if we had the conversation data
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(notification['subtitle'] as String),
@@ -496,6 +637,15 @@ class _NotificationsMessagesScreenState
           ),
         );
         break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(notification['subtitle'] as String),
+            backgroundColor: const Color(0xFF88844D),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
     }
   }
 
@@ -504,8 +654,8 @@ class _NotificationsMessagesScreenState
       return _buildErrorState(isDarkMode);
     }
 
-    if (_isLoading) {
-      return _buildLoadingState(isDarkMode);
+    if (_isLoadingMessages) {
+      return _buildLoadingState(isDarkMode, 'Loading conversations...');
     }
 
     if (_conversations.isEmpty) {
@@ -745,7 +895,7 @@ class _NotificationsMessagesScreenState
     );
   }
 
-  Widget _buildLoadingState(bool isDarkMode) {
+  Widget _buildLoadingState(bool isDarkMode, String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -768,7 +918,7 @@ class _NotificationsMessagesScreenState
           ),
           const SizedBox(height: 24),
           Text(
-            'Loading conversations...',
+            message,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -811,7 +961,10 @@ class _NotificationsMessagesScreenState
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _loadConversations,
+              onPressed: () {
+                _loadNotifications();
+                _loadConversations();
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
@@ -863,7 +1016,9 @@ class _NotificationsMessagesScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildNavItem(Icons.home_filled, false, 'Home', isDarkMode, onTap: () {}),
+          _buildNavItem(Icons.home_filled, false, 'Home', isDarkMode, onTap: () {
+            Navigator.pop(context);
+          }),
           _buildNavItem(Icons.inventory_2_outlined, false, 'Browse', isDarkMode, onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()));
           }),

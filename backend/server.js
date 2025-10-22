@@ -337,6 +337,12 @@ app.post("/signup", async (req, res) => {
         username: user.username
       }
     });
+
+    // After user is created successfully:
+  const newUser = result.rows[0];
+  
+  // Notify all existing users about the new member
+  await notifyAllUsersAboutNewUser(newUser.id, newUser.name);
   } catch (err) {
     console.error("Signup error:", err); 
     res.status(500).json({ error: "Server error: " + err.message });
@@ -600,6 +606,246 @@ app.post("/api/setup-daily-rewards-table", async (req, res) => {
     res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
+
+async function notifyAllUsersAboutNewUser(newUserId, newUserName) {
+  try {
+    // Get all user IDs except the new user
+    const usersResult = await pool.query(
+      'SELECT id FROM users WHERE id != $1 AND id IS NOT NULL',
+      [newUserId]
+    );
+
+    if (usersResult.rows.length === 0) {
+      console.log('No existing users to notify');
+      return;
+    }
+
+    // Create notification for each user
+    const notificationValues = usersResult.rows.map(user => 
+      `(${user.id}, 'new_user', 'New Member! ', 'Say hello to ${newUserName} who just joined Junk & Gems!', ${newUserId}, FALSE, NOW(), NOW() + INTERVAL '7 days')`
+    ).join(',');
+
+    await pool.query(`
+      INSERT INTO user_notifications 
+        (user_id, notification_type, title, message, related_user_id, is_read, created_at, expires_at)
+      VALUES ${notificationValues}
+    `);
+
+    console.log(`Created ${usersResult.rows.length} notifications for new user: ${newUserName}`);
+  } catch (error) {
+    console.error('Error creating new user notifications:', error);
+  }
+}
+
+// Get notifications for a specific user
+app.get('/api/users/:userId/notifications', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { unread_only, limit = 50 } = req.query;
+
+    let query = `
+      SELECT 
+        n.id,
+        n.notification_type,
+        n.title,
+        n.message,
+        n.is_read,
+        n.created_at,
+        n.related_user_id,
+        u.name as related_user_name,
+        u.profile_image_url as related_user_image
+      FROM user_notifications n
+      LEFT JOIN users u ON n.related_user_id = u.id
+      WHERE n.user_id = $1 
+        AND (n.expires_at IS NULL OR n.expires_at > NOW())
+    `;
+
+    const queryParams = [userId];
+
+    if (unread_only === 'true') {
+      query += ' AND n.is_read = FALSE';
+    }
+
+    query += ' ORDER BY n.created_at DESC LIMIT $2';
+    queryParams.push(limit);
+
+    const result = await pool.query(query, queryParams);
+
+    // Format the response
+    const notifications = result.rows.map(notif => ({
+      id: notif.id,
+      type: notif.notification_type,
+      title: notif.title,
+      message: notif.message,
+      isRead: notif.is_read,
+      createdAt: notif.created_at,
+      relatedUserId: notif.related_user_id,
+      relatedUserName: notif.related_user_name,
+      relatedUserImage: notif.related_user_image,
+      time: formatNotificationTime(notif.created_at)
+    }));
+
+    res.json({
+      success: true,
+      notifications,
+      unreadCount: notifications.filter(n => !n.isRead).length
+    });
+
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch notifications' 
+    });
+  }
+});
+
+// Mark notification(s) as read
+app.put('/api/users/:userId/notifications/read', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { notificationIds, markAll } = req.body;
+
+    let query;
+    let queryParams;
+
+    if (markAll) {
+      query = `
+        UPDATE user_notifications 
+        SET is_read = TRUE 
+        WHERE user_id = $1 AND is_read = FALSE
+        RETURNING id
+      `;
+      queryParams = [userId];
+    } else if (notificationIds && notificationIds.length > 0) {
+      query = `
+        UPDATE user_notifications 
+        SET is_read = TRUE 
+        WHERE user_id = $1 AND id = ANY($2)
+        RETURNING id
+      `;
+      queryParams = [userId, notificationIds];
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Provide notificationIds or set markAll to true' 
+      });
+    }
+
+    const result = await pool.query(query, queryParams);
+
+    res.json({
+      success: true,
+      message: `Marked ${result.rows.length} notification(s) as read`,
+      updatedCount: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('Error marking notifications as read:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to mark notifications as read' 
+    });
+  }
+});
+
+// Delete old/expired notifications (cleanup endpoint)
+app.delete('/api/notifications/cleanup', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      DELETE FROM user_notifications 
+      WHERE expires_at < NOW() OR created_at < NOW() - INTERVAL '30 days'
+      RETURNING id
+    `);
+
+    res.json({
+      success: true,
+      message: `Deleted ${result.rows.length} expired notifications`,
+      deletedCount: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('Error cleaning up notifications:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to cleanup notifications' 
+    });
+  }
+});
+
+// Get unread notification count
+app.get('/api/users/:userId/notifications/unread-count', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const result = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM user_notifications
+      WHERE user_id = $1 
+        AND is_read = FALSE
+        AND (expires_at IS NULL OR expires_at > NOW())
+    `, [userId]);
+
+    res.json({
+      success: true,
+      unreadCount: parseInt(result.rows[0].count)
+    });
+
+  } catch (error) {
+    console.error('Error fetching unread count:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch unread count' 
+    });
+  }
+});
+
+// Create custom notification (for other events)
+app.post('/api/notifications/create', async (req, res) => {
+  try {
+    const { 
+      userIds, 
+      notificationType, 
+      title, 
+      message, 
+      relatedUserId,
+      expiresInDays = 7 
+    } = req.body;
+
+    if (!userIds || !notificationType || !title || !message) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      });
+    }
+
+    const notificationValues = userIds.map(userId => 
+      `(${userId}, '${notificationType}', '${title}', '${message}', ${relatedUserId || 'NULL'}, FALSE, NOW(), NOW() + INTERVAL '${expiresInDays} days')`
+    ).join(',');
+
+    const result = await pool.query(`
+      INSERT INTO user_notifications 
+        (user_id, notification_type, title, message, related_user_id, is_read, created_at, expires_at)
+      VALUES ${notificationValues}
+      RETURNING id
+    `);
+
+    res.json({
+      success: true,
+      message: `Created ${result.rows.length} notifications`,
+      createdCount: result.rows.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating notifications:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create notifications' 
+    });
+  }
+});
+
+console.log('User notification endpoints initialized');
 
 // Get all materials with real data
 app.get("/materials", async (req, res) => {
@@ -3741,6 +3987,8 @@ app.post("/api/seed-static-products", async (req, res) => {
     res.status(500).json({ error: "Seed failed: " + err.message });
   }
 });
+
+
 
 // Helper function to format time ago
 function formatTimeAgo(date) {
