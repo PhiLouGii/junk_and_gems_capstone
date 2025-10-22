@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/services/material_service.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
@@ -430,7 +431,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     );
   }
 
-  Future<void> _submitListing() async {
+   Future<void> _submitListing() async {
   // Validate required fields
   if (_titleController.text.isEmpty || 
       _descriptionController.text.isEmpty || 
@@ -442,12 +443,28 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     return;
   }
 
+    // Get the logged-in user's ID from auth provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please login to create a listing'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    final int? uploaderId = authProvider.user?.id;
+    print('Creating listing for user ID: $uploaderId (${authProvider.user!.name})');
+
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-    print('📝 Starting material creation process...');
+    print('Starting material creation process...');
 
     // Ensure contact preferences are properly formatted
     Map<String, bool> formattedContactPrefs = {};
@@ -467,10 +484,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       'available_until': _availableUntil?.toIso8601String(),
       'is_fragile': _isFragile,
       'contact_preferences': formattedContactPrefs, // Use the formatted map
-      'uploader_id': 3, // Replace with actual user ID from auth
+      'uploader_id': uploaderId, // Use the actual logged-in user's ID
     };
 
-    print('📝 Material data prepared: $materialData');
+    print('Material data prepared: $materialData');
 
       // Create the material using the service
       bool success = await MaterialService.createMaterial(materialData, _images);
@@ -520,7 +537,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     }
 
   } catch (e) {
-    print('❌ Detailed error: $e');
+    print('Detailed error: $e');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Error: ${e.toString()}'),
