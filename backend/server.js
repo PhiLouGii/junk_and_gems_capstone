@@ -3954,6 +3954,91 @@ app.post("/api/debug/fix-conversation-access/:conversationId/:userId", async (re
   }
 });
 
+// Payment Methods
+app.post("/api/setup-payment-methods", async (req, res) => {
+  try {
+    console.log('Setting up payment methods support...');
+
+    // 1. Add payment_method column to orders table if it doesn't exist
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'orders' AND column_name = 'payment_method'
+        ) THEN
+          ALTER TABLE orders ADD COLUMN payment_method VARCHAR(50) DEFAULT 'card';
+        END IF;
+      END $$;
+    `);
+    console.log('Added payment_method column to orders');
+
+    // 2. Add payment_status column
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'orders' AND column_name = 'payment_status'
+        ) THEN
+          ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'pending';
+        END IF;
+      END $$;
+    `);
+    console.log('Added payment_status column to orders');
+
+    // 3. Add payment_reference column for bank transfers and USSD
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'orders' AND column_name = 'payment_reference'
+        ) THEN
+          ALTER TABLE orders ADD COLUMN payment_reference VARCHAR(255);
+        END IF;
+      END $$;
+    `);
+    console.log('Added payment_reference column to orders');
+
+    // 4. Add delivery_address column for COD
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'orders' AND column_name = 'delivery_address'
+        ) THEN
+          ALTER TABLE orders ADD COLUMN delivery_address TEXT;
+        END IF;
+      END $$;
+    `);
+    console.log('Added delivery_address column to orders');
+
+    // 5. Add phone_number column for COD callbacks
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'orders' AND column_name = 'phone_number'
+        ) THEN
+          ALTER TABLE orders ADD COLUMN phone_number VARCHAR(20);
+        END IF;
+      END $$;
+    `);
+    console.log('Added phone_number column to orders');
+
+    res.json({ 
+      success: true, 
+      message: "Payment methods setup completed successfully" 
+    });
+  } catch (err) {
+    console.error("Setup payment methods error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
+  }
+});
+
 // Seed static products into database
 app.post("/api/seed-static-products", async (req, res) => {
   try {
