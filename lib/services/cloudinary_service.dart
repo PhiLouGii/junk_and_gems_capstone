@@ -8,12 +8,12 @@ class CloudinaryService {
 
   static Future<String?> uploadImage(File imageFile) async {
     try {
-      print('📤 Uploading image to Cloudinary...');
+      print(' Uploading image to Cloudinary...');
       print('   File path: ${imageFile.path}');
       
       // Verify file exists
       if (!await imageFile.exists()) {
-        print('❌ File does not exist: ${imageFile.path}');
+        print(' File does not exist: ${imageFile.path}');
         return null;
       }
       
@@ -22,12 +22,12 @@ class CloudinaryService {
       
       // Check if file is too large (limit to 10MB)
       if (fileSize > 10 * 1024 * 1024) {
-        print('❌ File too large: ${fileSize} bytes (max 10MB)');
+        print(' File too large: ${fileSize} bytes (max 10MB)');
         return null;
       }
       
       if (fileSize == 0) {
-        print('❌ File is empty');
+        print(' File is empty');
         return null;
       }
       
@@ -49,7 +49,7 @@ class CloudinaryService {
       ).timeout(
         const Duration(seconds: 60),
         onTimeout: () {
-          print('❌ Upload timed out after 60 seconds');
+          print(' Upload timed out after 60 seconds');
           throw Exception('Upload timeout');
         },
       );
@@ -57,33 +57,70 @@ class CloudinaryService {
       print('   Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        final String? imageUrl = responseData['image_url'];
-        
-        if (imageUrl != null && imageUrl.isNotEmpty) {
-          // Verify it's a valid Cloudinary URL
-          if (imageUrl.startsWith('https://res.cloudinary.com/')) {
-            print('   ✅ Cloudinary URL received: $imageUrl');
-            return imageUrl;
-          } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-            print('   ⚠️ URL received but not from Cloudinary: $imageUrl');
-            return imageUrl;
+        try {
+          final Map<String, dynamic> responseData = json.decode(response.body);
+          print('   Response data: $responseData');
+          
+          final String? imageUrl = responseData['image_url'];
+          
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            // Verify it's a valid Cloudinary URL
+            if (imageUrl.startsWith('https://res.cloudinary.com/')) {
+              print('    Cloudinary URL received: $imageUrl');
+              return imageUrl;
+            } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+              print('    URL received but not from Cloudinary: $imageUrl');
+              return imageUrl;
+            } else {
+              print('    Invalid URL format: $imageUrl');
+              return null;
+            }
           } else {
-            print('   ❌ Invalid URL format: $imageUrl');
+            print('    No image URL in response');
+            print('   Full response: ${response.body}');
             return null;
           }
-        } else {
-          print('   ❌ No image URL in response');
-          print('   Response data: ${response.body}');
+        } catch (jsonError) {
+          print('    JSON decode error: $jsonError');
+          print('   Response body: ${response.body}');
           return null;
         }
+      } else if (response.statusCode == 400) {
+        print('    Bad request (400)');
+        print('   Response: ${response.body}');
+        try {
+          final errorData = json.decode(response.body);
+          print('   Error: ${errorData['error']}');
+          print('   Details: ${errorData['details']}');
+        } catch (e) {
+          print('   Raw response: ${response.body}');
+        }
+        return null;
+      } else if (response.statusCode == 500) {
+        print('    Server error (500)');
+        try {
+          final errorData = json.decode(response.body);
+          print('   Error: ${errorData['error']}');
+          print('   Message: ${errorData['message']}');
+          print('   Details: ${errorData['details']}');
+          print('   Cloudinary Error: ${errorData['cloudinary_error']}');
+        } catch (e) {
+          print('   Raw response: ${response.body}');
+        }
+        return null;
       } else {
-        print('   ❌ Upload failed: ${response.statusCode}');
+        print('    Upload failed with status: ${response.statusCode}');
         print('   Response: ${response.body}');
         return null;
       }
+    } on http.ClientException catch (e) {
+      print('    Network error: $e');
+      return null;
+    } on FormatException catch (e) {
+      print('    Format error: $e');
+      return null;
     } catch (e) {
-      print('   ❌ Upload error: $e');
+      print('    Upload error: $e');
       return null;
     }
   }
@@ -91,7 +128,7 @@ class CloudinaryService {
   static Future<List<String>> uploadMultipleImages(List<XFile> xFiles) async {
     List<String> uploadedUrls = [];
     
-    print('📦 Starting upload of ${xFiles.length} images to Cloudinary...');
+    print('Starting upload of ${xFiles.length} images to Cloudinary...');
     
     for (int i = 0; i < xFiles.length; i++) {
       print('\n📸 Uploading image ${i + 1}/${xFiles.length}...');
@@ -100,7 +137,7 @@ class CloudinaryService {
       
       // Verify file exists and is readable
       if (!await imageFile.exists()) {
-        print('   ❌ File does not exist: ${xFiles[i].path}');
+        print('   File does not exist: ${xFiles[i].path}');
         continue;
       }
       
@@ -108,9 +145,9 @@ class CloudinaryService {
       
       if (imageUrl != null && imageUrl.isNotEmpty) {
         uploadedUrls.add(imageUrl);
-        print('   ✅ Image ${i + 1} uploaded successfully');
+        print('   Image ${i + 1} uploaded successfully');
       } else {
-        print('   ❌ Failed to upload image ${i + 1}');
+        print('   Failed to upload image ${i + 1}');
       }
     }
     
