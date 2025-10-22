@@ -7,7 +7,7 @@ import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/screens/product_details_screen.dart'; 
 import 'package:junk_and_gems/screens/shopping_cart_screen.dart';
-import 'package:junk_and_gems/screens/create_listing_screen.dart';
+import 'package:junk_and_gems/screens/create_product_listing_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/services/cart_service.dart';
@@ -647,7 +647,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         onPressed: () {
           Navigator.push(
             context, 
-            MaterialPageRoute(builder: (context) => const CreateListingScreen()),
+            MaterialPageRoute(builder: (context) => const CreateProductListingScreen()),
           ).then((_) {
             _fetchNewProducts();
           });
