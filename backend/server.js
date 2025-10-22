@@ -266,10 +266,15 @@ pool.connect((err, client, release) => {
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_KEY,
-  api_secret: process.env.CLOUDINARY_SECRET,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+console.log('  Cloudinary Configuration:');
+console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? 'SET' : 'NOT SET');
+console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? 'SET' : 'NOT SET');
+console.log('   API Secret:', process.env.CLOUDINARY_API_SECRET ? 'SET' : 'NOT SET');
 
 // Set up multer for file uploads
 const storage = multer.memoryStorage();
@@ -4405,9 +4410,9 @@ app.get("/api/cloudinary-status", (req, res) => {
   try {
     console.log('🔍 Checking Cloudinary configuration...');
     
-    const cloudName = process.env.CLOUDINARY_NAME;
-    const apiKey = process.env.CLOUDINARY_KEY;
-    const apiSecret = process.env.CLOUDINARY_SECRET;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+const apiKey = process.env.CLOUDINARY_API_KEY;
+const apiSecret = process.env.CLOUDINARY_API_SECRET;
     
     console.log('Environment variables:');
     console.log('  CLOUDINARY_NAME:', cloudName || 'NOT SET');
