@@ -2449,29 +2449,107 @@ app.get("/api/users/:userId/impact", async (req, res) => {
 
 // Upload image to Cloudinary
 app.post("/api/upload-image", async (req, res) => {
+  console.log('=' * 60);
+  console.log('📤 IMAGE UPLOAD REQUEST');
+  console.log('=' * 60);
+  
   const { image_data_base64 } = req.body;
 
   try {
+    // Validate input
     if (!image_data_base64) {
+      console.log('❌ No image data provided');
       return res.status(400).json({ error: "No image data provided" });
     }
 
-    // Upload to Cloudinary
+    console.log('📊 Image data received:');
+    console.log('   Length:', image_data_base64.length, 'characters');
+    console.log('   Format:', image_data_base64.substring(0, 30) + '...');
+
+    // Check if it's a valid data URI
+    if (!image_data_base64.startsWith('data:image')) {
+      console.log('❌ Invalid image format - must start with data:image');
+      return res.status(400).json({ 
+        error: "Invalid image format. Must be data:image/..." 
+      });
+    }
+
+    // Check Cloudinary configuration
+    const cloudinaryConfig = cloudinary.config();
+    console.log('Cloudinary configuration:');
+    console.log('   Cloud name:', cloudinaryConfig.cloud_name || 'NOT SET');
+    console.log('   API key:', cloudinaryConfig.api_key ? 'SET' : 'NOT SET');
+    console.log('   API secret:', cloudinaryConfig.api_secret ? 'SET' : 'NOT SET');
+
+    if (!cloudinaryConfig.cloud_name || !cloudinaryConfig.api_key || !cloudinaryConfig.api_secret) {
+      console.log('❌ Cloudinary not properly configured');
+      return res.status(500).json({ 
+        error: "Cloudinary not configured on server",
+        details: "Missing cloud_name, api_key, or api_secret"
+      });
+    }
+
+    console.log('Uploading to Cloudinary...');
+    console.log('   Folder: junk_and_gems/products');
+
+    // Upload to Cloudinary with better error handling
     const uploadResult = await cloudinary.uploader.upload(image_data_base64, {
-      folder: 'junk_and_gems/materials',
-      resource_type: 'image'
+      folder: 'junk_and_gems/products',
+      resource_type: 'image',
+      transformation: [
+        { width: 1200, height: 1200, crop: 'limit' },
+        { quality: 'auto:good' }
+      ],
+      timeout: 60000 // 60 second timeout
     });
+
+    console.log('Upload successful!');
+    console.log('   URL:', uploadResult.secure_url);
+    console.log('   Public ID:', uploadResult.public_id);
+    console.log('   Format:', uploadResult.format);
+    console.log('   Size:', uploadResult.bytes, 'bytes');
+    console.log('   Dimensions:', uploadResult.width, 'x', uploadResult.height);
+    console.log('=' * 60);
 
     res.json({
       success: true,
       image_url: uploadResult.secure_url,
-      public_id: uploadResult.public_id
+      public_id: uploadResult.public_id,
+      format: uploadResult.format,
+      size: uploadResult.bytes,
+      width: uploadResult.width,
+      height: uploadResult.height
     });
+
   } catch (error) {
-    console.error("Cloudinary upload error:", error);
-    res.status(500).json({ error: "Image upload failed" });
+    console.error('=' * 60);
+    console.error('CLOUDINARY UPLOAD ERROR');
+    console.error('Error message:', error.message);
+    console.error('Error name:', error.name);
+    
+    if (error.http_code) {
+      console.error('HTTP code:', error.http_code);
+    }
+    
+    if (error.error) {
+      console.error('Cloudinary error:', JSON.stringify(error.error, null, 2));
+    }
+    
+    console.error('Stack trace:', error.stack);
+    console.error('=' * 60);
+
+    // Return detailed error
+    res.status(500).json({ 
+      success: false,
+      error: "Image upload failed",
+      message: error.message,
+      details: error.http_code ? `Cloudinary HTTP ${error.http_code}` : 'Unknown error',
+      cloudinary_error: error.error ? error.error.message : null
+    });
   }
 });
+
+console.log('Cloudinary upload endpoint configured: POST /api/upload-image');
 
 // Quick fix for empty materials images
 app.post("/api/quick-fix-empty-materials", async (req, res) => {
@@ -4322,6 +4400,216 @@ app.post("/api/setup-payment-methods", async (req, res) => {
     res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
+
+app.get("/api/cloudinary-status", (req, res) => {
+  try {
+    console.log('🔍 Checking Cloudinary configuration...');
+    
+    const cloudName = process.env.CLOUDINARY_NAME;
+    const apiKey = process.env.CLOUDINARY_KEY;
+    const apiSecret = process.env.CLOUDINARY_SECRET;
+    
+    console.log('Environment variables:');
+    console.log('  CLOUDINARY_NAME:', cloudName || 'NOT SET');
+    console.log('  CLOUDINARY_KEY:', apiKey ? 'SET (hidden)' : 'NOT SET');
+    console.log('  CLOUDINARY_SECRET:', apiSecret ? 'SET (hidden)' : 'NOT SET');
+    
+    const isConfigured = !!(cloudName && apiKey && apiSecret);
+    
+    const config = cloudinary.config();
+    console.log('Cloudinary config object:');
+    console.log('  cloud_name:', config.cloud_name || 'NOT SET');
+    console.log('  api_key:', config.api_key ? 'SET (hidden)' : 'NOT SET');
+    console.log('  api_secret:', config.api_secret ? 'SET (hidden)' : 'NOT SET');
+    
+    res.json({
+      configured: isConfigured,
+      cloud_name: cloudName || 'NOT SET',
+      api_key: apiKey ? 'SET (length: ' + apiKey.length + ')' : 'NOT SET',
+      api_secret: apiSecret ? 'SET (length: ' + apiSecret.length + ')' : 'NOT SET',
+      message: isConfigured ? 'Cloudinary is configured ✅' : 'Cloudinary is NOT configured ❌',
+      config_source: {
+        from_env: !!(cloudName && apiKey && apiSecret),
+        from_config: !!(config.cloud_name && config.api_key && config.api_secret)
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error checking Cloudinary status:', error);
+    res.status(500).json({ 
+      error: error.message,
+      configured: false 
+    });
+  }
+});
+
+// 2. Test Cloudinary Upload with Sample Data
+app.post("/api/test-cloudinary-upload", async (req, res) => {
+  try {
+    console.log('🧪 Testing Cloudinary upload...');
+    
+    const { image_data_base64 } = req.body;
+    
+    if (!image_data_base64) {
+      return res.status(400).json({ error: 'No image data provided' });
+    }
+    
+    console.log('📊 Received image data:');
+    console.log('   Length:', image_data_base64.length);
+    console.log('   Format:', image_data_base64.substring(0, 30) + '...');
+    
+    // Verify it's a data URI
+    if (!image_data_base64.startsWith('data:image')) {
+      return res.status(400).json({ 
+        error: 'Invalid image format. Must be data:image/...' 
+      });
+    }
+    
+    console.log('📤 Uploading to Cloudinary...');
+    
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(image_data_base64, {
+      folder: 'junk_and_gems/test_uploads',
+      resource_type: 'image',
+      transformation: [
+        { width: 800, height: 800, crop: 'limit' },
+        { quality: 'auto' }
+      ]
+    });
+    
+    console.log('✅ Upload successful!');
+    console.log('   URL:', uploadResult.secure_url);
+    console.log('   Public ID:', uploadResult.public_id);
+    console.log('   Format:', uploadResult.format);
+    console.log('   Size:', uploadResult.bytes, 'bytes');
+    
+    res.json({
+      success: true,
+      message: 'Upload successful',
+      image_url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
+      format: uploadResult.format,
+      size: uploadResult.bytes,
+      width: uploadResult.width,
+      height: uploadResult.height
+    });
+    
+  } catch (error) {
+    console.error('❌ Cloudinary test upload error:', error);
+    
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      details: error.http_code ? `HTTP ${error.http_code}` : 'Unknown error'
+    });
+  }
+});
+
+// 3. Fixed Upload Image Endpoint (Replace your existing one)
+app.post("/api/upload-image", async (req, res) => {
+  console.log('═'.repeat(60));
+  console.log('📤 IMAGE UPLOAD REQUEST');
+  console.log('═'.repeat(60));
+  
+  const { image_data_base64 } = req.body;
+
+  try {
+    // Validate input
+    if (!image_data_base64) {
+      console.log('❌ No image data provided');
+      return res.status(400).json({ error: "No image data provided" });
+    }
+
+    console.log('📊 Image data received:');
+    console.log('   Length:', image_data_base64.length, 'characters');
+    console.log('   Format:', image_data_base64.substring(0, 30) + '...');
+
+    // Check if it's a valid data URI
+    if (!image_data_base64.startsWith('data:image')) {
+      console.log('❌ Invalid image format - must start with data:image');
+      return res.status(400).json({ 
+        error: "Invalid image format. Must be data:image/..." 
+      });
+    }
+
+    // Check Cloudinary configuration
+    const cloudinaryConfig = cloudinary.config();
+    console.log('☁️  Cloudinary configuration:');
+    console.log('   Cloud name:', cloudinaryConfig.cloud_name || 'NOT SET');
+    console.log('   API key:', cloudinaryConfig.api_key ? 'SET' : 'NOT SET');
+    console.log('   API secret:', cloudinaryConfig.api_secret ? 'SET' : 'NOT SET');
+
+    if (!cloudinaryConfig.cloud_name || !cloudinaryConfig.api_key || !cloudinaryConfig.api_secret) {
+      console.log('❌ Cloudinary not properly configured');
+      return res.status(500).json({ 
+        error: "Cloudinary not configured on server",
+        details: "Missing cloud_name, api_key, or api_secret"
+      });
+    }
+
+    console.log('📤 Uploading to Cloudinary...');
+    console.log('   Folder: junk_and_gems/products');
+
+    // Upload to Cloudinary with better error handling
+    const uploadResult = await cloudinary.uploader.upload(image_data_base64, {
+      folder: 'junk_and_gems/products',
+      resource_type: 'image',
+      transformation: [
+        { width: 1200, height: 1200, crop: 'limit' },
+        { quality: 'auto:good' }
+      ],
+      timeout: 60000 // 60 second timeout
+    });
+
+    console.log('✅ Upload successful!');
+    console.log('   URL:', uploadResult.secure_url);
+    console.log('   Public ID:', uploadResult.public_id);
+    console.log('   Format:', uploadResult.format);
+    console.log('   Size:', uploadResult.bytes, 'bytes');
+    console.log('   Dimensions:', uploadResult.width, 'x', uploadResult.height);
+    console.log('═'.repeat(60));
+
+    res.json({
+      success: true,
+      image_url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
+      format: uploadResult.format,
+      size: uploadResult.bytes,
+      width: uploadResult.width,
+      height: uploadResult.height
+    });
+
+  } catch (error) {
+    console.error('═'.repeat(60));
+    console.error('❌ CLOUDINARY UPLOAD ERROR');
+    console.error('Error message:', error.message);
+    console.error('Error name:', error.name);
+    
+    if (error.http_code) {
+      console.error('HTTP code:', error.http_code);
+    }
+    
+    if (error.error) {
+      console.error('Cloudinary error:', JSON.stringify(error.error, null, 2));
+    }
+    
+    console.error('Stack trace:', error.stack);
+    console.error('═'.repeat(60));
+
+    // Return detailed error
+    res.status(500).json({ 
+      success: false,
+      error: "Image upload failed",
+      message: error.message,
+      details: error.http_code ? `Cloudinary HTTP ${error.http_code}` : 'Unknown error',
+      cloudinary_error: error.error ? error.error.message : null
+    });
+  }
+});
+
+console.log('✅ Cloudinary endpoints configured:');
+console.log('   GET  /api/cloudinary-status');
+console.log('   POST /api/test-cloudinary-upload');
+console.log('   POST /api/upload-image');
 
 // Seed static products into database
 app.post("/api/seed-static-products", async (req, res) => {

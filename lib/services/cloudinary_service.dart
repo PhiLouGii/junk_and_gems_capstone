@@ -8,9 +8,28 @@ class CloudinaryService {
 
   static Future<String?> uploadImage(File imageFile) async {
     try {
-      print('  Uploading image to Cloudinary...');
+      print('📤 Uploading image to Cloudinary...');
       print('   File path: ${imageFile.path}');
-      print('   File size: ${await imageFile.length()} bytes');
+      
+      // Verify file exists
+      if (!await imageFile.exists()) {
+        print('❌ File does not exist: ${imageFile.path}');
+        return null;
+      }
+      
+      final fileSize = await imageFile.length();
+      print('   File size: $fileSize bytes (${(fileSize / 1024).toStringAsFixed(2)} KB)');
+      
+      // Check if file is too large (limit to 10MB)
+      if (fileSize > 10 * 1024 * 1024) {
+        print('❌ File too large: ${fileSize} bytes (max 10MB)');
+        return null;
+      }
+      
+      if (fileSize == 0) {
+        print('❌ File is empty');
+        return null;
+      }
       
       // Read image and convert to base64
       List<int> imageBytes = await imageFile.readAsBytes();
@@ -18,12 +37,22 @@ class CloudinaryService {
       String imageData = 'data:image/jpeg;base64,$base64Image';
       
       print('   Base64 data length: ${imageData.length} characters');
+      print('   Sending to: $_baseUrl/api/upload-image');
 
       final response = await http.post(
         Uri.parse('$_baseUrl/api/upload-image'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: json.encode({'image_data_base64': imageData}),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          print('❌ Upload timed out after 60 seconds');
+          throw Exception('Upload timeout');
+        },
+      );
 
       print('   Response status: ${response.statusCode}');
 
@@ -34,27 +63,27 @@ class CloudinaryService {
         if (imageUrl != null && imageUrl.isNotEmpty) {
           // Verify it's a valid Cloudinary URL
           if (imageUrl.startsWith('https://res.cloudinary.com/')) {
-            print('   Cloudinary URL received: $imageUrl');
+            print('   ✅ Cloudinary URL received: $imageUrl');
             return imageUrl;
           } else if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-            print('   URL received but not from Cloudinary: $imageUrl');
+            print('   ⚠️ URL received but not from Cloudinary: $imageUrl');
             return imageUrl;
           } else {
-            print('   Invalid URL format: $imageUrl');
+            print('   ❌ Invalid URL format: $imageUrl');
             return null;
           }
         } else {
-          print('   No image URL in response');
+          print('   ❌ No image URL in response');
           print('   Response data: ${response.body}');
           return null;
         }
       } else {
-        print('   Upload failed: ${response.statusCode}');
+        print('   ❌ Upload failed: ${response.statusCode}');
         print('   Response: ${response.body}');
         return null;
       }
     } catch (e) {
-      print('   Upload error: $e');
+      print('   ❌ Upload error: $e');
       return null;
     }
   }
@@ -62,7 +91,7 @@ class CloudinaryService {
   static Future<List<String>> uploadMultipleImages(List<XFile> xFiles) async {
     List<String> uploadedUrls = [];
     
-    print('Starting upload of ${xFiles.length} images to Cloudinary...');
+    print('📦 Starting upload of ${xFiles.length} images to Cloudinary...');
     
     for (int i = 0; i < xFiles.length; i++) {
       print('\n📸 Uploading image ${i + 1}/${xFiles.length}...');
@@ -71,7 +100,7 @@ class CloudinaryService {
       
       // Verify file exists and is readable
       if (!await imageFile.exists()) {
-        print('   File does not exist: ${xFiles[i].path}');
+        print('   ❌ File does not exist: ${xFiles[i].path}');
         continue;
       }
       
@@ -79,9 +108,9 @@ class CloudinaryService {
       
       if (imageUrl != null && imageUrl.isNotEmpty) {
         uploadedUrls.add(imageUrl);
-        print('   Image ${i + 1} uploaded successfully');
+        print('   ✅ Image ${i + 1} uploaded successfully');
       } else {
-        print('   Failed to upload image ${i + 1}');
+        print('   ❌ Failed to upload image ${i + 1}');
       }
     }
     
