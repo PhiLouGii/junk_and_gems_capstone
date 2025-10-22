@@ -1092,22 +1092,6 @@ app.post("/materials", async (req, res) => {
   }
 });
 
-// Helper function to format time ago
-function formatTimeAgo(date) {
-  const now = new Date();
-  const diffMs = now - new Date(date);
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} mins ago`;
-  if (diffHours < 24) return `${diffHours} hrs ago`;
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return new Date(date).toLocaleDateString();
-}
-
-
 // Search materials by category or title
 app.get("/materials/search", async (req, res) => {
   try {
