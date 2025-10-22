@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
+import 'package:junk_and_gems/screens/chat_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'create_listing_screen.dart';
 
@@ -26,6 +28,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String? _selectedCategory;
   Set<String> _claimedMaterialIds = {};
+  String? _currentUserId;
+  String? _token;
 
   final List<String> _categories = [
     'All',
@@ -49,6 +53,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
   Future<void> _initializeAndLoad() async {
+    await _loadCurrentUser();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (!authProvider.isInitialized) {
       print('Waiting for auth provider to initialize...');
@@ -56,6 +61,19 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       print('Auth provider ready!');
     }
     _loadMaterials();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _currentUserId = prefs.getString('userId');
+        _token = prefs.getString('token');
+      });
+      print('✅ Current User ID loaded: $_currentUserId');
+    } catch (e) {
+      print('❌ Error loading current user: $e');
+    }
   }
 
   @override
@@ -239,6 +257,125 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _startConversationWithUploader(
+    String uploaderId, 
+    String uploaderName, 
+    String materialTitle
+  ) async {
+    if (_currentUserId == null || _token == null) {
+      _showErrorSnackbar('Please log in to send messages');
+      return;
+    }
+
+    if (_currentUserId == uploaderId) {
+      _showErrorSnackbar('This is your own material');
+      return;
+    }
+
+    try {
+      print('🚀 Starting conversation with uploader...');
+      print('Current User ID: $_currentUserId');
+      print('Uploader ID: $uploaderId');
+
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: const Color(0xFF88844D)),
+                const SizedBox(height: 16),
+                Text(
+                  'Starting conversation...',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final response = await http.post(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/start'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+        body: json.encode({
+          'currentUserId': _currentUserId,
+          'otherUserId': uploaderId,
+          'initialMessage': 'Hi! I\'m interested in your material: $materialTitle',
+        }),
+      );
+
+      // Close loading dialog
+      if (mounted) Navigator.pop(context);
+
+      print('📨 Response status: ${response.statusCode}');
+      print('📨 Response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        final conversationId = data['id'].toString();
+
+        print('✅ Conversation created/found: $conversationId');
+
+        // Navigate to chat screen
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                userName: uploaderName,
+                otherUserId: uploaderId,
+                currentUserId: _currentUserId!,
+                conversationId: conversationId,
+              ),
+            ),
+          );
+        }
+      } else {
+        print('❌ Failed to start conversation: ${response.statusCode}');
+        _showErrorSnackbar('Failed to start conversation. Please try again.');
+      }
+    } catch (e) {
+      // Close loading dialog if it's still open
+      if (mounted) Navigator.pop(context);
+      
+      print('❌ Error starting conversation: $e');
+      _showErrorSnackbar('Network error. Please check your connection.');
+    }
+  }
+
+  void _showErrorSnackbar(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            message,
+            style: const TextStyle(color: Colors.white),
+          ),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
@@ -594,7 +731,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       color: const Color(0xFF88844D),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // Responsive grid layout
           int crossAxisCount = 1;
           double childAspectRatio = 1.1;
           
@@ -630,8 +766,13 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
     final String imageUrl = hasImages ? material['image_urls'][0] : '';
-    final bool isClaimed = material['claimed_by'] != null || 
+    final bool isClaimed = material['is_claimed'] == true || 
+                          material['claimed_by'] != null || 
                           _claimedMaterialIds.contains(material['id'].toString());
+
+    // Check if current user is the uploader
+    final String uploaderId = material['uploader_id']?.toString() ?? '';
+    final bool isOwnMaterial = _currentUserId == uploaderId;
 
     return GestureDetector(
       onTap: () => _showMaterialDetails(context, material: material),
@@ -652,7 +793,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image Section with overlay
               Stack(
                 children: [
                   ClipRRect(
@@ -686,7 +826,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     ),
                   ),
                   
-                  // Category badge
                   Positioned(
                     top: 12,
                     left: 12,
@@ -713,7 +852,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     ),
                   ),
                   
-                  // Claimed badge
                   if (isClaimed)
                     Positioned(
                       top: 12,
@@ -722,12 +860,12 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                            colors: [Color(0xFFFF9800), Color(0xFFFFC107)],
                           ),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF88844D).withOpacity(0.4),
+                              color: Colors.orange.withOpacity(0.4),
                               blurRadius: 6,
                             ),
                           ],
@@ -735,7 +873,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: const [
-                            Icon(Icons.check_circle, color: Colors.white, size: 14),
+                            Icon(Icons.pending, color: Colors.white, size: 14),
                             SizedBox(width: 4),
                             Text(
                               'CLAIMED',
@@ -753,14 +891,12 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                 ],
               ),
               
-              // Content Section
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(14.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Title
                       Text(
                         material['title'] ?? 'No Title',
                         style: TextStyle(
@@ -774,7 +910,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                       
                       const SizedBox(height: 6),
                       
-                      // Description
                       Expanded(
                         child: Text(
                           material['description'] ?? 'No description',
@@ -790,7 +925,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                       
                       const SizedBox(height: 10),
                       
-                      // Location
                       Row(
                         children: [
                           Icon(Icons.location_on, size: 14, color: const Color(0xFF88844D)),
@@ -811,30 +945,43 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                       
                       const SizedBox(height: 10),
                       
-                      // Action Button
                       SizedBox(
                         width: double.infinity,
                         height: 36,
                         child: ElevatedButton(
-                          onPressed: isClaimed ? null : () {
+                          onPressed: (isClaimed || isOwnMaterial) ? null : () {
                             _claimMaterial(material['id'].toString(), material['title']);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isClaimed ? Colors.grey[400] : const Color(0xFFBEC092),
-                            foregroundColor: isClaimed ? Colors.white : const Color(0xFF88844D),
+                            backgroundColor: isClaimed 
+                                ? Colors.orange[300] 
+                                : isOwnMaterial 
+                                    ? Colors.grey[400] 
+                                    : const Color(0xFFBEC092),
+                            foregroundColor: isClaimed || isOwnMaterial 
+                                ? Colors.white 
+                                : const Color(0xFF88844D),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: isClaimed ? 0 : 2,
+                            elevation: (isClaimed || isOwnMaterial) ? 0 : 2,
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                isClaimed ? Icons.check : Icons.volunteer_activism,
+                                isClaimed 
+                                    ? Icons.pending 
+                                    : isOwnMaterial 
+                                        ? Icons.block 
+                                        : Icons.volunteer_activism,
                                 size: 16,
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                isClaimed ? 'Claimed' : 'Claim It!',
+                                isClaimed 
+                                    ? 'Pending' 
+                                    : isOwnMaterial 
+                                        ? 'Your Material' 
+                                        : 'Claim It!',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                               ),
                             ],
@@ -1109,8 +1256,13 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     final bool hasImages = material['image_urls'] != null && 
                         material['image_urls'].isNotEmpty;
     final String imageUrl = hasImages ? material['image_urls'][0] : '';
-    final bool isClaimed = material['claimed_by'] != null || 
+    final bool isClaimed = material['is_claimed'] == true || 
+                          material['claimed_by'] != null || 
                           _claimedMaterialIds.contains(material['id'].toString());
+    
+    final String uploaderId = material['uploader_id']?.toString() ?? '';
+    final String uploaderName = material['uploader'] ?? 'Unknown User';
+    final bool isOwnMaterial = _currentUserId == uploaderId;
 
     showModalBottomSheet(
       context: context,
@@ -1124,7 +1276,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         ),
         child: Column(
           children: [
-            // Drag handle
             Container(
               margin: const EdgeInsets.only(top: 12),
               width: 40,
@@ -1135,7 +1286,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
               ),
             ),
             
-            // Header
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -1167,7 +1317,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Image with hero animation
                     Hero(
                       tag: 'material_${material['id']}',
                       child: ClipRRect(
@@ -1188,7 +1337,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     
                     const SizedBox(height: 20),
                     
-                    // Title and category
                     Row(
                       children: [
                         Expanded(
@@ -1206,16 +1354,16 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                                colors: [Color(0xFFFF9800), Color(0xFFFFC107)],
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               children: const [
-                                Icon(Icons.check_circle, color: Colors.white, size: 16),
+                                Icon(Icons.pending, color: Colors.white, size: 16),
                                 SizedBox(width: 4),
                                 Text(
-                                  'CLAIMED',
+                                  'PENDING',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
@@ -1258,9 +1406,36 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                       ),
                     ),
                     
+                    if (isClaimed) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'This material has been claimed and is pending confirmation by the donor.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.orange[900],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    
                     const SizedBox(height: 20),
                     
-                    // Description
                     Text(
                       'Description',
                       style: TextStyle(
@@ -1281,7 +1456,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     
                     const SizedBox(height: 24),
                     
-                    // Details card
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -1303,7 +1477,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                           _buildDetailRow(
                             icon: Icons.person,
                             label: 'Uploaded by',
-                            value: material['uploader'] ?? 'Unknown',
+                            value: uploaderName,
                           ),
                           const Divider(height: 24),
                           _buildDetailRow(
@@ -1330,61 +1504,87 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     const SizedBox(height: 24),
                     
                     // Action Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton.icon(
-                            onPressed: isClaimed ? null : () {
-                              Navigator.pop(context);
-                              _claimMaterial(material['id'].toString(), material['title']);
-                            },
-                            icon: Icon(
-                              isClaimed ? Icons.check_circle : Icons.volunteer_activism,
-                              size: 20,
-                            ),
-                            label: Text(
-                              isClaimed ? 'Already Claimed' : 'Claim Material',
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isClaimed ? Colors.grey[400] : const Color(0xFF88844D),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
+                    if (isOwnMaterial) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBEC092).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBEC092).withOpacity(0.5)),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Message sent to ${material['uploader'] ?? 'uploader'}'),
-                                  backgroundColor: const Color(0xFF88844D),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: const Color(0xFF88844D)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'This is your material listing',
+                                style: TextStyle(
+                                  color: const Color(0xFF88844D),
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              );
-                            },
-                            icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                            label: const Text(
-                              'Chat',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              ),
                             ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFFBEC092), width: 2),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton.icon(
+                              onPressed: isClaimed ? null : () {
+                                Navigator.pop(context);
+                                _claimMaterial(material['id'].toString(), material['title']);
+                              },
+                              icon: Icon(
+                                isClaimed ? Icons.pending : Icons.volunteer_activism,
+                                size: 20,
+                              ),
+                              label: Text(
+                                isClaimed ? 'Claimed (Pending)' : 'Claim Material',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isClaimed ? Colors.orange[300] : const Color(0xFF88844D),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _startConversationWithUploader(
+                                  uploaderId,
+                                  uploaderName,
+                                  material['title'] ?? 'this material',
+                                );
+                              },
+                              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                              label: const Text(
+                                'Chat',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
