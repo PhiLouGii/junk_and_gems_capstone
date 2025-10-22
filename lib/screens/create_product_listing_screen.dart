@@ -1,12 +1,425 @@
-import 'package:flutter/material.dart';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:junk_and_gems/services/product_service.dart';
+
+class ImageUploadWidget extends StatefulWidget {
+  final Function(List<XFile>) onImagesChanged;
+  const ImageUploadWidget({super.key, required this.onImagesChanged});
+
+  @override
+  State<ImageUploadWidget> createState() => _ImageUploadWidgetState();
+}
+
+class _ImageUploadWidgetState extends State<ImageUploadWidget> {
+  List<XFile> _images = [];
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImages() async {
+    try {
+      print('📸 Opening image picker...');
+      
+      // Pick multiple images from gallery
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        imageQuality: 85, // Compress images to reduce size
+        maxWidth: 1920, // Limit dimensions to reduce file size
+        maxHeight: 1920,
+      );
+      
+      if (pickedFiles.isEmpty) {
+        print('No images selected');
+        return;
+      }
+
+      print('Selected ${pickedFiles.length} images');
+
+      // Copy images to app's cache directory to ensure they persist
+      List<XFile> copiedImages = [];
+      final Directory appDir = await getTemporaryDirectory();
+      final String targetDir = '${appDir.path}/product_images';
+      
+      // Create directory if it doesn't exist
+      await Directory(targetDir).create(recursive: true);
+
+      for (int i = 0; i < pickedFiles.length; i++) {
+        try {
+          final XFile pickedFile = pickedFiles[i];
+          print('Processing image ${i + 1}/${pickedFiles.length}...');
+          
+          // Check if source file exists
+          final File sourceFile = File(pickedFile.path);
+          if (!await sourceFile.exists()) {
+            print('⚠️ Source file does not exist: ${pickedFile.path}');
+            continue;
+          }
+
+          // Read file and verify it's not empty
+          final fileBytes = await sourceFile.readAsBytes();
+          if (fileBytes.isEmpty) {
+            print('⚠️ File is empty: ${pickedFile.path}');
+            continue;
+          }
+
+          print('   File size: ${fileBytes.length} bytes');
+
+          // Generate unique filename
+          final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+          final String extension = path.extension(pickedFile.path);
+          final String fileName = 'product_${timestamp}_$i$extension';
+          final String targetPath = '$targetDir/$fileName';
+
+          // Copy to app directory
+          final File targetFile = File(targetPath);
+          await targetFile.writeAsBytes(fileBytes);
+          
+          print('   ✅ Saved to: $targetPath');
+
+          // Create XFile from new path
+          copiedImages.add(XFile(targetPath));
+
+        } catch (e) {
+          print('❌ Error processing image ${i + 1}: $e');
+        }
+      }
+
+      if (copiedImages.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to process selected images'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        // Check if we're at limit
+        if (_images.length + copiedImages.length > 5) {
+          int availableSlots = 5 - _images.length;
+          _images.addAll(copiedImages.take(availableSlots));
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } else {
+          _images.addAll(copiedImages);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added ${copiedImages.length} image(s)'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      });
+      
+      print('📊 Total images now: ${_images.length}');
+      widget.onImagesChanged(_images);
+
+    } catch (e) {
+      print('❌ Image picker error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error selecting images: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      print('📷 Opening camera...');
+      
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+
+      if (photo == null) {
+        print('❌ No photo taken');
+        return;
+      }
+
+      print('✅ Photo captured: ${photo.path}');
+
+      // Copy to app directory
+      final Directory appDir = await getTemporaryDirectory();
+      final String targetDir = '${appDir.path}/product_images';
+      await Directory(targetDir).create(recursive: true);
+
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String extension = path.extension(photo.path);
+      final String fileName = 'product_camera_$timestamp$extension';
+      final String targetPath = '$targetDir/$fileName';
+
+      final File sourceFile = File(photo.path);
+      final fileBytes = await sourceFile.readAsBytes();
+      await File(targetPath).writeAsBytes(fileBytes);
+
+      print('   ✅ Saved to: $targetPath');
+
+      setState(() {
+        if (_images.length >= 5) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Maximum 5 images allowed'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } else {
+          _images.add(XFile(targetPath));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo added'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      });
+
+      widget.onImagesChanged(_images);
+
+    } catch (e) {
+      print('❌ Camera error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error taking photo: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showImageSourceOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImages();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _takePhoto();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Product Images * (${_images.length}/5)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _images.length < 5 ? _showImageSourceOptions : null,
+          child: Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFBEC092), 
+                width: 1
+              ),
+            ),
+            child: _images.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          Icons.cloud_upload_outlined, 
+                          size: 40,
+                          color: Color(0xFF88844D),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Tap to add product images',
+                          style: TextStyle(
+                            color: Color(0xFF88844D),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Gallery or Camera',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF88844D),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.all(8),
+                    itemCount: _images.length + (_images.length < 5 ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _images.length) {
+                        // Add more button
+                        return GestureDetector(
+                          onTap: _showImageSourceOptions,
+                          child: Container(
+                            width: 100,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFBEC092).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFBEC092),
+                                width: 2,
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.add_photo_alternate,
+                                size: 40,
+                                color: Color(0xFF88844D),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Stack(
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            width: 100,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              image: DecorationImage(
+                                image: FileImage(File(_images[index].path)),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 4,
+                            right: 12,
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _images.removeAt(index);
+                                  widget.onImagesChanged(_images);
+                                });
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Image removed'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black87,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Image number badge
+                          Positioned(
+                            bottom: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF88844D),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+        ),
+        if (_images.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'First image will be the main product photo',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    // Clean up - optionally delete temporary files
+    super.dispose();
+  }
+}
 
 class CreateProductListingScreen extends StatefulWidget {
   const CreateProductListingScreen({super.key});
@@ -27,8 +440,6 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   final _materialsController = TextEditingController();
   final _dimensionsController = TextEditingController();
   final _locationController = TextEditingController();
-
-  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -256,7 +667,12 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
 
   Widget _buildImageUpload() {
     return ImageUploadWidget(
-      onImagesChanged: (images) => setState(() => _images = images),
+      onImagesChanged: (images) {
+        setState(() {
+          _images = images;
+        });
+        print('📊 Images updated: ${images.length} images selected');
+      },
     );
   }
 
@@ -287,12 +703,27 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 
   Future<void> _submitProduct() async {
-    if (_titleController.text.isEmpty) return _showErrorDialog('Please enter a product name');
-    if (_descriptionController.text.isEmpty) return _showErrorDialog('Please enter a product description');
-    if (_selectedCategory == null) return _showErrorDialog('Please select a product category');
-    if (_selectedCondition == null) return _showErrorDialog('Please select the product condition');
-    if (_price <= 0) return _showErrorDialog('Please enter a valid price');
-    if (_images.isEmpty) return _showErrorDialog('Please select at least one image');
+    print('🚀 Starting product submission...');
+    
+    // Validation
+    if (_titleController.text.isEmpty) {
+      return _showErrorDialog('Please enter a product name');
+    }
+    if (_descriptionController.text.isEmpty) {
+      return _showErrorDialog('Please enter a product description');
+    }
+    if (_selectedCategory == null) {
+      return _showErrorDialog('Please select a product category');
+    }
+    if (_selectedCondition == null) {
+      return _showErrorDialog('Please select the product condition');
+    }
+    if (_price <= 0) {
+      return _showErrorDialog('Please enter a valid price');
+    }
+    if (_images.isEmpty) {
+      return _showErrorDialog('Please select at least one image');
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -300,49 +731,79 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
       final userName = prefs.getString('userName') ?? 'Unknown User';
-      if (userId == null) return _showErrorDialog('Please login to list a product');
+      
+      if (userId == null) {
+        setState(() => _isSubmitting = false);
+        return _showErrorDialog('Please login to list a product');
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Uploading images and creating product...')),
-      );
+      print('👤 User ID: $userId');
+      print('👤 User Name: $userName');
+      print('📸 Images to upload: ${_images.length}');
 
-      final uri = Uri.parse('https://your-backend.com/api/products');
-      final request = http.MultipartRequest('POST', uri);
+      // Show uploading message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('Uploading images and creating product...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
 
-      // Add text fields
+      // Prepare product data
       final productData = {
-        'title': _titleController.text,
-        'description': _descriptionController.text,
-        'price': _price.toString(),
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': _price,
         'category': _selectedCategory,
         'condition': _selectedCondition,
-        'materials_used': _materialsController.text,
-        'dimensions': _dimensionsController.text,
-        'location': _locationController.text,
+        'materials_used': _materialsController.text.trim(),
+        'dimensions': _dimensionsController.text.trim(),
+        'location': _locationController.text.trim(),
         'artisan_id': userId,
         'creator_name': userName,
       };
-      productData.forEach((key, value) {
-        if (value != null && value.isNotEmpty) request.fields[key] = value.toString();
-      });
 
-      // Add images
-      for (var img in _images) {
-        request.files.add(await http.MultipartFile.fromPath('images', img.path));
+      print('📦 Product data prepared');
+
+      // Call ProductService to create product
+      final success = await ProductService.createProduct(productData, _images);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        
+        if (success) {
+          _showSuccessDialog();
+        } else {
+          _showErrorDialog('Failed to create product. Please try again.');
+        }
       }
 
-      final response = await request.send();
-      final respStr = await response.stream.bytesToString();
-      if (response.statusCode == 201) {
-        _showSuccessDialog();
-      } else {
-        print('Upload failed: $respStr');
-        _showErrorDialog('Product upload failed');
-      }
     } catch (e) {
-      _showErrorDialog('Error: $e');
+      print('❌ Error creating product: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        _showErrorDialog('Error: ${e.toString()}');
+      }
     } finally {
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -353,7 +814,10 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         title: const Text('Error', style: TextStyle(color: Colors.red)),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          )
         ],
       ),
     );
@@ -362,125 +826,20 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   void _showSuccessDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (_) => AlertDialog(
         title: const Text('Success!', style: TextStyle(color: Colors.green)),
         content: const Text('Your upcycled product has been listed successfully!'),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back to marketplace
             },
             child: const Text('OK'),
           ),
         ],
       ),
-    );
-  }
-}
-
-class ImageUploadWidget extends StatefulWidget {
-  final Function(List<XFile>) onImagesChanged;
-  const ImageUploadWidget({super.key, required this.onImagesChanged});
-
-  @override
-  State<ImageUploadWidget> createState() => _ImageUploadWidgetState();
-}
-
-class _ImageUploadWidgetState extends State<ImageUploadWidget> {
-  List<XFile> _images = [];
-
-  Future<void> _pickImages() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.image,
-      );
-      if (result != null && result.files.isNotEmpty) {
-        List<XFile> pickedImages = result.files.map((f) => XFile(f.path!)).toList();
-        setState(() {
-          if (_images.length + pickedImages.length > 5) {
-            int availableSlots = 5 - _images.length;
-            _images.addAll(pickedImages.take(availableSlots));
-          } else {
-            _images.addAll(pickedImages);
-          }
-        });
-        widget.onImagesChanged(_images);
-      }
-    } catch (e) {
-      print('Error picking images: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _pickImages,
-          child: Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBEC092), width: 1),
-            ),
-            child: _images.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.cloud_upload_outlined, size: 40),
-                        SizedBox(height: 8),
-                        Text('Tap to upload product images'),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.all(8),
-                    itemCount: _images.length,
-                    itemBuilder: (context, index) {
-                      return Stack(
-                        children: [
-                          Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            width: 100,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              image: DecorationImage(
-                                image: FileImage(File(_images[index].path)),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _images.removeAt(index);
-                                  widget.onImagesChanged(_images);
-                                });
-                              },
-                              child: Container(
-                                decoration:
-                                    const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                                child: const Icon(Icons.close, size: 20, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-          ),
-        ),
-      ],
     );
   }
 }
