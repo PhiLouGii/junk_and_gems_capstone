@@ -892,24 +892,24 @@ app.get("/materials", async (req, res) => {
         m.*,
         u.name as uploader_name,
         u.email as uploader_email,
-        u.profile_image_url as uploader_avatar
+        u.profile_image_url as uploader_avatar,
+        u.id as uploader_id
       FROM materials m
       JOIN users u ON m.uploader_id = u.id
-      WHERE m.is_claimed = false
       ORDER BY m.created_at DESC
     `);
 
-     console.log(`✅ Found ${result.rows.length} materials`);
+     console.log(`Found ${result.rows.length} materials (including claimed)`);
 
       // Convert database results to frontend format
     const materials = result.rows.map(material => {
-      // Get images from image_data_base64 (our working column)
+      // Get images from image_data_base64 
       const imageUrls = material.image_data_base64 || [];
       
       if (imageUrls.length > 0) {
-        console.log(`📸 Material ${material.id} has ${imageUrls.length} images`);
+        console.log(`Material ${material.id} has ${imageUrls.length} images`);
       } else {
-        console.log(`⚠️ Material ${material.id} has no images`);
+        console.log(`Material ${material.id} has no images`);
       }
     
     const materialData = {
@@ -926,9 +926,15 @@ app.get("/materials", async (req, res) => {
         contact_preferences: material.contact_preferences,
         image_urls: imageUrls, // Always use image_data_base64 content
         uploader: material.uploader_name,
+        uploader_id: material.uploader_id, // IMPORTANT: Include uploader_id
+        uploader_email: material.uploader_email,
+        uploader_avatar: material.uploader_avatar,
         amount: material.quantity,
         created_at: material.created_at,
-        time: formatTimeAgo(material.created_at)
+        time: formatTimeAgo(material.created_at),
+        is_claimed: material.is_claimed || false, 
+        claimed_by: material.claimed_by, 
+        claimed_at: material.claimed_at
       };
 
       return materialData;

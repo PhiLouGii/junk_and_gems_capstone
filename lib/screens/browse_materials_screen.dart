@@ -95,6 +95,14 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         final List<dynamic> materials = json.decode(response.body);
         print('Loaded ${materials.length} materials');
         
+        // Log first material to see structure
+        if (materials.isNotEmpty) {
+          print('📦 Sample material data: ${materials[0]}');
+          print('   Uploader ID: ${materials[0]['uploader_id']}');
+          print('   Is Claimed: ${materials[0]['is_claimed']}');
+          print('   Claimed By: ${materials[0]['claimed_by']}');
+        }
+        
         setState(() {
           _materials = materials;
           _filteredMaterials = materials;
@@ -270,6 +278,12 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       return;
     }
 
+    // Validate uploaderId is not empty
+    if (uploaderId.isEmpty || uploaderId == 'null' || uploaderId == '0') {
+      _showErrorSnackbar('Unable to contact uploader. Missing uploader information.');
+      return;
+    }
+
     if (_currentUserId == uploaderId) {
       _showErrorSnackbar('This is your own material');
       return;
@@ -279,6 +293,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       print('🚀 Starting conversation with uploader...');
       print('Current User ID: $_currentUserId');
       print('Uploader ID: $uploaderId');
+      print('Material: $materialTitle');
 
       // Show loading
       showDialog(
@@ -770,9 +785,16 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                           material['claimed_by'] != null || 
                           _claimedMaterialIds.contains(material['id'].toString());
 
-    // Check if current user is the uploader
-    final String uploaderId = material['uploader_id']?.toString() ?? '';
-    final bool isOwnMaterial = _currentUserId == uploaderId;
+    // Try to get uploader_id from multiple possible field names
+    final String uploaderId = (material['uploader_id'] ?? 
+                               material['donor_id'] ?? 
+                               material['user_id'] ?? '').toString();
+    final bool isOwnMaterial = uploaderId.isNotEmpty && _currentUserId == uploaderId;
+
+    print('🎨 Building card for material ${material['id']}:');
+    print('   Is Claimed: $isClaimed');
+    print('   Uploader ID: $uploaderId');
+    print('   Is Own: $isOwnMaterial');
 
     return GestureDetector(
       onTap: () => _showMaterialDetails(context, material: material),
@@ -1260,9 +1282,22 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                           material['claimed_by'] != null || 
                           _claimedMaterialIds.contains(material['id'].toString());
     
-    final String uploaderId = material['uploader_id']?.toString() ?? '';
-    final String uploaderName = material['uploader'] ?? 'Unknown User';
-    final bool isOwnMaterial = _currentUserId == uploaderId;
+    // Try to get uploader_id from multiple possible field names
+    final String uploaderId = (material['uploader_id'] ?? 
+                               material['donor_id'] ?? 
+                               material['user_id'] ?? '').toString();
+    final String uploaderName = material['uploader'] ?? 
+                                material['uploader_name'] ?? 
+                                'Unknown User';
+    final bool isOwnMaterial = uploaderId.isNotEmpty && _currentUserId == uploaderId;
+
+    print('🔍 Material Details Debug:');
+    print('   Material ID: ${material['id']}');
+    print('   Uploader ID from data: $uploaderId');
+    print('   Current User ID: $_currentUserId');
+    print('   Is Own Material: $isOwnMaterial');
+    print('   Is Claimed: $isClaimed');
+    print('   Full material data: $material');
 
     showModalBottomSheet(
       context: context,
