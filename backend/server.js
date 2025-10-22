@@ -2505,35 +2505,114 @@ app.get("/api/debug/products-dependencies", async (req, res) => {
 // --- ORDERS & GEM SYSTEM ---
 app.post("/api/orders", authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const { totalAmount, appliedGems = 0, shippingAddress, paymentMethod } = req.body;
+  const { 
+    cartItems,
+    totalAmount, 
+    appliedGems = 0, 
+    shippingAddress, 
+    paymentMethod,
+    deliveryAddress,
+    phoneNumber,
+    paymentReference // For bank transfers
+  } = req.body;
 
   try {
+    console.log('📦 Creating order...');
+    console.log('Payment method:', paymentMethod);
+    console.log('Total amount:', totalAmount);
+
     // Basic validation
     if (!totalAmount || totalAmount <= 0) {
       return res.status(400).json({ error: "Invalid total amount" });
     }
 
+    if (!paymentMethod) {
+      return res.status(400).json({ error: "Payment method is required" });
+    }
+
+    // Validate payment method specific requirements
+    if (paymentMethod === 'cod' && !deliveryAddress) {
+      return res.status(400).json({ error: "Delivery address required for Cash on Delivery" });
+    }
+
+    if (paymentMethod === 'cod' && !phoneNumber) {
+      return res.status(400).json({ error: "Phone number required for Cash on Delivery" });
+    }
+
+    if (paymentMethod === 'bank_transfer' && !paymentReference) {
+      return res.status(400).json({ error: "Payment reference required for Bank Transfer" });
+    }
+
     // Fetch user's gem balance
     const userResult = await pool.query(
-      "SELECT available_gems FROM users WHERE id = $1",
+      "SELECT available_gems, email, name FROM users WHERE id = $1",
       [userId]
     );
 
-    const availableGems = parseInt(userResult.rows[0].available_gems || 0);
+    const user = userResult.rows[0];
+    const availableGems = parseInt(user.available_gems || 0);
     const actualAppliedGems = Math.min(appliedGems, availableGems);
 
     // Calculate final amount
     const gemValue = 1; // 1 gem = 1 LSL
-    const finalAmount = Math.max(0, totalAmount - actualAppliedGems * gemValue);
+    let finalAmount = Math.max(0, totalAmount - actualAppliedGems * gemValue);
+
+    // Add COD fee if applicable (M20 delivery fee)
+    if (paymentMethod === 'cod') {
+      finalAmount += 20; // M20 COD fee
+    }
+
+    // Determine payment status based on method
+    let paymentStatus = 'pending';
+    let orderStatus = 'pending';
+    
+    if (paymentMethod === 'cod') {
+      paymentStatus = 'cod_pending'; // Will be paid on delivery
+      orderStatus = 'confirmed'; // Order is confirmed, awaiting delivery
+    } else if (paymentMethod === 'bank_transfer' || paymentMethod === 'ussd') {
+      paymentStatus = 'awaiting_confirmation'; // Manual verification needed
+      orderStatus = 'pending'; // Pending until payment confirmed
+    } else if (paymentMethod === 'card') {
+      paymentStatus = 'completed';
+      orderStatus = 'completed';
+    }
 
     // Create new order
     const orderResult = await pool.query(
-      `INSERT INTO orders (user_id, total_amount, applied_gems, final_amount, shipping_address, payment_method, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'completed') RETURNING *`,
-      [userId, totalAmount, actualAppliedGems, finalAmount, shippingAddress, paymentMethod]
+      `INSERT INTO orders (
+        user_id, 
+        total_amount, 
+        applied_gems, 
+        final_amount, 
+        shipping_address, 
+        payment_method,
+        payment_status,
+        status,
+        delivery_address,
+        phone_number,
+        payment_reference,
+        created_at
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) 
+       RETURNING *`,
+      [
+        userId, 
+        totalAmount, 
+        actualAppliedGems, 
+        finalAmount, 
+        shippingAddress || deliveryAddress, 
+        paymentMethod,
+        paymentStatus,
+        orderStatus,
+        deliveryAddress,
+        phoneNumber,
+        paymentReference
+      ]
     );
 
-    // Update gems & transactions
+    const order = orderResult.rows[0];
+
+    // Update gems & transactions if gems were used
     if (actualAppliedGems > 0) {
       await pool.query(
         "UPDATE users SET available_gems = available_gems - $1 WHERE id = $2",
@@ -2545,22 +2624,62 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
       );
     }
 
-    // Reward small gem bonus for completing an order
-    await pool.query(
-      "UPDATE users SET available_gems = available_gems + 2 WHERE id = $1",
-      [userId]
-    );
-    await pool.query(
-      "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', 'Bonus for completing an order')",
-      [userId, 2]
-    );
+    // Reward gems for completing an order (only for paid orders)
+    if (paymentMethod === 'card') {
+      await pool.query(
+        "UPDATE users SET available_gems = available_gems + 2 WHERE id = $1",
+        [userId]
+      );
+      await pool.query(
+        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', 'Bonus for completing an order')",
+        [userId, 2]
+      );
+    }
+
+    // Clear user's cart after order creation
+    if (cartItems && cartItems.length > 0) {
+      await pool.query(
+        "DELETE FROM cart_items WHERE user_id = $1",
+        [userId]
+      );
+      console.log('🗑️ Cleared cart after order creation');
+    }
+
+    // Send confirmation email based on payment method
+    let emailSubject = '';
+    let emailText = '';
+    
+    if (paymentMethod === 'cod') {
+      emailSubject = 'Order Confirmed - Cash on Delivery';
+      emailText = `Hi ${user.name}! Your order #${order.id} has been confirmed. Total amount: M${finalAmount.toFixed(2)} (including M20 delivery fee). You'll pay when the items are delivered to: ${deliveryAddress}. We'll call you on ${phoneNumber} to arrange delivery.`;
+    } else if (paymentMethod === 'bank_transfer') {
+      emailSubject = 'Order Pending - Bank Transfer Confirmation Required';
+      emailText = `Hi ${user.name}! Your order #${order.id} is pending payment confirmation. Reference: ${paymentReference}. Once we verify your payment, we'll process your order.`;
+    } else if (paymentMethod === 'ussd') {
+      emailSubject = 'Order Pending - USSD Payment Confirmation Required';
+      emailText = `Hi ${user.name}! Your order #${order.id} is pending payment confirmation. Once we verify your USSD payment, we'll process your order.`;
+    } else {
+      emailSubject = 'Order Confirmed!';
+      emailText = `Hi ${user.name}! Your order #${order.id} has been confirmed. Total: M${finalAmount.toFixed(2)}.`;
+    }
+
+    // Send email in background
+    sendEmail({
+      to: user.email,
+      subject: emailSubject,
+      text: emailText
+    }).catch(err => console.error('Failed to send order confirmation email:', err));
+
+    console.log(`✅ Order created: #${order.id} - ${paymentMethod}`);
 
     res.status(201).json({
       success: true,
       message: "Order created successfully",
-      order: orderResult.rows[0],
+      order: order,
       applied_gems: actualAppliedGems,
       final_amount: finalAmount,
+      payment_status: paymentStatus,
+      order_status: orderStatus
     });
   } catch (err) {
     console.error("Create order error:", err);

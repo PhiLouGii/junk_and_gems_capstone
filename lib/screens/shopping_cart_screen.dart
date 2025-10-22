@@ -28,6 +28,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   final TextEditingController _gemsController = TextEditingController();
   bool _isLoading = true;
   bool _hasAuthError = false;
+  String _token = ''; // <-- ADDED: State to store the authentication token
 
   @override
   void initState() {
@@ -44,10 +45,11 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       await ApiService.debugAuthData();
       
       final token = await ApiService.getToken();
+      _token = token ?? ''; // <-- FIXED: Capture the token
       print('📋 Token exists: ${token != null}');
       
-      if (token != null) {
-        print('📋 Token preview: ${token.substring(0, min(20, token.length))}...');
+      if (_token.isNotEmpty) {
+        print('📋 Token preview: ${_token.substring(0, min(20, _token.length))}...');
       }
       
       final userId = await ApiService.getUserId();
@@ -61,8 +63,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       final isValid = await ApiService.verifyToken();
       print('📋 Token validation: $isValid');
       
-      if (!isValid) {
-        print('❌ Token is invalid or expired');
+      if (_token.isEmpty || !isValid) { // Check for both missing token and invalid token
+        print('❌ Token is missing, invalid, or expired');
         setState(() {
           _hasAuthError = true;
           _isLoading = false;
@@ -222,7 +224,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
       if (gems > maxAllowed) {
         _appliedGems = maxAllowed;
         _gemsController.text = maxAllowed.toString();
-        _showWarningSnackBar('Maximum allowed gems is $maxAllowed (10% of your total)');
+        _showWarningSnackBar('Maximum allowed gems is $maxAllowed (10% of total)');
       } else if (gems > _availableGems) {
         _appliedGems = _availableGems;
         _gemsController.text = _availableGems.toString();
@@ -566,10 +568,10 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                 color: const Color(0xFFBEC092).withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.shopping_cart_outlined,
                 size: 64,
-                color: const Color(0xFF88844D),
+                color: Color(0xFF88844D),
               ),
             ),
             const SizedBox(height: 24),
@@ -861,10 +863,10 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   Widget _buildImagePlaceholder() {
     return Container(
       color: const Color(0xFFBEC092).withOpacity(0.2),
-      child: Icon(
+      child: const Icon(
         Icons.shopping_bag_outlined,
         size: 40,
-        color: const Color(0xFF88844D),
+        color: Color(0xFF88844D),
       ),
     );
   }
@@ -1102,9 +1104,9 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                   color: const Color(0xFFBEC092).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.receipt_long,
-                  color: const Color(0xFF88844D),
+                  color: Color(0xFF88844D),
                   size: 20,
                 ),
               ),
@@ -1235,6 +1237,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                 subtotal: _subtotal,
                 gemsDiscount: _appliedGems.toDouble(),
                 total: _total,
+                userId: widget.userId, // <-- FIXED: Passing required userId
+                token: _token, // <-- FIXED: Passing required token
               ),
             ),
           ).then((_) => _loadCartData());
@@ -1303,6 +1307,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                             subtotal: _subtotal,
                             gemsDiscount: _appliedGems.toDouble(),
                             total: _total,
+                            userId: widget.userId, // <-- FIXED: Passing required userId
+                            token: _token, // <-- FIXED: Passing required token
                           ),
                         ),
                       ).then((_) => _loadCartData());

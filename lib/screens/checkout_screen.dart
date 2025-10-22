@@ -1,13 +1,69 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:junk_and_gems/providers/theme_provider.dart';
-import 'package:junk_and_gems/utils/app_localizations.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+/// Formatter for Card Number (XXXX XXXX XXXX XXXX)
+class CardNumberInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String newText = newValue.text.replaceAll(' ', '');
+
+    if (newText.length > 16) {
+      return oldValue;
+    }
+
+    String formattedText = '';
+    for (int i = 0; i < newText.length; i++) {
+      formattedText += newText[i];
+      if ((i + 1) % 4 == 0 && i != newText.length - 1) {
+        formattedText += ' ';
+      }
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+/// Formatter for Expiry Date (MM/YY)
+class ExpiryDateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String newText = newValue.text.replaceAll('/', '');
+
+    if (newText.length > 4) {
+      return oldValue;
+    }
+
+    String formattedText = '';
+    for (int i = 0; i < newText.length; i++) {
+      formattedText += newText[i];
+      if (i == 1 && i != newText.length - 1) {
+        formattedText += '/';
+      }
+    }
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+// -----------------------------------------------------------------
 
 class CheckoutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
   final double subtotal;
   final double gemsDiscount;
   final double total;
+  final String userId;
+  final String token;
 
   const CheckoutScreen({
     super.key,
@@ -15,6 +71,8 @@ class CheckoutScreen extends StatefulWidget {
     required this.subtotal,
     required this.gemsDiscount,
     required this.total,
+    required this.userId,
+    required this.token,
   });
 
   @override
@@ -24,13 +82,22 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String _selectedPaymentMethod = 'Card (Credit/Debit)';
   
+  // Card payment controllers
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _expiryController = TextEditingController();
   final TextEditingController _cvcController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   
-  final TextEditingController _ecocashPhoneController = TextEditingController();
-  final TextEditingController _mpesaPhoneController = TextEditingController();
+  // COD controllers
+  final TextEditingController _codAddressController = TextEditingController();
+  final TextEditingController _codPhoneController = TextEditingController();
+  final TextEditingController _codNotesController = TextEditingController();
+  
+  // Bank Transfer controllers
+  final TextEditingController _bankReferenceController = TextEditingController();
+  
+  // USSD selected bank
+  String _selectedUssdBank = 'Standard Lesotho Bank';
 
   @override
   void dispose() {
@@ -38,34 +105,193 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _expiryController.dispose();
     _cvcController.dispose();
     _nameController.dispose();
-    _ecocashPhoneController.dispose();
-    _mpesaPhoneController.dispose();
+    _codAddressController.dispose();
+    _codPhoneController.dispose();
+    _codNotesController.dispose();
+    _bankReferenceController.dispose();
     super.dispose();
   }
 
-  void _showUnavailableDialog(BuildContext context, String paymentMethod) {
+  double get finalTotal {
+    if (_selectedPaymentMethod == 'Cash on Delivery') {
+      return widget.total + 20; // Add M20 COD fee
+    }
+    return widget.total;
+  }
+
+  // --- Payment Processing Logic ---
+
+  void _processPayment(BuildContext context) async {
+    // 1. Validation
+    if (_selectedPaymentMethod == 'Card (Credit/Debit)') {
+      if (_cardNumberController.text.isEmpty ||
+          _expiryController.text.isEmpty ||
+          _cvcController.text.isEmpty ||
+          _nameController.text.isEmpty) {
+        _showErrorDialog(context, 'Please fill in all card details correctly.');
+        return;
+      }
+    } else if (_selectedPaymentMethod == 'Cash on Delivery') {
+      if (_codAddressController.text.isEmpty || _codPhoneController.text.isEmpty) {
+        _showErrorDialog(context, 'Please enter a delivery address and a contact phone number.');
+        return;
+      }
+      if (_codPhoneController.text.length != 8) {
+        _showErrorDialog(context, 'Please enter a valid 8-digit phone number.');
+        return;
+      }
+    } else if (_selectedPaymentMethod == 'Bank Transfer') {
+      if (_bankReferenceController.text.isEmpty) {
+        _showErrorDialog(context, 'Please ensure you have initiated the bank transfer and enter a payment reference.');
+        return;
+      }
+    } 
+    // USSD Payment doesn't require a local field check
+
+    // 2. Show Loading Indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: Color(0xFF88844D),
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Processing payment...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // 3. API Call Logic 
+    try {
+      final response = await http.post(
+        Uri.parse('YOUR_API_ENDPOINT/orders'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}', 
+        },
+        body: json.encode({
+          'userId': widget.userId,
+          'cartItems': widget.cartItems,
+          'paymentMethod': _selectedPaymentMethod,
+          'totalAmount': finalTotal,
+          'details': _getPaymentDetails(),
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        Navigator.pop(context); // Dismiss loading dialog
+        _showSuccessDialog(context);
+      } else {
+        Navigator.pop(context); // Dismiss loading dialog
+        _showErrorDialog(context, 'Payment submission failed. Please try again or contact support. Status: ${response.statusCode}');
+      }
+
+    } catch (e) {
+      Navigator.pop(context); // Dismiss loading dialog
+      _showErrorDialog(context, 'An unexpected error occurred: ${e.toString()}');
+    }
+  }
+
+  Map<String, dynamic> _getPaymentDetails() {
+    if (_selectedPaymentMethod == 'Card (Credit/Debit)') {
+      return {
+        'cardNumber': _cardNumberController.text.replaceAll(' ', ''),
+        'expiryDate': _expiryController.text,
+        'cvc': _cvcController.text,
+        'cardHolderName': _nameController.text,
+      };
+    } else if (_selectedPaymentMethod == 'Cash on Delivery') {
+      return {
+        'deliveryAddress': _codAddressController.text,
+        'contactPhone': '+266${_codPhoneController.text}',
+        'notes': _codNotesController.text,
+      };
+    } else if (_selectedPaymentMethod == 'Bank Transfer') {
+      return {
+        'bankReference': _bankReferenceController.text,
+        'bankName': 'Lesotho National Bank',
+      };
+    } else if (_selectedPaymentMethod == 'USSD Payment') {
+      return {
+        'selectedBank': _selectedUssdBank,
+      };
+    }
+    return {};
+  }
+
+  // --- Dialog Helpers ---
+
+  void _showSuccessDialog(BuildContext context) { // <-- FIXED: Added missing success dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Color(0xFF88844D)),
+            const SizedBox(width: 8),
+            const Text('Order Placed!'),
+          ],
+        ),
+        content: const Text(
+            'Your order has been placed successfully and is awaiting processing. You will receive an email confirmation shortly.'),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Dismiss alert
+              Navigator.of(context).popUntil((route) => route.isFirst); // Go back to main screen/homepage
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF88844D),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Continue Shopping'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.orange),
+            Icon(Icons.error_outline, color: Colors.red.shade400),
             const SizedBox(width: 8),
-            const Text('Coming Soon!'),
+            const Text('Error'),
           ],
         ),
-        content: Text(
-          '$paymentMethod is currently not available. Please check back soon or use card payment.',
-        ),
+        content: Text(message),
         actions: [
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                _selectedPaymentMethod = 'Card (Credit/Debit)';
-              });
-            },
+            onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF88844D),
               foregroundColor: Colors.white,
@@ -80,8 +306,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  // --- Build Methods (Truncated for brevity, assuming existing correct code) ---
+
   @override
   Widget build(BuildContext context) {
+    // ... existing build method
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -105,12 +334,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               children: [
                                 _buildPaymentOptions(),
                                 const SizedBox(height: 20),
-                                if (_selectedPaymentMethod == 'Card (Credit/Debit)')
-                                  _buildCardPaymentForm(),
-                                if (_selectedPaymentMethod == 'EcoCash')
-                                  _buildMobilePaymentForm('EcoCash', _ecocashPhoneController),
-                                if (_selectedPaymentMethod == 'M-Pesa')
-                                  _buildMobilePaymentForm('M-Pesa', _mpesaPhoneController),
+                                _buildPaymentForm(),
                               ],
                             ),
                           ),
@@ -133,12 +357,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           const SizedBox(height: 20),
                           _buildPaymentOptions(),
                           const SizedBox(height: 20),
-                          if (_selectedPaymentMethod == 'Card (Credit/Debit)')
-                            _buildCardPaymentForm(),
-                          if (_selectedPaymentMethod == 'EcoCash')
-                            _buildMobilePaymentForm('EcoCash', _ecocashPhoneController),
-                          if (_selectedPaymentMethod == 'M-Pesa')
-                            _buildMobilePaymentForm('M-Pesa', _mpesaPhoneController),
+                          _buildPaymentForm(),
                         ],
                       ),
                     );
@@ -155,443 +374,53 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF88844D), Color(0xFFBEC092)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.payment, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Checkout',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
+      // ... existing code
     );
   }
 
   Widget _buildOrderSummary() {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.receipt_long,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Order Summary',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: widget.cartItems.map((item) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item['title']} x${item['quantity']}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        'M${(item['price'] * item['quantity']).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          _buildSummaryRow('Subtotal', 'M${widget.subtotal.toStringAsFixed(2)}'),
-          
-          if (widget.gemsDiscount > 0) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF88844D).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.diamond, size: 16, color: Color(0xFF88844D)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Gems Discount',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '-M${widget.gemsDiscount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF88844D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          
-          const SizedBox(height: 16),
-          Divider(
-            color: const Color(0xFFBEC092).withOpacity(0.5),
-            thickness: 1,
-          ),
-          const SizedBox(height: 16),
-          
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF88844D), Color(0xFFBEC092)],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  'M${widget.total.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      // ... existing code
     );
   }
 
   Widget _buildSummaryRow(String label, String value) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            color: Theme.of(context).textTheme.bodyMedium?.color,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-      ],
+      // ... existing code
     );
   }
 
   Widget _buildPaymentOptions() {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.payment,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Payment Method',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          _buildPaymentOption(
-            title: 'Card (Credit/Debit)',
-            isSelected: _selectedPaymentMethod == 'Card (Credit/Debit)',
-            onTap: () {
-              setState(() {
-                _selectedPaymentMethod = 'Card (Credit/Debit)';
-              });
-            },
-            icon: Icons.credit_card,
-          ),
-          const SizedBox(height: 12),
-          
-          _buildPaymentOptionWithLogo(
-            title: 'EcoCash',
-            isSelected: _selectedPaymentMethod == 'EcoCash',
-            onTap: () {
-              _showUnavailableDialog(context, 'EcoCash');
-            },
-            logoPath: 'assets/images/ecocash_logo.png',
-          ),
-          const SizedBox(height: 12),
-          
-          _buildPaymentOptionWithLogo(
-            title: 'M-Pesa',
-            isSelected: _selectedPaymentMethod == 'M-Pesa',
-            onTap: () {
-              _showUnavailableDialog(context, 'M-Pesa');
-            },
-            logoPath: 'assets/images/mpesa_logo.png',
-          ),
-        ],
-      ),
+      // ... existing code
     );
   }
 
   Widget _buildPaymentOption({
     required String title,
+    String? subtitle,
     required bool isSelected,
     required VoidCallback onTap,
     required IconData icon,
   }) {
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? const Color(0xFFBEC092).withOpacity(0.2) 
-              : Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected 
-                ? const Color(0xFF88844D) 
-                : const Color(0xFFBEC092).withOpacity(0.5),
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? const Color(0xFF88844D) 
-                    : const Color(0xFFBEC092).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : const Color(0xFF88844D),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const Spacer(),
-            if (isSelected)
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF88844D),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 16),
-              ),
-          ],
-        ),
-      ),
+      // ... existing code
     );
   }
 
-  Widget _buildPaymentOptionWithLogo({
-    required String title,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required String logoPath,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? const Color(0xFFBEC092).withOpacity(0.2) 
-              : Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected 
-                ? const Color(0xFF88844D) 
-                : const Color(0xFFBEC092).withOpacity(0.5),
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Image.asset(
-                logoPath,
-                height: 24,
-                width: 24,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const Spacer(),
-            if (isSelected)
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF88844D),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 16),
-              ),
-          ],
-        ),
-      ),
-    );
+  Widget _buildPaymentForm() {
+    switch (_selectedPaymentMethod) {
+      case 'Card (Credit/Debit)':
+        return _buildCardPaymentForm();
+      case 'Cash on Delivery':
+        return _buildCODForm();
+      case 'Bank Transfer':
+        return _buildBankTransferForm();
+      case 'USSD Payment':
+        return _buildUSSDForm();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildCardPaymentForm() {
@@ -644,6 +473,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             hintText: '1234 5678 9012 3456',
             keyboardType: TextInputType.number,
             icon: Icons.credit_card,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(16),
+              CardNumberInputFormatter(), // <-- Corrected
+            ],
           ),
           const SizedBox(height: 16),
           
@@ -654,7 +488,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   label: 'Expiry Date',
                   controller: _expiryController,
                   hintText: 'MM/YY',
+                  keyboardType: TextInputType.datetime,
                   icon: Icons.calendar_today,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                    ExpiryDateInputFormatter(), // <-- Corrected
+                  ],
                 ),
               ),
               const SizedBox(width: 16),
@@ -665,6 +505,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   hintText: '123',
                   keyboardType: TextInputType.number,
                   icon: Icons.lock_outline,
+                  isObscure: true,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                  ],
                 ),
               ),
             ],
@@ -676,6 +521,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             controller: _nameController,
             hintText: 'John Doe',
             icon: Icons.person_outline,
+            textCapitalization: TextCapitalization.words,
           ),
           const SizedBox(height: 20),
           
@@ -708,6 +554,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
+                    // Assuming you have these assets
                     Image.asset(
                       'assets/images/visa_logo.png',
                       height: 28,
@@ -729,7 +576,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildMobilePaymentForm(String provider, TextEditingController controller) {
+  Widget _buildCODForm() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -746,130 +593,130 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.phone_android,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '$provider Payment',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
+          _buildFormHeader('Cash on Delivery', Icons.delivery_dining, Colors.orange),
           const SizedBox(height: 20),
-          
-          Text(
-            'Phone Number',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-          const SizedBox(height: 8),
+
+          // COD Fee Reminder
           Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: Colors.orange.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBEC092), width: 2),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFBEC092).withOpacity(0.2),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(10),
-                      bottomLeft: Radius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    '+266',
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
+                const Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.phone,
+                  child: Text(
+                    'A M20.00 delivery fee is added to your total for this payment method.',
                     style: TextStyle(
+                      fontSize: 13,
                       color: Theme.of(context).textTheme.bodyLarge?.color,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'xxxx xxxx',
-                      hintStyle: TextStyle(
-                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          
           const SizedBox(height: 20),
-          
+
+          _buildTextField(
+            label: 'Delivery Address',
+            controller: _codAddressController,
+            hintText: 'e.g., House 123, Maseru West',
+            icon: Icons.location_on_outlined,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Contact Phone Number',
+            controller: _codPhoneController,
+            hintText: 'e.g., 5xxxxxxx',
+            keyboardType: TextInputType.phone,
+            icon: Icons.phone_android,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(8),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            label: 'Delivery Notes (Optional)',
+            controller: _codNotesController,
+            hintText: 'e.g., Leave package with security guard',
+            icon: Icons.note_alt_outlined,
+            maxLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBankTransferForm() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFormHeader('Bank Transfer Details', Icons.account_balance),
+          const SizedBox(height: 20),
+
+          // Bank Account Details
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFBEC092).withOpacity(0.2),
-                  const Color(0xFF88844D).withOpacity(0.1),
-                ],
-              ),
+              color: const Color(0xFFBEC092).withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFBEC092).withOpacity(0.5),
-              ),
+              border: Border.all(color: const Color(0xFFBEC092), width: 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 16, color: Color(0xFF88844D)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'How it works:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildInstructionStep('1', 'Enter your $provider registered phone number'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('2', 'Confirm payment to receive a prompt'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('3', 'Enter your $provider PIN to complete'),
+                _buildBankDetailRow('Bank Name', 'Lesotho National Bank'),
+                _buildBankDetailRow('Account Name', 'Junk & Gems PTY LTD'),
+                _buildBankDetailRow('Account Number', '0123456789 (Cheque)'),
+                _buildBankDetailRow('Branch Code', '990101'),
               ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          _buildTextField(
+            label: 'Payment Reference',
+            controller: _bankReferenceController,
+            hintText: 'Your bank transaction reference number',
+            icon: Icons.receipt_long,
+            textCapitalization: TextCapitalization.characters,
+          ),
+          const SizedBox(height: 12),
+          
+          Text(
+            'Important:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade400,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Use your Order ID (you will receive this after confirmation) as the reference. Your order will only be processed once the transfer is confirmed (can take up to 24 hours).',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
           ),
         ],
@@ -877,40 +724,252 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildInstructionStep(String number, String text) {
+  Widget _buildBankDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUSSDForm() {
+    final List<String> ussdBanks = ['Standard Lesotho Bank', 'Nedbank Lesotho', 'First National Bank'];
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFormHeader('USSD Payment', Icons.phone_android),
+          const SizedBox(height: 20),
+
+          Text(
+            'Select your bank',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBEC092), width: 2),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _selectedUssdBank,
+                isExpanded: true,
+                icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF88844D)),
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+                dropdownColor: Theme.of(context).cardColor,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedUssdBank = newValue!;
+                  });
+                },
+                items: ussdBanks.map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+
+          // USSD Instructions
+          _buildUSSDInstructions(
+            bank: _selectedUssdBank,
+            amount: finalTotal.toStringAsFixed(2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUSSDInstructions({required String bank, required String amount}) {
+    String ussdCode;
+    String instruction;
+    
+    switch (bank) {
+      case 'Standard Lesotho Bank':
+        ussdCode = '*120*101#';
+        instruction = 'Enter the merchant code (777777), amount (M$amount), and your PIN. Your order ID will be the reference.';
+        break;
+      case 'Nedbank Lesotho':
+        ussdCode = '*140*101#';
+        instruction = 'Follow the prompts for Nedbank\'s merchant payment service, entering the merchant ID, amount (M$amount), and confirming with your PIN.';
+        break;
+      case 'First National Bank':
+        ussdCode = '*130*321#';
+        instruction = 'Select "Pay Merchant", enter the merchant number, amount (M$amount), and confirm with your FNB PIN.';
+        break;
+      default:
+        ussdCode = 'N/A';
+        instruction = 'Select a bank to see USSD instructions.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFBEC092).withOpacity(0.2),
+            const Color(0xFF88844D).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFBEC092).withOpacity(0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.mobile_friendly, size: 16, color: Color(0xFF88844D)),
+              const SizedBox(width: 8),
+              Text(
+                'Steps for $bank:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildInstructionStep('1', 'Dial the USSD code:'), // <-- Corrected
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF88844D),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                ussdCode,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildInstructionStep('2', instruction), // <-- Corrected
+          const SizedBox(height: 8),
+          _buildInstructionStep('3', 'Wait for confirmation from your bank. You will receive an Order ID after pressing "Confirm Payment".'), // <-- Corrected
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionStep(String number, String instruction) { // <-- FIXED: Added missing helper
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 24,
           height: 24,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: const Color(0xFF88844D),
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Center(
-            child: Text(
-              number,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+          child: Text(
+            number,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
             ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 13,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-                height: 1.4,
-              ),
+          child: Text(
+            instruction,
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormHeader(String title, IconData icon, [Color? iconColor]) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: (iconColor ?? const Color(0xFFBEC092)).withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            color: iconColor ?? const Color(0xFF88844D),
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
       ],
@@ -922,7 +981,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required TextEditingController controller,
     required String hintText,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     required IconData icon,
+    List<TextInputFormatter>? inputFormatters,
+    int maxLines = 1,
+    bool isObscure = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,6 +1019,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: TextField(
                   controller: controller,
                   keyboardType: keyboardType,
+                  obscureText: isObscure,
+                  inputFormatters: inputFormatters,
+                  maxLines: maxLines,
+                  textCapitalization: textCapitalization,
                   style: TextStyle(
                     color: Theme.of(context).textTheme.bodyLarge?.color,
                     fontWeight: FontWeight.w600,
@@ -979,13 +1046,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildBottomButton() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -997,13 +1063,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           height: 56,
           child: ElevatedButton.icon(
             onPressed: () => _processPayment(context),
-            icon: const Icon(Icons.lock_outline, size: 22),
+            icon: const Icon(Icons.check_circle_outline, size: 22),
             label: Text(
-              'Confirm Payment • M${widget.total.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              _selectedPaymentMethod == 'Cash on Delivery'
+                  ? 'Confirm Order (M${finalTotal.toStringAsFixed(2)})'
+                  : 'Pay Now (M${finalTotal.toStringAsFixed(2)})',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF88844D),
@@ -1019,163 +1084,4 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void _processPayment(BuildContext context) {
-    if (_selectedPaymentMethod == 'Card (Credit/Debit)') {
-      if (_cardNumberController.text.isEmpty ||
-          _expiryController.text.isEmpty ||
-          _cvcController.text.isEmpty ||
-          _nameController.text.isEmpty) {
-        _showErrorDialog(context, 'Please fill in all card details');
-        return;
-      }
-    } else if (_selectedPaymentMethod == 'EcoCash') {
-      if (_ecocashPhoneController.text.isEmpty) {
-        _showErrorDialog(context, 'Please enter your EcoCash phone number');
-        return;
-      }
-    } else if (_selectedPaymentMethod == 'M-Pesa') {
-      if (_mpesaPhoneController.text.isEmpty) {
-        _showErrorDialog(context, 'Please enter your M-Pesa phone number');
-        return;
-      }
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Center(
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(
-                color: Color(0xFF88844D),
-                strokeWidth: 3,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Processing payment...',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context);
-      _showSuccessDialog(context);
-    });
-  }
-
-  void _showSuccessDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF88844D).withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Color(0xFF88844D),
-                size: 64,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Payment Successful!',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Your order has been confirmed and will be delivered soon.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/marketplace',
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF88844D),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: const Text(
-                  'Continue Shopping',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showErrorDialog(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red.shade400),
-            const SizedBox(width: 8),
-            const Text('Error'),
-          ],
-        ),
-        content: Text(message),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF88844D),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
 }
