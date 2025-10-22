@@ -891,6 +891,7 @@ app.get("/materials", async (req, res) => {
       SELECT 
         m.*,
         u.name as uploader_name,
+        u.name as uploader,
         u.email as uploader_email,
         u.profile_image_url as uploader_avatar,
         u.id as uploader_id
