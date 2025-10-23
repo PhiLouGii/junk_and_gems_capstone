@@ -1501,22 +1501,50 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
         String artisanId = product['artisan_id']?.toString() ?? '';
         String description = product['description'] ?? '';
 
-        // Determine image source
+        // Determine image source - COMPREHENSIVE CHECK
         String imageSource = 'assets/images/placeholder.jpg'; // default placeholder
 
-        // Priority 1: single Cloudinary image_url
-        if (product['image_url'] != null &&
-            product['image_url'].toString().startsWith('http')) {
-          imageSource = product['image_url'];
-        }
-        // Priority 2: first image in image_urls array
-        else if (product['image_urls'] != null &&
-            product['image_urls'] is List &&
+        // Check for image_urls (plural - from Cloudinary)
+        if (product['image_urls'] != null && 
+            product['image_urls'] is List && 
             (product['image_urls'] as List).isNotEmpty) {
-          final firstUrl = product['image_urls'][0].toString();
-          if (firstUrl.startsWith('http')) {
-            imageSource = firstUrl;
+          final imageUrl = product['image_urls'][0].toString();
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            imageSource = imageUrl;
+            print(' Using image_urls (Cloudinary): $imageSource');
           }
+        }
+        
+        // Fallback to image_data_base64 if image_urls didn't work
+        if (imageSource == 'assets/images/placeholder.jpg' && 
+            product['image_data_base64'] != null && 
+            product['image_data_base64'] is List && 
+            (product['image_data_base64'] as List).isNotEmpty) {
+          final imageData = product['image_data_base64'][0].toString();
+          if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+            imageSource = imageData;
+            print(' Using image_data_base64 (Cloudinary URL): $imageSource');
+          } else if (imageData.startsWith('data:image')) {
+            imageSource = imageData;
+            print(' Using image_data_base64 (base64)');
+          }
+        }
+        
+        // Fallback to single image_url
+        if (imageSource == 'assets/images/placeholder.jpg' && 
+            product['image_url'] != null && 
+            product['image_url'].toString().isNotEmpty) {
+          final imageUrl = product['image_url'].toString();
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            imageSource = imageUrl;
+            print(' Using image_url: $imageSource');
+          }
+        }
+        
+        // Final debug log
+        if (imageSource == 'assets/images/placeholder.jpg') {
+          print(' NO IMAGE FOUND for product: $title');
+          print('Product keys: ${product.keys.toList()}');
         }
 
         return GestureDetector(
