@@ -19,6 +19,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool isLoading = false;
   bool includePhoneNumber = false;
+  
+  static const String lesothoCountryCode = '+266';
+
+  @override
+  void initState() {
+    super.initState();
+    // Add listener to maintain country code
+    phoneController.addListener(_handlePhoneNumberChange);
+  }
+
+  @override
+  void dispose() {
+    phoneController.removeListener(_handlePhoneNumberChange);
+    super.dispose();
+  }
+
+  void _handlePhoneNumberChange() {
+    final text = phoneController.text;
+    // Ensure country code is always present
+    if (includePhoneNumber && !text.startsWith(lesothoCountryCode)) {
+      if (text.isEmpty || text.startsWith('+')) {
+        phoneController.value = TextEditingValue(
+          text: '$lesothoCountryCode ',
+          selection: TextSelection.collapsed(offset: lesothoCountryCode.length + 1),
+        );
+      }
+    }
+  }
 
   // Phone number validation
   String? validatePhoneNumber(String? value) {
@@ -26,12 +54,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return null; // Optional field
     }
     
-    // Remove spaces and special characters for validation
-    final cleanNumber = value.replaceAll(RegExp(r'[^\d+]'), '');
+    // Remove spaces for validation
+    final cleanNumber = value.replaceAll(' ', '');
     
-    // Basic validation: should be 8-15 digits (with optional + prefix)
-    if (cleanNumber.length < 8 || cleanNumber.length > 15) {
-      return 'Please enter a valid phone number';
+    // Should start with +266 and have 8 more digits (Lesotho format)
+    if (!cleanNumber.startsWith(lesothoCountryCode)) {
+      return 'Phone number must start with +266';
+    }
+    
+    // Remove country code and check remaining digits
+    final numberWithoutCode = cleanNumber.substring(4);
+    if (numberWithoutCode.length != 8) {
+      return 'Please enter 8 digits after +266';
     }
     
     return null;
