@@ -394,6 +394,54 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     }
   }
 
+  // 🆕 NEW: Helper method to build material images with comprehensive handling
+  Widget _buildMaterialImage(String imageSource) {
+    // If it's a base64 image
+    if (imageSource.startsWith('data:image')) {
+      try {
+        return Image.memory(
+          base64Decode(imageSource.split(',')[1]),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildCategoryPlaceholder('General');
+          },
+        );
+      } catch (e) {
+        print('❌ Base64 image error: $e');
+        return _buildCategoryPlaceholder('General');
+      }
+    }
+    // If it's a network URL (Cloudinary)
+    else if (imageSource.startsWith('http')) {
+      return Image.network(
+        imageSource,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey[200],
+            child: Center(
+              child: CircularProgressIndicator(
+                color: const Color(0xFF88844D),
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('❌ Network image error: $error');
+          return _buildCategoryPlaceholder('General');
+        },
+      );
+    }
+    // Fallback to placeholder
+    else {
+      return _buildCategoryPlaceholder('General');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -778,9 +826,35 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
   Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
-    final bool hasImages = material['image_urls'] != null && 
-                        material['image_urls'].isNotEmpty;
-    final String imageUrl = hasImages ? material['image_urls'][0] : '';
+    // ✅ UPDATED: Comprehensive image handling
+    bool hasImages = false;
+    String imageUrl = '';
+
+    // Priority 1: image_urls array (Cloudinary URLs)
+    if (material['image_urls'] != null && 
+        material['image_urls'] is List && 
+        (material['image_urls'] as List).isNotEmpty) {
+      final urls = material['image_urls'] as List;
+      final firstUrl = urls[0].toString();
+      if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+        hasImages = true;
+        imageUrl = firstUrl;
+      }
+    }
+
+    // Priority 2: image_data_base64 array (fallback)
+    if (!hasImages && 
+        material['image_data_base64'] != null && 
+        material['image_data_base64'] is List && 
+        (material['image_data_base64'] as List).isNotEmpty) {
+      final data = material['image_data_base64'] as List;
+      final firstItem = data[0].toString();
+      if (firstItem.startsWith('http://') || firstItem.startsWith('https://')) {
+        hasImages = true;
+        imageUrl = firstItem;
+      }
+    }
+
     final bool isClaimed = material['is_claimed'] == true || 
                           material['claimed_by'] != null || 
                           _claimedMaterialIds.contains(material['id'].toString());
@@ -795,6 +869,8 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     print('   Is Claimed: $isClaimed');
     print('   Uploader ID: $uploaderId');
     print('   Is Own: $isOwnMaterial');
+    print('   Has Images: $hasImages');
+    print('   Image URL: $imageUrl');
 
     return GestureDetector(
       onTap: () => _showMaterialDetails(context, material: material),
@@ -822,28 +898,9 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                     child: Container(
                       height: 160,
                       width: double.infinity,
+                      // ✅ UPDATED: Use the helper method
                       child: hasImages 
-                          ? Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  color: Colors.grey[200],
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      color: const Color(0xFF88844D),
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return _buildCategoryPlaceholder(material['category'] ?? 'General');
-                              },
-                            )
+                          ? _buildMaterialImage(imageUrl)
                           : _buildCategoryPlaceholder(material['category'] ?? 'General'),
                     ),
                   ),
@@ -1275,9 +1332,35 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
   void _showMaterialDetails(BuildContext context, {required dynamic material}) {
-    final bool hasImages = material['image_urls'] != null && 
-                        material['image_urls'].isNotEmpty;
-    final String imageUrl = hasImages ? material['image_urls'][0] : '';
+    // ✅ UPDATED: Comprehensive image handling for details modal
+    bool hasImages = false;
+    String imageUrl = '';
+
+    // Priority 1: image_urls array (Cloudinary URLs)
+    if (material['image_urls'] != null && 
+        material['image_urls'] is List && 
+        (material['image_urls'] as List).isNotEmpty) {
+      final urls = material['image_urls'] as List;
+      final firstUrl = urls[0].toString();
+      if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+        hasImages = true;
+        imageUrl = firstUrl;
+      }
+    }
+
+    // Priority 2: image_data_base64 array (fallback)
+    if (!hasImages && 
+        material['image_data_base64'] != null && 
+        material['image_data_base64'] is List && 
+        (material['image_data_base64'] as List).isNotEmpty) {
+      final data = material['image_data_base64'] as List;
+      final firstItem = data[0].toString();
+      if (firstItem.startsWith('http://') || firstItem.startsWith('https://')) {
+        hasImages = true;
+        imageUrl = firstItem;
+      }
+    }
+
     final bool isClaimed = material['is_claimed'] == true || 
                           material['claimed_by'] != null || 
                           _claimedMaterialIds.contains(material['id'].toString());
@@ -1291,13 +1374,14 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                                 'Unknown User';
     final bool isOwnMaterial = uploaderId.isNotEmpty && _currentUserId == uploaderId;
 
-    print('🔍 Material Details Debug:');
+    print('📝 Material Details Debug:');
     print('   Material ID: ${material['id']}');
     print('   Uploader ID from data: $uploaderId');
     print('   Current User ID: $_currentUserId');
     print('   Is Own Material: $isOwnMaterial');
     print('   Is Claimed: $isClaimed');
-    print('   Full material data: $material');
+    print('   Has Images: $hasImages');
+    print('   Image URL: $imageUrl');
 
     showModalBottomSheet(
       context: context,
@@ -1356,17 +1440,14 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
                       tag: 'material_${material['id']}',
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
-                        child: hasImages
-                            ? Image.network(
-                                imageUrl,
-                                height: 240,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildCategoryPlaceholder(material['category'] ?? 'General');
-                                },
-                              )
-                            : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+                        child: Container(
+                          height: 240,
+                          width: double.infinity,
+                          // ✅ UPDATED: Use the helper method
+                          child: hasImages
+                              ? _buildMaterialImage(imageUrl)
+                              : _buildCategoryPlaceholder(material['category'] ?? 'General'),
+                        ),
                       ),
                     ),
                     

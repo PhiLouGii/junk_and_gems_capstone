@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/services/material_service.dart';
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'browse_materials_screen.dart';
@@ -621,7 +623,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 }
 
-// Image Upload Widget with Dark Mode
+// Image Upload Widget
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
   const ImageUploadWidget({super.key, required this.onImagesChanged});
@@ -636,30 +638,233 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile>? pickedImages = await _picker.pickMultiImage(
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 80,
+      print('📸 Opening image picker...');
+      
+      // Pick multiple images from gallery
+      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+        imageQuality: 85, // Compress images to reduce size
+        maxWidth: 1920, // Limit dimensions to reduce file size
+        maxHeight: 1920,
       );
-
-      if (pickedImages != null) {
-        setState(() {
-          if (_images.length + pickedImages.length > 5) {
-            int availableSlots = 5 - _images.length;
-            _images.addAll(pickedImages.take(availableSlots));
-          } else {
-            _images.addAll(pickedImages);
-          }
-        });
-
-        widget.onImagesChanged(_images);
+      
+      if (pickedFiles.isEmpty) {
+        print('No images selected');
+        return;
       }
+
+      print('Selected ${pickedFiles.length} images');
+
+      // Copy images to app's cache directory to ensure they persist
+      List<XFile> copiedImages = [];
+      final Directory appDir = await getTemporaryDirectory();
+      final String targetDir = '${appDir.path}/material_images';
+      
+      // Create directory if it doesn't exist
+      await Directory(targetDir).create(recursive: true);
+
+      for (int i = 0; i < pickedFiles.length; i++) {
+        try {
+          final XFile pickedFile = pickedFiles[i];
+          print('Processing image ${i + 1}/${pickedFiles.length}...');
+          
+          // Check if source file exists
+          final File sourceFile = File(pickedFile.path);
+          if (!await sourceFile.exists()) {
+            print('⚠️ Source file does not exist: ${pickedFile.path}');
+            continue;
+          }
+
+          // Read file and verify it's not empty
+          final fileBytes = await sourceFile.readAsBytes();
+          if (fileBytes.isEmpty) {
+            print('⚠️ File is empty: ${pickedFile.path}');
+            continue;
+          }
+
+          print('   File size: ${fileBytes.length} bytes');
+
+          // Generate unique filename
+          final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+          final String extension = path.extension(pickedFile.path);
+          final String fileName = 'material_${timestamp}_$i$extension';
+          final String targetPath = '$targetDir/$fileName';
+
+          // Copy to app directory
+          final File targetFile = File(targetPath);
+          await targetFile.writeAsBytes(fileBytes);
+          
+          print('   ✅ Saved to: $targetPath');
+
+          // Create XFile from new path
+          copiedImages.add(XFile(targetPath));
+
+        } catch (e) {
+          print('❌ Error processing image ${i + 1}: $e');
+        }
+      }
+
+      if (copiedImages.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to process selected images'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        // Check if we're at limit
+        if (_images.length + copiedImages.length > 5) {
+          int availableSlots = 5 - _images.length;
+          _images.addAll(copiedImages.take(availableSlots));
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        } else {
+          _images.addAll(copiedImages);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Added ${copiedImages.length} image(s)'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      });
+      
+      print('📊 Total images now: ${_images.length}');
+      widget.onImagesChanged(_images);
+
     } catch (e) {
-      print("Image picker error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick images: $e')),
-      );
+      print('❌ Image picker error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error selecting images: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      print('📷 Opening camera...');
+      
+      final XFile? photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+
+      if (photo == null) {
+        print('❌ No photo taken');
+        return;
+      }
+
+      print('✅ Photo captured: ${photo.path}');
+
+      // Copy to app directory
+      final Directory appDir = await getTemporaryDirectory();
+      final String targetDir = '${appDir.path}/material_images';
+      await Directory(targetDir).create(recursive: true);
+
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String extension = path.extension(photo.path);
+      final String fileName = 'material_camera_$timestamp$extension';
+      final String targetPath = '$targetDir/$fileName';
+
+      final File sourceFile = File(photo.path);
+      final fileBytes = await sourceFile.readAsBytes();
+      await File(targetPath).writeAsBytes(fileBytes);
+
+      print('   ✅ Saved to: $targetPath');
+
+      setState(() {
+        if (_images.length >= 5) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Maximum 5 images allowed'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } else {
+          _images.add(XFile(targetPath));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo added'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      });
+
+      widget.onImagesChanged(_images);
+
+    } catch (e) {
+      print('❌ Camera error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error taking photo: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showImageSourceOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_library, color: Color(0xFF88844D)),
+                  title: const Text('Choose from Gallery'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImages();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt, color: Color(0xFF88844D)),
+                  title: const Text('Take Photo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _takePhoto();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -668,7 +873,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Upload images (up to 5)',
+          'Upload images (up to 5) - Optional',
           style: TextStyle(
             fontSize: 16, 
             fontWeight: FontWeight.w600, 
@@ -677,7 +882,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
         ),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: _pickImages,
+          onTap: _images.length < 5 ? _showImageSourceOptions : null,
           child: Container(
             height: 120,
             decoration: BoxDecoration(
@@ -697,11 +902,19 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Tap to upload images', 
+                          'Tap to add images', 
                           style: TextStyle(
                             color: Theme.of(context).textTheme.bodyLarge?.color, 
                             fontSize: 14
                           )
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Gallery or Camera',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                          ),
                         ),
                       ],
                     ),
@@ -709,8 +922,34 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                 : ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.all(8),
-                    itemCount: _images.length,
+                    itemCount: _images.length + (_images.length < 5 ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == _images.length) {
+                        // Add more button
+                        return GestureDetector(
+                          onTap: _showImageSourceOptions,
+                          child: Container(
+                            width: 100,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFBEC092).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFBEC092),
+                                width: 2,
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.add_photo_alternate,
+                                size: 40,
+                                color: Color(0xFF88844D),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
                       return Stack(
                         children: [
                           Container(
@@ -725,21 +964,56 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                             ),
                           ),
                           Positioned(
-                            top: 0,
-                            right: 0,
+                            top: 4,
+                            right: 12,
                             child: GestureDetector(
                               onTap: () {
                                 setState(() {
                                   _images.removeAt(index);
                                   widget.onImagesChanged(_images);
                                 });
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Image removed'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
                               },
                               child: Container(
+                                padding: const EdgeInsets.all(4),
                                 decoration: const BoxDecoration(
-                                  color: Colors.black54, 
-                                  shape: BoxShape.circle
+                                  color: Colors.black87,
+                                  shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.close, size: 20, color: Colors.white),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Image number badge
+                          Positioned(
+                            bottom: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF88844D),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ),
@@ -749,7 +1023,25 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                   ),
           ),
         ),
+        if (_images.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'First image will be the main photo',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    // Clean up - optionally delete temporary files
+    super.dispose();
   }
 }
