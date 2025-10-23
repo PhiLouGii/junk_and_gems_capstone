@@ -4912,43 +4912,298 @@ app.post("/api/setup-gem-purchases", async (req, res) => {
   try {
     console.log('🔧 Setting up gem purchases support...');
 
-    // Add payment_method column to gem_transactions
-    await pool.query(`
-      DO $$ 
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'gem_transactions' AND column_name = 'payment_method'
-        ) THEN
-          ALTER TABLE gem_transactions ADD COLUMN payment_method VARCHAR(50);
-        END IF;
-      END $$;
+    // Check if gem_transactions table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'gem_transactions'
+      );
     `);
-    console.log('✅ Added payment_method column');
 
-    // Add payment_amount column
-    await pool.query(`
-      DO $$ 
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'gem_transactions' AND column_name = 'payment_amount'
-        ) THEN
-          ALTER TABLE gem_transactions ADD COLUMN payment_amount DECIMAL(10,2);
-        END IF;
-      END $$;
-    `);
-    console.log('✅ Added payment_amount column');
+    if (!tableCheck.rows[0].exists) {
+      // Create gem_transactions table if it doesn't exist
+      await pool.query(`
+        CREATE TABLE gem_transactions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          amount INTEGER NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          description TEXT,
+          payment_method VARCHAR(50),
+          payment_amount DECIMAL(10,2),
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Created gem_transactions table');
+    } else {
+      // Add payment columns if they don't exist
+      await pool.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'gem_transactions' AND column_name = 'payment_method'
+          ) THEN
+            ALTER TABLE gem_transactions ADD COLUMN payment_method VARCHAR(50);
+          END IF;
+        END $$;
+      `);
+      
+      await pool.query(`
+        DO $$ 
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns 
+            WHERE table_name = 'gem_transactions' AND column_name = 'payment_amount'
+          ) THEN
+            ALTER TABLE gem_transactions ADD COLUMN payment_amount DECIMAL(10,2);
+          END IF;
+        END $$;
+      `);
+      console.log('✅ Added payment columns to gem_transactions');
+    }
 
     res.json({ 
       success: true, 
       message: "Gem purchases setup completed successfully" 
     });
   } catch (err) {
-    console.error("Setup gem purchases error:", err);
+    console.error("❌ Setup gem purchases error:", err);
     res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
+
+// Purchase gems endpoint
+app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+  const { package_id, gems_amount, price, payment_method } = req.body;
+
+  console.log('='.repeat(60));
+  console.log('💎 GEM PURCHASE REQUEST');
+  console.log('User ID:', userId);
+  console.log('Package:', package_id);
+  console.log('Gems Amount:', gems_amount);
+  console.log('Price:', price);
+  console.log('Payment Method:', payment_method);
+  console.log('='.repeat(60));
+
+  try {
+    // Validate input
+    if (!gems_amount || gems_amount <= 0) {
+      console.log('❌ Invalid gems amount');
+      return res.status(400).json({ error: "Invalid gems amount" });
+    }
+
+    if (!price || price <= 0) {
+      console.log('❌ Invalid price');
+      return res.status(400).json({ error: "Invalid price" });
+    }
+
+    // Verify user exists
+    const userCheck = await pool.query(
+      "SELECT id, name, email, available_gems FROM users WHERE id = $1",
+      [userId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      console.log('❌ User not found');
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userCheck.rows[0];
+    const currentGems = parseInt(user.available_gems || 0);
+    console.log(`✅ User found: ${user.name} (Current gems: ${currentGems})`);
+
+    // Start transaction
+    await pool.query('BEGIN');
+
+    try {
+      // Add gems to user's account
+      console.log(`Adding ${gems_amount} gems to user's account...`);
+      const updateResult = await pool.query(
+        "UPDATE users SET available_gems = available_gems + $1 WHERE id = $2 RETURNING available_gems",
+        [gems_amount, userId]
+      );
+
+      const newBalance = parseInt(updateResult.rows[0].available_gems);
+      console.log(`✅ Gems updated: ${currentGems} → ${newBalance}`);
+
+      // Record gem transaction
+      console.log('Recording transaction...');
+      await pool.query(
+        `INSERT INTO gem_transactions 
+         (user_id, amount, type, description, payment_method, payment_amount) 
+         VALUES ($1, $2, 'purchase', $3, $4, $5)`,
+        [
+          userId, 
+          gems_amount, 
+          `Purchased ${gems_amount} gems - ${package_id} package`,
+          payment_method || 'card',
+          price
+        ]
+      );
+      console.log('✅ Transaction recorded');
+
+      // Commit transaction
+      await pool.query('COMMIT');
+      console.log('✅ Transaction committed');
+
+      // Send confirmation email (don't await - let it run in background)
+      sendEmail({
+        to: user.email,
+        subject: 'Gem Purchase Successful! 💎',
+        text: `Hi ${user.name}! You've successfully purchased ${gems_amount} gems for M${price}. Your new balance is ${newBalance} gems.`,
+        html: getGemPurchaseEmailHtml(user.name, gems_amount, price, newBalance)
+      }).catch(err => console.error('Failed to send gem purchase email:', err));
+
+      console.log('='.repeat(60));
+      console.log('✅ GEM PURCHASE SUCCESSFUL');
+      console.log('='.repeat(60));
+
+      res.json({
+        success: true,
+        message: "Gems purchased successfully",
+        gems_purchased: gems_amount,
+        new_balance: newBalance,
+        previous_balance: currentGems
+      });
+
+    } catch (txErr) {
+      await pool.query('ROLLBACK');
+      console.error('❌ Transaction failed, rolling back:', txErr);
+      throw txErr;
+    }
+
+  } catch (err) {
+    console.error('='.repeat(60));
+    console.error("❌ PURCHASE GEMS ERROR");
+    console.error(err);
+    console.error('='.repeat(60));
+    res.status(500).json({ 
+      error: "Server error: " + err.message 
+    });
+  }
+});
+
+// Email template for gem purchases
+function getGemPurchaseEmailHtml(name, gemsAmount, price, newBalance) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #88844D;
+          color: white;
+          padding: 30px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+        }
+        .content {
+          background-color: #F7F2E4;
+          padding: 30px;
+          border-radius: 0 0 10px 10px;
+        }
+        .gems-badge {
+          background-color: #88844D;
+          color: white;
+          padding: 15px 25px;
+          border-radius: 50px;
+          display: inline-block;
+          margin: 20px 0;
+          font-size: 24px;
+          font-weight: bold;
+        }
+        .balance {
+          background-color: #BEC092;
+          color: white;
+          padding: 15px;
+          border-radius: 10px;
+          text-align: center;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>💎 Gem Purchase Successful!</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${name}!</h2>
+        <p>Your gem purchase has been processed successfully.</p>
+        
+        <div class="gems-badge">
+          +${gemsAmount} Gems
+        </div>
+        
+        <p><strong>Purchase Details:</strong></p>
+        <ul>
+          <li>Gems Purchased: ${gemsAmount}</li>
+          <li>Amount Paid: M${price.toFixed(2)}</li>
+          <li>Payment Method: Card</li>
+        </ul>
+        
+        <div class="balance">
+          <h3 style="margin: 0;">New Balance</h3>
+          <h2 style="margin: 10px 0;">${newBalance} Gems</h2>
+        </div>
+        
+        <p><strong>What you can do with your gems:</strong></p>
+        <ul>
+          <li>💰 Get discounts on marketplace purchases (1 Gem = M1)</li>
+          <li>🎁 Unlock exclusive rewards</li>
+          <li>⭐ Support artisan communities</li>
+        </ul>
+        
+        <p>Thank you for your purchase!</p>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <p style="font-size: 12px; color: #666;">
+            Junk & Gems - Turning waste into wonder<br>
+            If you have any questions about your purchase, please contact our support team.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Get user's gem purchase history
+app.get("/api/users/:userId/gem-purchases", authenticateToken, async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM gem_transactions 
+       WHERE user_id = $1 AND type = 'purchase' 
+       ORDER BY created_at DESC 
+       LIMIT 50`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      purchases: result.rows
+    });
+  } catch (err) {
+    console.error("Get gem purchases error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+console.log('💎 Gem purchase endpoints configured:');
+console.log('   POST /api/setup-gem-purchases');
+console.log('   POST /api/users/:userId/purchase-gems');
+console.log('   GET  /api/users/:userId/gem-purchases');
 
 // Helper function to format time ago
 function formatTimeAgo(date) {

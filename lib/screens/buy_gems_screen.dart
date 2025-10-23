@@ -76,6 +76,12 @@ class _BuyGemsScreenState extends State<BuyGemsScreen> {
 
       final totalGems = package['gems'] + package['bonus'];
       
+      print('🛒 Attempting to purchase gems...');
+      print('   Package: ${package['id']}');
+      print('   Total Gems: $totalGems');
+      print('   Price: M${package['price']}');
+      print('   User ID: ${widget.userId}');
+      
       final response = await http.post(
         Uri.parse('https://junk-and-gems-api.onrender.com/api/users/${widget.userId}/purchase-gems'),
         headers: {
@@ -86,23 +92,34 @@ class _BuyGemsScreenState extends State<BuyGemsScreen> {
           'package_id': package['id'],
           'gems_amount': totalGems,
           'price': package['price'],
-          'payment_method': 'card', // Can be extended to support multiple methods
+          'payment_method': 'card',
         }),
       );
 
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
+        
+        print('✅ Purchase successful!');
+        print('   New balance: ${result['new_balance']}');
         
         // Update cached gems
         await prefs.setInt('userGems', result['new_balance']);
         
         _showSuccessDialog(totalGems, result['new_balance']);
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please log in again.');
+      } else if (response.statusCode == 404) {
+        throw Exception('User not found. Please try again.');
       } else {
-        throw Exception('Failed to purchase gems');
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Failed to purchase gems');
       }
     } catch (e) {
       print('❌ Error purchasing gems: $e');
-      _showErrorSnackBar('Failed to purchase gems. Please try again.');
+      _showErrorSnackBar(e.toString().replaceAll('Exception: ', ''));
     } finally {
       setState(() {
         isProcessing = false;
@@ -501,7 +518,6 @@ class _BuyGemsScreenState extends State<BuyGemsScreen> {
                   ),
                   const SizedBox(height: 16),
                   _buildBenefitItem('Get discounts on marketplace purchases'),
-                  _buildBenefitItem('Unlock premium features'),
                   _buildBenefitItem('Support artisan communities'),
                   _buildBenefitItem('1 Gem = M1 discount on orders'),
                 ],
