@@ -4999,6 +4999,35 @@ function getGemPurchaseEmailHtml(name, gemsAmount, price, newBalance) {
   `;
 }
 
+app.post("/api/fix-gem-transactions-constraint", async (req, res) => {
+  try {
+    console.log(' Fixing gem_transactions type constraint...');
+
+    // Drop the old constraint
+    await pool.query(`
+      ALTER TABLE gem_transactions 
+      DROP CONSTRAINT IF EXISTS gem_transactions_type_check
+    `);
+    console.log(' Dropped old constraint');
+
+    // Add the updated constraint with 'purchase' included
+    await pool.query(`
+      ALTER TABLE gem_transactions 
+      ADD CONSTRAINT gem_transactions_type_check 
+      CHECK (type IN ('earn', 'spend', 'purchase'))
+    `);
+    console.log(' Added new constraint with purchase type');
+
+    res.json({ 
+      success: true, 
+      message: "Gem transactions constraint fixed successfully" 
+    });
+  } catch (err) {
+    console.error(" Fix constraint error:", err);
+    res.status(500).json({ error: "Fix failed: " + err.message });
+  }
+});
+
 // Get user's gem purchase history
 app.get("/api/users/:userId/gem-purchases", authenticateToken, async (req, res) => {
   const { userId } = req.params;
