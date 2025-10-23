@@ -2108,6 +2108,286 @@ app.get("/api/products/search", async (req, res) => {
   }
 });
 
+// Advanced product search with filters
+app.get("/api/products/search-advanced", async (req, res) => {
+  try {
+    const { 
+      query, 
+      category, 
+      min_price, 
+      max_price, 
+      sort_by = 'newest',
+      limit = 50,
+      offset = 0 
+    } = req.query;
+    
+    console.log('🔍 Advanced search request:', { 
+      query, category, min_price, max_price, sort_by 
+    });
+
+    // Build dynamic WHERE clause
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 1;
+
+    // Text search
+    if (query && query.trim() !== '') {
+      whereConditions.push(`(
+        LOWER(p.title) LIKE LOWER($${paramCount}) 
+        OR LOWER(p.description) LIKE LOWER($${paramCount})
+        OR LOWER(p.materials_used) LIKE LOWER($${paramCount})
+        OR LOWER(u.name) LIKE LOWER($${paramCount})
+      )`);
+      queryParams.push(`%${query}%`);
+      paramCount++;
+    }
+
+    // Category filter
+    if (category && category !== 'All') {
+      whereConditions.push(`LOWER(p.category) = LOWER($${paramCount})`);
+      queryParams.push(category);
+      paramCount++;
+    }
+
+    // Price range filter
+    if (min_price) {
+      whereConditions.push(`p.price >= $${paramCount}`);
+      queryParams.push(parseFloat(min_price));
+      paramCount++;
+    }
+
+    if (max_price) {
+      whereConditions.push(`p.price <= $${paramCount}`);
+      queryParams.push(parseFloat(max_price));
+      paramCount++;
+    }
+
+    // Construct WHERE clause
+    const whereClause = whereConditions.length > 0 
+      ? 'WHERE ' + whereConditions.join(' AND ')
+      : '';
+
+    // Determine ORDER BY clause
+    let orderByClause;
+    switch (sort_by) {
+      case 'price_low':
+        orderByClause = 'ORDER BY p.price ASC';
+        break;
+      case 'price_high':
+        orderByClause = 'ORDER BY p.price DESC';
+        break;
+      case 'popular':
+        orderByClause = 'ORDER BY p.id DESC'; // Can be enhanced with view count
+        break;
+      case 'newest':
+      default:
+        orderByClause = 'ORDER BY p.created_at DESC';
+        break;
+    }
+
+    // Add pagination
+    queryParams.push(limit);
+    const limitParam = `$${paramCount}`;
+    paramCount++;
+    
+    queryParams.push(offset);
+    const offsetParam = `$${paramCount}`;
+
+    // Execute query
+    const searchQuery = `
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar,
+        COUNT(*) OVER() as total_count
+      FROM products p
+      LEFT JOIN users u ON p.artisan_id = u.id
+      ${whereClause}
+      ${orderByClause}
+      LIMIT ${limitParam} OFFSET ${offsetParam}
+    `;
+
+    console.log(' Executing query:', searchQuery);
+    console.log(' Parameters:', queryParams);
+
+    const result = await pool.query(searchQuery, queryParams);
+
+    const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
+
+    console.log(` Found ${result.rows.length} products (total: ${totalCount})`);
+
+    res.json({
+      success: true,
+      products: result.rows,
+      total_count: totalCount,
+      page_info: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        has_more: (parseInt(offset) + result.rows.length) < totalCount
+      }
+    });
+
+  } catch (err) {
+    console.error(" Advanced search error:", err);
+    res.status(500).json({ 
+      success: false,
+      error: "Search failed: " + err.message 
+    });
+  }
+});
+
+// Get available filter options (categories, price range)
+app.get("/api/products/filter-options", async (req, res) => {
+  try {
+    console.log('🔧 Getting filter options...');
+
+    // Get unique categories
+    const categoriesResult = await pool.query(`
+      SELECT DISTINCT category 
+      FROM products 
+      WHERE category IS NOT NULL 
+      ORDER BY category
+    `);
+
+    // Get price range
+    const priceRangeResult = await pool.query(`
+      SELECT 
+        MIN(price) as min_price,
+        MAX(price) as max_price,
+        AVG(price) as avg_price
+      FROM products
+      WHERE price IS NOT NULL
+    `);
+
+    // Get product count per category
+    const categoryCountsResult = await pool.query(`
+      SELECT 
+        category,
+        COUNT(*) as count
+      FROM products
+      WHERE category IS NOT NULL
+      GROUP BY category
+      ORDER BY count DESC
+    `);
+
+    const filterOptions = {
+      categories: ['All', ...categoriesResult.rows.map(row => row.category)],
+      category_counts: categoryCountsResult.rows.reduce((acc, row) => {
+        acc[row.category] = parseInt(row.count);
+        return acc;
+      }, { 'All': categoryCountsResult.rows.reduce((sum, row) => sum + parseInt(row.count), 0) }),
+      price_range: {
+        min: parseFloat(priceRangeResult.rows[0]?.min_price || 0),
+        max: parseFloat(priceRangeResult.rows[0]?.max_price || 1000),
+        avg: parseFloat(priceRangeResult.rows[0]?.avg_price || 0)
+      },
+      sort_options: [
+        { value: 'newest', label: 'Newest First' },
+        { value: 'price_low', label: 'Price: Low to High' },
+        { value: 'price_high', label: 'Price: High to Low' },
+        { value: 'popular', label: 'Most Popular' }
+      ]
+    };
+
+    console.log(' Filter options:', filterOptions);
+
+    res.json({
+      success: true,
+      filter_options: filterOptions
+    });
+
+  } catch (err) {
+    console.error(" Get filter options error:", err);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to get filter options: " + err.message 
+    });
+  }
+});
+
+// Get trending/popular products
+app.get("/api/products/trending", async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    console.log(' Getting trending products...');
+
+    // For now, return newest products
+    // Can be enhanced with view counts, likes, or purchase data
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar
+      FROM products p
+      LEFT JOIN users u ON p.artisan_id = u.id
+      ORDER BY p.created_at DESC
+      LIMIT $1
+    `, [limit]);
+
+    console.log(` Found ${result.rows.length} trending products`);
+
+    res.json({
+      success: true,
+      products: result.rows
+    });
+
+  } catch (err) {
+    console.error(" Get trending products error:", err);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to get trending products: " + err.message 
+    });
+  }
+});
+
+// Get products by category
+app.get("/api/products/category/:category", async (req, res) => {
+  try {
+    const { category } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    console.log(` Getting products for category: ${category}`);
+
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.profile_image_url as creator_avatar,
+        COUNT(*) OVER() as total_count
+      FROM products p
+      LEFT JOIN users u ON p.artisan_id = u.id
+      WHERE LOWER(p.category) = LOWER($1)
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3
+    `, [category, limit, offset]);
+
+    const totalCount = result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
+
+    console.log(` Found ${result.rows.length} products in category ${category}`);
+
+    res.json({
+      success: true,
+      category: category,
+      products: result.rows,
+      total_count: totalCount
+    });
+
+  } catch (err) {
+    console.error(" Get category products error:", err);
+    res.status(500).json({ 
+      success: false,
+      error: "Failed to get category products: " + err.message 
+    });
+  }
+});
+
+console.log(' Enhanced search endpoints configured:');
+console.log('   GET  /api/products/search-advanced');
+console.log('   GET  /api/products/filter-options');
+console.log('   GET  /api/products/trending');
+console.log('   GET  /api/products/category/:category');
+
 // Create new product listing
 app.post("/api/products", upload.array('images', 5), async (req, res) => {
   console.log('CREATE PRODUCT REQUEST');
