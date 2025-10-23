@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/utils/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'browse_materials_screen.dart';
 
 class CreateListingScreen extends StatefulWidget {
@@ -36,6 +37,61 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   final _locationController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _isSubmitting = false;
+  bool _isAuthInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAuth();
+  }
+
+  // 🔥 NEW: Initialize Auth Provider on Screen Load
+  Future<void> _initializeAuth() async {
+    print('🔐 Initializing auth in CreateListingScreen...');
+    
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Check if already initialized
+    if (authProvider.isInitialized) {
+      print('✅ Auth already initialized');
+      print('   User: ${authProvider.user?.name}');
+      print('   User ID: ${authProvider.user?.id}');
+      print('   Is Authenticated: ${authProvider.isAuthenticated}');
+      setState(() {
+        _isAuthInitialized = true;
+      });
+      return;
+    }
+    
+    // Initialize auth provider
+    print('⏳ Waiting for auth provider to initialize...');
+    await authProvider.initialize();
+    
+    print('✅ Auth initialization complete');
+    print('   User: ${authProvider.user?.name}');
+    print('   User ID: ${authProvider.user?.id}');
+    print('   Is Authenticated: ${authProvider.isAuthenticated}');
+    
+    if (mounted) {
+      setState(() {
+        _isAuthInitialized = true;
+      });
+    }
+    
+    // If still not authenticated after initialization, show warning
+    if (!authProvider.isAuthenticated) {
+      print('⚠️ User not authenticated after initialization');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please log in to create a listing'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -433,123 +489,201 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     );
   }
 
-   Future<void> _submitListing() async {
-  // Validate required fields
-  if (_titleController.text.isEmpty || 
-      _descriptionController.text.isEmpty || 
-      _selectedCategory == null || 
-      _locationController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please fill in all required fields')),
-    );
-    return;
-  }
+  // 🔥 IMPROVED: Enhanced Submit with Better Auth Checking
+  Future<void> _submitListing() async {
+    // Validate required fields
+    if (_titleController.text.isEmpty || 
+        _descriptionController.text.isEmpty || 
+        _selectedCategory == null || 
+        _locationController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields')),
+      );
+      return;
+    }
 
     // Get the logged-in user's ID from auth provider
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
+    // 🔥 ENHANCED DEBUG LOGGING
+    print('=' * 60);
+    print('🔐 AUTH CHECK IN SUBMIT LISTING');
+    print('Is Authenticated: ${authProvider.isAuthenticated}');
+    print('Is Initialized: ${authProvider.isInitialized}');
+    print('User object: ${authProvider.user}');
+    print('User ID: ${authProvider.user?.id}');
+    print('User name: ${authProvider.user?.name}');
+    print('=' * 60);
+    
+    // 🔥 IMPROVED: Try to restore session from SharedPreferences if not authenticated
     if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please login to create a listing'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
+      print('⚠️ User not authenticated, attempting to restore session...');
+      
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token');
+        final userId = prefs.getInt('userId');
+        final userName = prefs.getString('userName');
+        final userEmail = prefs.getString('userEmail');
+        
+        print('📦 SharedPreferences check:');
+        print('   Token: ${token != null ? "EXISTS (${token.substring(0, 20)}...)" : "NULL"}');
+        print('   User ID: $userId');
+        print('   User Name: $userName');
+        print('   User Email: $userEmail');
+        
+        if (token != null && userId != null) {
+          print('✅ Found stored credentials, re-initializing auth...');
+          await authProvider.initialize();
+          
+          // Check again after initialization
+          if (authProvider.isAuthenticated && authProvider.user?.id != null) {
+            print('✅ Auth restored successfully!');
+            print('   User: ${authProvider.user?.name}');
+            print('   User ID: ${authProvider.user?.id}');
+          } else {
+            print('❌ Auth restoration failed');
+            _showLoginError();
+            return;
+          }
+        } else {
+          print('❌ No stored credentials found');
+          _showLoginError();
+          return;
+        }
+      } catch (e) {
+        print('❌ Error restoring session: $e');
+        _showLoginError();
+        return;
+      }
     }
     
     final int? uploaderId = authProvider.user?.id;
-    print('Creating listing for user ID: $uploaderId (${authProvider.user!.name})');
+    
+    if (uploaderId == null) {
+      print('❌ Uploader ID is still null after all checks');
+      _showLoginError();
+      return;
+    }
+    
+    print('✅ Proceeding with uploader ID: $uploaderId (${authProvider.user!.name})');
+    print('=' * 60);
 
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-    print('Starting material creation process...');
+      print('Starting material creation process...');
 
-    // Ensure contact preferences are properly formatted
-    Map<String, bool> formattedContactPrefs = {};
-    _contactPreferences.forEach((key, value) {
-      formattedContactPrefs[key] = value ?? false;
-    });
+      // Ensure contact preferences are properly formatted
+      Map<String, bool> formattedContactPrefs = {};
+      _contactPreferences.forEach((key, value) {
+        formattedContactPrefs[key] = value ?? false;
+      });
 
       // Prepare the material data
-    final materialData = {
-      'title': _titleController.text,
-      'description': _descriptionController.text,
-      'category': _selectedCategory!,
-      'quantity': _quantityController.text.isNotEmpty ? _quantityController.text : 'Not specified',
-      'location': _locationController.text,
-      'delivery_option': _selectedDeliveryOption ?? 'Needs Pickup',
-      'available_from': _availableFrom?.toIso8601String(),
-      'available_until': _availableUntil?.toIso8601String(),
-      'is_fragile': _isFragile,
-      'contact_preferences': formattedContactPrefs, // Use the formatted map
-      'uploader_id': uploaderId, // Use the actual logged-in user's ID
-    };
+      final materialData = {
+        'title': _titleController.text,
+        'description': _descriptionController.text,
+        'category': _selectedCategory!,
+        'quantity': _quantityController.text.isNotEmpty ? _quantityController.text : 'Not specified',
+        'location': _locationController.text,
+        'delivery_option': _selectedDeliveryOption ?? 'Needs Pickup',
+        'available_from': _availableFrom?.toIso8601String(),
+        'available_until': _availableUntil?.toIso8601String(),
+        'is_fragile': _isFragile,
+        'contact_preferences': formattedContactPrefs,
+        'uploader_id': uploaderId,
+      };
 
-    print('Material data prepared: $materialData');
+      print('Material data prepared: $materialData');
 
       // Create the material using the service
       bool success = await MaterialService.createMaterial(materialData, _images);
 
-
-       if (success) {
-      // Show success dialog
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          backgroundColor: Theme.of(context).cardColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Good work!', 
-                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+      if (success) {
+        // Show success dialog
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              backgroundColor: Theme.of(context).cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Good work!', 
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.close, 
+                      color: Theme.of(context).textTheme.bodyLarge?.color
+                    ),
+                  ),
+                ],
               ),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Icon(
-                  Icons.close, 
-                  color: Theme.of(context).textTheme.bodyLarge?.color
+              content: Text(
+                'Your waste will soon find a new purpose!', 
+                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Close dialog
+                    Navigator.pop(context, true); // Return to previous screen
+                  },
+                  child: Text(
+                    'OK', 
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
+                  ),
                 ),
-              ),
-            ],
-          ),
-            content: Text(
-            'Your waste will soon find a new purpose!', 
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context, true); // Return to previous screen
-              },
-              child: Text(
-                'OK', 
-                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)
-              ),
+              ],
             ),
-          ],
+          );
+        }
+      }
+    } catch (e) {
+      print('Detailed error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  // 🔥 NEW: Helper method to show login error
+  void _showLoginError() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('❌ Please log in to create a listing'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'LOGIN',
+            textColor: Colors.white,
+            onPressed: () {
+              // TODO: Add navigation to login screen here
+              // Navigator.pushNamed(context, '/login');
+            },
+          ),
         ),
       );
-    }
-
-  } catch (e) {
-    print('Detailed error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error: ${e.toString()}'),
-        duration: const Duration(seconds: 5),
-      ),
-    );
-    } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
     }
   }
 
@@ -623,7 +757,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 }
 
-// Image Upload Widget
+// Image Upload Widget (unchanged)
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
   const ImageUploadWidget({super.key, required this.onImagesChanged});
@@ -640,10 +774,9 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
     try {
       print('📸 Opening image picker...');
       
-      // Pick multiple images from gallery
       final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 85, // Compress images to reduce size
-        maxWidth: 1920, // Limit dimensions to reduce file size
+        imageQuality: 85,
+        maxWidth: 1920,
         maxHeight: 1920,
       );
       
@@ -654,12 +787,10 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
       print('Selected ${pickedFiles.length} images');
 
-      // Copy images to app's cache directory to ensure they persist
       List<XFile> copiedImages = [];
       final Directory appDir = await getTemporaryDirectory();
       final String targetDir = '${appDir.path}/material_images';
       
-      // Create directory if it doesn't exist
       await Directory(targetDir).create(recursive: true);
 
       for (int i = 0; i < pickedFiles.length; i++) {
@@ -667,14 +798,12 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
           final XFile pickedFile = pickedFiles[i];
           print('Processing image ${i + 1}/${pickedFiles.length}...');
           
-          // Check if source file exists
           final File sourceFile = File(pickedFile.path);
           if (!await sourceFile.exists()) {
             print('⚠️ Source file does not exist: ${pickedFile.path}');
             continue;
           }
 
-          // Read file and verify it's not empty
           final fileBytes = await sourceFile.readAsBytes();
           if (fileBytes.isEmpty) {
             print('⚠️ File is empty: ${pickedFile.path}');
@@ -683,19 +812,16 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
           print('   File size: ${fileBytes.length} bytes');
 
-          // Generate unique filename
           final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
           final String extension = path.extension(pickedFile.path);
           final String fileName = 'material_${timestamp}_$i$extension';
           final String targetPath = '$targetDir/$fileName';
 
-          // Copy to app directory
           final File targetFile = File(targetPath);
           await targetFile.writeAsBytes(fileBytes);
           
           print('   ✅ Saved to: $targetPath');
 
-          // Create XFile from new path
           copiedImages.add(XFile(targetPath));
 
         } catch (e) {
@@ -716,7 +842,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       }
 
       setState(() {
-        // Check if we're at limit
         if (_images.length + copiedImages.length > 5) {
           int availableSlots = 5 - _images.length;
           _images.addAll(copiedImages.take(availableSlots));
@@ -779,7 +904,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
       print('✅ Photo captured: ${photo.path}');
 
-      // Copy to app directory
       final Directory appDir = await getTemporaryDirectory();
       final String targetDir = '${appDir.path}/material_images';
       await Directory(targetDir).create(recursive: true);
@@ -925,7 +1049,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                     itemCount: _images.length + (_images.length < 5 ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == _images.length) {
-                        // Add more button
                         return GestureDetector(
                           onTap: _showImageSourceOptions,
                           child: Container(
@@ -994,7 +1117,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                               ),
                             ),
                           ),
-                          // Image number badge
                           Positioned(
                             bottom: 4,
                             left: 4,
@@ -1041,7 +1163,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
   @override
   void dispose() {
-    // Clean up - optionally delete temporary files
     super.dispose();
   }
 }
