@@ -2760,12 +2760,11 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
     shippingAddress, 
     paymentMethod,
     deliveryAddress,
-    phoneNumber,
-    paymentReference // For bank transfers
+    phoneNumber
   } = req.body;
 
   try {
-    console.log('📦 Creating order...');
+    console.log(' Creating order...');
     console.log('Payment method:', paymentMethod);
     console.log('Total amount:', totalAmount);
 
@@ -2785,10 +2784,6 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
 
     if (paymentMethod === 'cod' && !phoneNumber) {
       return res.status(400).json({ error: "Phone number required for Cash on Delivery" });
-    }
-
-    if (paymentMethod === 'bank_transfer' && !paymentReference) {
-      return res.status(400).json({ error: "Payment reference required for Bank Transfer" });
     }
 
     // Fetch user's gem balance
@@ -2817,7 +2812,7 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
     if (paymentMethod === 'cod') {
       paymentStatus = 'cod_pending'; // Will be paid on delivery
       orderStatus = 'confirmed'; // Order is confirmed, awaiting delivery
-    } else if (paymentMethod === 'bank_transfer' || paymentMethod === 'ussd') {
+    } else if (paymentMethod === 'ussd') {
       paymentStatus = 'awaiting_confirmation'; // Manual verification needed
       orderStatus = 'pending'; // Pending until payment confirmed
     } else if (paymentMethod === 'card') {
@@ -2838,10 +2833,9 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
         status,
         delivery_address,
         phone_number,
-        payment_reference,
         created_at
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()) 
        RETURNING *`,
       [
         userId, 
@@ -2853,8 +2847,7 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
         paymentStatus,
         orderStatus,
         deliveryAddress,
-        phoneNumber,
-        paymentReference
+        phoneNumber
       ]
     );
 
@@ -2900,9 +2893,6 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
     if (paymentMethod === 'cod') {
       emailSubject = 'Order Confirmed - Cash on Delivery';
       emailText = `Hi ${user.name}! Your order #${order.id} has been confirmed. Total amount: M${finalAmount.toFixed(2)} (including M20 delivery fee). You'll pay when the items are delivered to: ${deliveryAddress}. We'll call you on ${phoneNumber} to arrange delivery.`;
-    } else if (paymentMethod === 'bank_transfer') {
-      emailSubject = 'Order Pending - Bank Transfer Confirmation Required';
-      emailText = `Hi ${user.name}! Your order #${order.id} is pending payment confirmation. Reference: ${paymentReference}. Once we verify your payment, we'll process your order.`;
     } else if (paymentMethod === 'ussd') {
       emailSubject = 'Order Pending - USSD Payment Confirmation Required';
       emailText = `Hi ${user.name}! Your order #${order.id} is pending payment confirmation. Once we verify your USSD payment, we'll process your order.`;
@@ -2918,7 +2908,7 @@ app.post("/api/orders", authenticateToken, async (req, res) => {
       text: emailText
     }).catch(err => console.error('Failed to send order confirmation email:', err));
 
-    console.log(`Order created: #${order.id} - ${paymentMethod}`);
+    console.log(`✅ Order created: #${order.id} - ${paymentMethod}`);
 
     res.status(201).json({
       success: true,
