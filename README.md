@@ -1,6 +1,13 @@
 # Junk & Gems 
 A Mobile Marketplace for Transforming Waste into Economic Opportunity in Lesotho
 
+<p align="center">
+  <img src="designs_screenshots/junk_and_gems_logo.jpg" alt="Junk and Gems Logo" width="150"><br>
+  Junk & Gems Logo
+</p>
+
+
+
 ## Description
 Junk & Gems is a cross-platform mobile application that connects waste donors, artisans, and eco-entrepreneurs in Lesotho. The platform promotes upcycling and sustainable entrepreneurship by turning waste into valuable, marketable products. 
 
