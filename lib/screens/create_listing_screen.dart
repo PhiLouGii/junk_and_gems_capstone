@@ -522,15 +522,33 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       try {
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('token');
-        final userId = prefs.getInt('userId');
+        
+        // 🔥 FIX: Try both String and int for userId (depends on how it was stored)
+        int? userId;
+        if (prefs.containsKey('userId')) {
+          // Try to get as int first
+          userId = prefs.getInt('userId');
+          
+          // If null, maybe it's stored as String, try to parse it
+          if (userId == null) {
+            final userIdStr = prefs.getString('userId');
+            if (userIdStr != null) {
+              userId = int.tryParse(userIdStr);
+            }
+          }
+        }
+        
         final userName = prefs.getString('userName');
         final userEmail = prefs.getString('userEmail');
         
         print('📦 SharedPreferences check:');
         print('   Token: ${token != null ? "EXISTS (${token.substring(0, 20)}...)" : "NULL"}');
-        print('   User ID: $userId');
+        print('   User ID: $userId (type: ${userId.runtimeType})');
         print('   User Name: $userName');
         print('   User Email: $userEmail');
+        
+        // Also print all keys to debug
+        print('   All SharedPreferences keys: ${prefs.getKeys()}');
         
         if (token != null && userId != null) {
           print('✅ Found stored credentials, re-initializing auth...');
@@ -542,17 +560,23 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
             print('   User: ${authProvider.user?.name}');
             print('   User ID: ${authProvider.user?.id}');
           } else {
-            print('❌ Auth restoration failed');
+            print('❌ Auth restoration failed after initialize()');
+            print('   Auth provider state:');
+            print('     isAuthenticated: ${authProvider.isAuthenticated}');
+            print('     user: ${authProvider.user}');
             _showLoginError();
             return;
           }
         } else {
           print('❌ No stored credentials found');
+          print('   Token exists: ${token != null}');
+          print('   UserId exists: ${userId != null}');
           _showLoginError();
           return;
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
         print('❌ Error restoring session: $e');
+        print('Stack trace: $stackTrace');
         _showLoginError();
         return;
       }
