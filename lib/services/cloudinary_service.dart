@@ -12,7 +12,7 @@ class CloudinaryService {
   /// Compress image before upload (crucial for physical devices)
   static Future<File?> _compressImage(File file) async {
     try {
-      print(' Compressing image...');
+      print('📦 Compressing image...');
       print('   Original path: ${file.path}');
       
       final dir = await getTemporaryDirectory();
@@ -31,7 +31,7 @@ class CloudinaryService {
         final originalSize = await file.length();
         final compressedSize = await File(result.path).length();
         
-        print(' Compression complete:');
+        print('✅ Compression complete:');
         print('   Original: ${(originalSize / 1024).toStringAsFixed(2)} KB');
         print('   Compressed: ${(compressedSize / 1024).toStringAsFixed(2)} KB');
         print('   Saved: ${((originalSize - compressedSize) / 1024).toStringAsFixed(2)} KB');
@@ -39,10 +39,10 @@ class CloudinaryService {
         return File(result.path);
       }
       
-      print(' Compression returned null, using original');
+      print('⚠️ Compression returned null, using original');
       return file;
     } catch (e) {
-      print(' Compression error: $e');
+      print('❌ Compression error: $e');
       print('   Using original file');
       return file;
     }
@@ -53,7 +53,7 @@ class CloudinaryService {
     // Compress image first
     final File? compressedFile = await _compressImage(imageFile);
     if (compressedFile == null) {
-      print(' Failed to prepare image for upload');
+      print('❌ Failed to prepare image for upload');
       return null;
     }
 
@@ -65,7 +65,7 @@ class CloudinaryService {
         
         // Verify file exists
         if (!await compressedFile.exists()) {
-          print(' File does not exist: ${compressedFile.path}');
+          print('❌ File does not exist: ${compressedFile.path}');
           return null;
         }
         
@@ -74,30 +74,31 @@ class CloudinaryService {
         
         // Check size limit (5MB for reliability on mobile)
         if (fileSize > 5 * 1024 * 1024) {
-          print(' File too large: ${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB (max 5MB)');
+          print('❌ File too large: ${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB (max 5MB)');
           return null;
         }
         
         if (fileSize == 0) {
-          print(' File is empty');
+          print('❌ File is empty');
           return null;
         }
         
-        // Read and encode image
+        // Read and encode image with data URL prefix (required by backend)
         List<int> imageBytes = await compressedFile.readAsBytes();
         String base64Image = base64Encode(imageBytes);
+        String imageData = 'data:image/jpeg;base64,$base64Image';
         
-        print('   Base64 encoded: ${base64Image.length} characters');
+        print('   Base64 encoded: ${imageData.length} characters');
         print('   Sending to: $_baseUrl/api/upload-image');
 
-        // Upload with timeout
+        // Upload with timeout (using same field name as original working code)
         final response = await http.post(
           Uri.parse('$_baseUrl/api/upload-image'),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: json.encode({'image': base64Image}),
+          body: json.encode({'image_data_base64': imageData}),
         ).timeout(
           const Duration(seconds: 90), // Longer timeout for mobile networks
           onTimeout: () {
@@ -118,46 +119,46 @@ class CloudinaryService {
               if (imageUrl.startsWith('https://res.cloudinary.com/') ||
                   imageUrl.startsWith('http://') || 
                   imageUrl.startsWith('https://')) {
-                print(' Upload successful!');
+                print('✅ Upload successful!');
                 print('   Cloudinary URL: $imageUrl');
                 return imageUrl;
               } else {
-                print(' Invalid URL format: $imageUrl');
+                print('⚠️ Invalid URL format: $imageUrl');
               }
             } else {
-              print(' No image URL in response');
+              print('⚠️ No image URL in response');
               print('   Full response: ${response.body}');
             }
           } catch (jsonError) {
-            print(' JSON decode error: $jsonError');
+            print('❌ JSON decode error: $jsonError');
             print('   Response body: ${response.body}');
           }
         } else {
-          print(' Server error: ${response.statusCode}');
+          print('❌ Server error: ${response.statusCode}');
           print('   Response: ${response.body}');
         }
 
         // Wait before retry (exponential backoff)
         if (attempt < maxRetries) {
           final waitTime = attempt * 2; // 2s, 4s, 6s
-          print(' Waiting ${waitTime}s before retry...');
+          print('⏳ Waiting ${waitTime}s before retry...');
           await Future.delayed(Duration(seconds: waitTime));
         }
 
       } on SocketException catch (e) {
-        print(' Network error: $e');
+        print('❌ Network error: $e');
         if (attempt == maxRetries) {
-          print(' Check your internet connection');
+          print('💡 Check your internet connection');
         }
       } on TimeoutException catch (e) {
-        print(' Timeout error: $e');
+        print('❌ Timeout error: $e');
         if (attempt == maxRetries) {
-          print(' Upload took too long, network may be slow');
+          print('💡 Upload took too long, network may be slow');
         }
       } on http.ClientException catch (e) {
-        print(' HTTP client error: $e');
+        print('❌ HTTP client error: $e');
       } catch (e) {
-        print(' Unexpected error: $e');
+        print('❌ Unexpected error: $e');
       }
 
       // Wait before retry
@@ -168,7 +169,7 @@ class CloudinaryService {
       }
     }
     
-    print(' All $maxRetries upload attempts failed');
+    print('❌ All $maxRetries upload attempts failed');
     return null;
   }
 
@@ -181,7 +182,7 @@ class CloudinaryService {
     print('\n============================================================');
     print('CLOUDINARY UPLOAD STARTED');
     print('============================================================');
-    print(' Total images to upload: ${xFiles.length}');
+    print('📸 Total images to upload: ${xFiles.length}');
     
     for (int i = 0; i < xFiles.length; i++) {
       print('\n📤 Processing image ${i + 1}/${xFiles.length}...');
@@ -191,7 +192,7 @@ class CloudinaryService {
         
         // Verify file exists
         if (!await imageFile.exists()) {
-          print(' File does not exist: ${xFiles[i].path}');
+          print('❌ File does not exist: ${xFiles[i].path}');
           failCount++;
           continue;
         }
@@ -202,25 +203,25 @@ class CloudinaryService {
         if (imageUrl != null && imageUrl.isNotEmpty) {
           uploadedUrls.add(imageUrl);
           successCount++;
-          print(' Image ${i + 1} uploaded successfully!');
+          print('✅ Image ${i + 1} uploaded successfully!');
           print('   URL: $imageUrl');
         } else {
           failCount++;
-          print(' Failed to upload image ${i + 1}');
+          print('❌ Failed to upload image ${i + 1}');
         }
         
       } catch (e) {
         failCount++;
-        print(' Error processing image ${i + 1}: $e');
+        print('❌ Error processing image ${i + 1}: $e');
       }
     }
     
     print('\n============================================================');
     print('UPLOAD SUMMARY');
     print('============================================================');
-    print(' Successful: $successCount');
-    print(' Failed: $failCount');
-    print(' Total URLs: ${uploadedUrls.length}');
+    print('✅ Successful: $successCount');
+    print('❌ Failed: $failCount');
+    print('📊 Total URLs: ${uploadedUrls.length}');
     
     if (uploadedUrls.isNotEmpty) {
       print('\n📋 Uploaded URLs:');
