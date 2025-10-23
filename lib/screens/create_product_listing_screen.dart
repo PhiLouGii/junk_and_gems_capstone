@@ -671,7 +671,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         setState(() {
           _images = images;
         });
-        print('📊 Images updated: ${images.length} images selected');
+        print(' Images updated: ${images.length} images selected');
       },
     );
   }
@@ -703,109 +703,142 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 
   Future<void> _submitProduct() async {
-    print('🚀 Starting product submission...');
+  print(' Starting product submission...');
+  
+  // Validation
+  if (_titleController.text.isEmpty) {
+    return _showErrorDialog('Please enter a product name');
+  }
+  if (_descriptionController.text.isEmpty) {
+    return _showErrorDialog('Please enter a product description');
+  }
+  if (_selectedCategory == null) {
+    return _showErrorDialog('Please select a product category');
+  }
+  if (_selectedCondition == null) {
+    return _showErrorDialog('Please select the product condition');
+  }
+  if (_price <= 0) {
+    return _showErrorDialog('Please enter a valid price');
+  }
+  if (_images.isEmpty) {
+    return _showErrorDialog('Please select at least one image');
+  }
+
+  setState(() => _isSubmitting = true);
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId');
+    final userName = prefs.getString('userName') ?? 'Unknown User';
     
-    // Validation
-    if (_titleController.text.isEmpty) {
-      return _showErrorDialog('Please enter a product name');
-    }
-    if (_descriptionController.text.isEmpty) {
-      return _showErrorDialog('Please enter a product description');
-    }
-    if (_selectedCategory == null) {
-      return _showErrorDialog('Please select a product category');
-    }
-    if (_selectedCondition == null) {
-      return _showErrorDialog('Please select the product condition');
-    }
-    if (_price <= 0) {
-      return _showErrorDialog('Please enter a valid price');
-    }
-    if (_images.isEmpty) {
-      return _showErrorDialog('Please select at least one image');
+    if (userId == null) {
+      setState(() => _isSubmitting = false);
+      return _showErrorDialog('Please login to list a product');
     }
 
-    setState(() => _isSubmitting = true);
+    print(' User ID: $userId');
+    print(' User Name: $userName');
+    print(' Images to upload: ${_images.length}');
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId');
-      final userName = prefs.getString('userName') ?? 'Unknown User';
-      
-      if (userId == null) {
-        setState(() => _isSubmitting = false);
-        return _showErrorDialog('Please login to list a product');
-      }
-
-      print('👤 User ID: $userId');
-      print('👤 User Name: $userName');
-      print('📸 Images to upload: ${_images.length}');
-
-      // Show uploading message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+    // Show progress dialog
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF88844D)),
                   ),
-                ),
-                SizedBox(width: 16),
-                Text('Uploading images and creating product...'),
-              ],
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Uploading images...',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'This may take a minute on mobile',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            duration: Duration(seconds: 30),
-          ),
+          );
+        },
+      );
+    }
+
+    // Prepare product data
+    final productData = {
+      'title': _titleController.text.trim(),
+      'description': _descriptionController.text.trim(),
+      'price': _price,
+      'category': _selectedCategory,
+      'condition': _selectedCondition,
+      'materials_used': _materialsController.text.trim(),
+      'dimensions': _dimensionsController.text.trim(),
+      'location': _locationController.text.trim(),
+      'artisan_id': userId,
+      'creator_name': userName,
+    };
+
+    print('📦 Product data prepared');
+
+    // Call ProductService to create product
+    final success = await ProductService.createProduct(productData, _images);
+
+    if (mounted) {
+      Navigator.pop(context); // Close progress dialog
+      
+      if (success) {
+        _showSuccessDialog();
+      } else {
+        _showErrorDialog(
+          'Failed to create product. Please check:\n'
+          '• Your internet connection\n'
+          '• Image sizes (try smaller images)\n'
+          '• Network signal strength'
         );
       }
+    }
 
-      // Prepare product data
-      final productData = {
-        'title': _titleController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'price': _price,
-        'category': _selectedCategory,
-        'condition': _selectedCondition,
-        'materials_used': _materialsController.text.trim(),
-        'dimensions': _dimensionsController.text.trim(),
-        'location': _locationController.text.trim(),
-        'artisan_id': userId,
-        'creator_name': userName,
-      };
-
-      print('📦 Product data prepared');
-
-      // Call ProductService to create product
-      final success = await ProductService.createProduct(productData, _images);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        
-        if (success) {
-          _showSuccessDialog();
-        } else {
-          _showErrorDialog('Failed to create product. Please try again.');
-        }
-      }
-
-    } catch (e) {
-      print('❌ Error creating product: $e');
+  } catch (e) {
+    print(' Error creating product: $e');
+    
+    if (mounted) {
+      Navigator.pop(context); // Close progress dialog if open
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        _showErrorDialog('Error: ${e.toString()}');
+      String errorMessage = 'Error: ${e.toString()}';
+      
+      // Provide helpful error messages
+      if (e.toString().contains('SocketException') || 
+          e.toString().contains('Network')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (e.toString().contains('timeout') || 
+                 e.toString().contains('Timeout')) {
+        errorMessage = 'Upload timeout. Your connection may be slow. Try:\n'
+                      '• Using fewer images\n'
+                      '• Connecting to a faster network\n'
+                      '• Trying again in a moment';
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      
+      _showErrorDialog(errorMessage);
+    }
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
 
   void _showErrorDialog(String message) {
     showDialog(

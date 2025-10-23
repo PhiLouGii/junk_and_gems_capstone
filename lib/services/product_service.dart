@@ -13,34 +13,54 @@ class ProductService {
       print('CREATING NEW PRODUCT');
       print('=' * 60);
       
-      // STEP 1: Upload images to Cloudinary first
-      List<String> imageUrls = [];
-      
-      if (images.isNotEmpty) {
-        print('Uploading ${images.length} images to Cloudinary...');
-        imageUrls = await CloudinaryService.uploadMultipleImages(images);
-        
-        if (imageUrls.isEmpty) {
-          print('Error: No images uploaded successfully');
-          throw Exception('Failed to upload images to Cloudinary');
-        } else {
-          print('Successfully uploaded ${imageUrls.length} images');
-          print('Image URLs:');
-          for (int i = 0; i < imageUrls.length; i++) {
-            print('   ${i + 1}. ${imageUrls[i]}');
-            
-            // Verify URL format
-            if (!imageUrls[i].startsWith('http')) {
-              print('Warning: URL ${i + 1} is not a valid HTTP URL');
-            }
-          }
-        }
-      } else {
-        print('No images provided');
+      // STEP 1: Validate images first
+      if (images.isEmpty) {
+        print('❌ Error: No images provided');
         throw Exception('At least one image is required');
       }
       
-      // STEP 2: Prepare product data with Cloudinary URLs
+      print('📸 Images to process: ${images.length}');
+      
+      // STEP 2: Upload images to Cloudinary with the NEW compression method
+      print('\n🚀 Starting Cloudinary upload...');
+      List<String> imageUrls = [];
+      
+      try {
+        imageUrls = await CloudinaryService.uploadMultipleImages(images);
+        print('\n📊 Upload completed: ${imageUrls.length}/${images.length} successful');
+      } catch (uploadError) {
+        print('❌ Upload exception: $uploadError');
+        throw Exception('Image upload failed: ${uploadError.toString()}');
+      }
+      
+      // STEP 3: Validate upload results
+      if (imageUrls.isEmpty) {
+        print('❌ Error: All image uploads failed');
+        print('💡 Troubleshooting tips:');
+        print('   • Check your internet connection');
+        print('   • Try using WiFi instead of mobile data');
+        print('   • Try uploading fewer or smaller images');
+        throw Exception(
+          'Failed to upload images. Please check your internet connection and try again.'
+        );
+      }
+      
+      if (imageUrls.length < images.length) {
+        print('⚠️ Warning: Only ${imageUrls.length}/${images.length} images uploaded');
+        // Continue anyway with the images that did upload
+      }
+      
+      print('\n✅ Successfully uploaded ${imageUrls.length} images:');
+      for (int i = 0; i < imageUrls.length; i++) {
+        print('   ${i + 1}. ${imageUrls[i]}');
+        
+        // Verify URL format
+        if (!imageUrls[i].startsWith('http')) {
+          print('   ⚠️ Warning: URL ${i + 1} is not a valid HTTP URL');
+        }
+      }
+      
+      // STEP 4: Prepare product data with Cloudinary URLs
       final Map<String, dynamic> requestData = {
         'title': productData['title']?.toString() ?? '',
         'description': productData['description']?.toString() ?? '',
@@ -56,10 +76,10 @@ class ProductService {
             ? int.tryParse(productData['artisan_id']) ?? 0 
             : (productData['artisan_id'] ?? 0),
         'creator_name': productData['creator_name']?.toString() ?? 'Unknown',
-        'image_urls': imageUrls,  // CRITICAL: Send Cloudinary URLs as array
+        'image_urls': imageUrls,  // Send Cloudinary URLs as array
       };
 
-      print('Sending product data to server...');
+      print('\n📤 Sending product data to server...');
       print('Product details:');
       print('   - Title: ${requestData['title']}');
       print('   - Price: M${requestData['price']}');
@@ -68,53 +88,66 @@ class ProductService {
       print('   - Creator: ${requestData['creator_name']}');
       print('   - Images: ${imageUrls.length} Cloudinary URLs');
       
-      // STEP 3: Send to backend
+      // STEP 5: Send to backend
       final response = await http.post(
         Uri.parse('$_baseUrl/api/products'),
         headers: {
           'Content-Type': 'application/json',
         },
         body: json.encode(requestData),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Server timeout - please try again');
+        },
+      );
 
-      print('Server response: ${response.statusCode}');
+      print('\n📡 Server response: ${response.statusCode}');
       
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print('Product created successfully!');
+        print('✅ Product created successfully!');
         
         // Parse response to verify images were stored
-        final responseData = json.decode(response.body);
-        print('Response data:');
-        print('   - Product ID: ${responseData['id']}');
-        print('   - Title: ${responseData['title']}');
-        
-        if (responseData['image_urls'] != null) {
-          final storedUrls = responseData['image_urls'] as List;
-          print('   - Stored ${storedUrls.length} image URLs');
-        } else if (responseData['image_data_base64'] != null) {
-          final storedUrls = responseData['image_data_base64'] as List;
-          print('   - Stored ${storedUrls.length} images in image_data_base64');
-        } else {
-          print('Warning: No image data in response');
+        try {
+          final responseData = json.decode(response.body);
+          print('Response data:');
+          print('   - Product ID: ${responseData['id']}');
+          print('   - Title: ${responseData['title']}');
+          
+          if (responseData['image_urls'] != null) {
+            final storedUrls = responseData['image_urls'] as List;
+            print('   - ✅ Stored ${storedUrls.length} image URLs');
+          } else if (responseData['image_data_base64'] != null) {
+            final storedUrls = responseData['image_data_base64'] as List;
+            print('   - ✅ Stored ${storedUrls.length} images in image_data_base64');
+          } else {
+            print('   - ⚠️ Warning: No image data in response');
+          }
+        } catch (e) {
+          print('   - ⚠️ Could not parse response: $e');
         }
         
         print('=' * 60);
         return true;
       } else {
-        print('Server returned error status: ${response.statusCode}');
+        print('❌ Server returned error status: ${response.statusCode}');
         print('Response body: ${response.body}');
         
         try {
           final errorData = json.decode(response.body);
           throw Exception(errorData['error'] ?? 'Failed to create product');
         } catch (e) {
-          throw Exception('Failed to create product: ${response.body}');
+          throw Exception('Server error: ${response.statusCode}');
         }
       }
-    } catch (e) {
-      print('Create product error: $e');
+    } on Exception catch (e) {
+      print('❌ Create product error: $e');
       print('=' * 60);
       rethrow;
+    } catch (e) {
+      print('❌ Unexpected error: $e');
+      print('=' * 60);
+      throw Exception('Unexpected error: ${e.toString()}');
     }
   }
 
