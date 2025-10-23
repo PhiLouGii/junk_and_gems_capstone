@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -13,17 +13,54 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
 
   bool isLoading = false;
+  bool includePhoneNumber = false;
+
+  // Phone number validation
+  String? validatePhoneNumber(String? value) {
+    if (value == null || value.isEmpty) {
+      return null; // Optional field
+    }
+    
+    // Remove spaces and special characters for validation
+    final cleanNumber = value.replaceAll(RegExp(r'[^\d+]'), '');
+    
+    // Basic validation: should be 8-15 digits (with optional + prefix)
+    if (cleanNumber.length < 8 || cleanNumber.length > 15) {
+      return 'Please enter a valid phone number';
+    }
+    
+    return null;
+  }
 
   Future<void> signUpUser() async {
+    // Validate passwords match
     if (passwordController.text != confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Passwords do not match!")),
+        const SnackBar(
+          content: Text("Passwords do not match!"),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
+    }
+
+    // Validate phone number if provided
+    if (includePhoneNumber && phoneController.text.isNotEmpty) {
+      final phoneError = validatePhoneNumber(phoneController.text);
+      if (phoneError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(phoneError),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -32,32 +69,49 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     try {
       final url = Uri.parse('https://junk-and-gems-api.onrender.com/signup');
+      
+      final Map<String, dynamic> requestBody = {
+        'name': nameController.text.trim(),
+        'email': emailController.text.trim(),
+        'password': passwordController.text.trim(),
+      };
+
+      // Add phone number only if user opted in and provided it
+      if (includePhoneNumber && phoneController.text.trim().isNotEmpty) {
+        requestBody['phone_number'] = phoneController.text.trim();
+      }
+
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': nameController.text.trim(),
-          'email': emailController.text.trim(),
-          'password': passwordController.text.trim(),
-        }),
+        body: jsonEncode(requestBody),
       );
 
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("User created: ${data['user']['name']}")),
+          SnackBar(
+            content: Text("Welcome ${data['user']['name']}! 🎉"),
+            backgroundColor: Colors.green,
+          ),
         );
-        // Navigate back to login or Dashboard (if exists)
+        // Navigate back to login
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${data['error']}")),
+          SnackBar(
+            content: Text("Error: ${data['error']}"),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Network error: $e")),
+        SnackBar(
+          content: Text("Network error: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() {
@@ -131,28 +185,106 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               fontWeight: FontWeight.w400),
                         ),
                         const SizedBox(height: 32),
+                        
+                        // Name field
                         _buildTextField(
                             controller: nameController,
                             hintText: 'Full Name',
                             icon: Icons.person_outline),
                         const SizedBox(height: 20),
+                        
+                        // Email field
                         _buildTextField(
                             controller: emailController,
                             hintText: 'Email',
-                            icon: Icons.email_outlined),
+                            icon: Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress),
                         const SizedBox(height: 20),
+                        
+                        // Phone number toggle
+                        Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF7F2E4).withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.phone_outlined,
+                                color: const Color(0xFF88844D),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Add phone number (optional)',
+                                  style: TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              Switch(
+                                value: includePhoneNumber,
+                                onChanged: (value) {
+                                  setState(() {
+                                    includePhoneNumber = value;
+                                    if (!value) {
+                                      phoneController.clear();
+                                    }
+                                  });
+                                },
+                                activeColor: const Color(0xFF88844D),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Phone number field (conditional)
+                        if (includePhoneNumber) ...[
+                          const SizedBox(height: 20),
+                          _buildTextField(
+                            controller: phoneController,
+                            hintText: 'Phone Number',
+                            icon: Icons.phone,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[\d+\s\-()]')),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              'Used for order updates and delivery coordination',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Password field
                         _buildTextField(
                             controller: passwordController,
                             hintText: 'Password',
                             icon: Icons.lock_outline,
                             obscureText: true),
                         const SizedBox(height: 20),
+                        
+                        // Confirm password field
                         _buildTextField(
                             controller: confirmPasswordController,
                             hintText: 'Confirm Password',
                             icon: Icons.lock_outline,
                             obscureText: true),
                         const SizedBox(height: 30),
+                        
+                        // Sign up button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -177,6 +309,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+                        
+                        // Login link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -211,6 +345,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     required String hintText,
     required IconData icon,
     bool obscureText = false,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   }) =>
       Container(
         decoration: BoxDecoration(
@@ -220,6 +356,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: TextField(
           controller: controller,
           obscureText: obscureText,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: const TextStyle(color: Colors.black54),

@@ -302,39 +302,73 @@ function authenticateToken(req, res, next) {
 
 // Signup
 app.post("/signup", async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone_number } = req.body;
+  
   try {
     if (!name || !email || !password) {
-      return res.status(400).json({ error: "Missing fields" });
+      return res.status(400).json({ error: "Missing required fields" });
     }
     
-    const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    // Check if email already exists
+    const existingUser = await pool.query(
+      "SELECT * FROM users WHERE email = $1", 
+      [email]
+    );
+    
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({ error: "User already exists with this email" });
+      return res.status(400).json({ 
+        error: "User already exists with this email" 
+      });
+    }
+    
+    // Check if phone number is provided and already exists
+    if (phone_number && phone_number.trim() !== '') {
+      const existingPhone = await pool.query(
+        "SELECT * FROM users WHERE phone_number = $1", 
+        [phone_number.trim()]
+      );
+      
+      if (existingPhone.rows.length > 0) {
+        return res.status(400).json({ 
+          error: "User already exists with this phone number" 
+        });
+      }
     }
     
     const username = email.split('@')[0];
     const hashedPassword = await bcrypt.hash(password, 10);
     
+    // Insert user with optional phone number
     const result = await pool.query(
-      "INSERT INTO users (name, email, password, username) VALUES ($1, $2, $3, $4) RETURNING *",
-      [name, email, hashedPassword, username]
+      `INSERT INTO users 
+       (name, email, password, username, phone_number) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING *`,
+      [
+        name, 
+        email, 
+        hashedPassword, 
+        username, 
+        phone_number && phone_number.trim() !== '' ? phone_number.trim() : null
+      ]
     );
     
     const user = result.rows[0];
     const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
     
-    //NOTIFY ALL USERS BEFORE SENDING RESPONSE
-    console.log(`Notifying all users about new member: ${user.name} (ID: ${user.id})`);
+    // Notify all users about new member
+    console.log(`📢 Notifying all users about new member: ${user.name} (ID: ${user.id})`);
     await notifyAllUsersAboutNewUser(user.id, user.name);
     
-    // Send welcome email (don't await - let it send in background)
+    // Send welcome email
     sendEmail({
       to: email,
       subject: 'Welcome to Junk & Gems! 🎉',
-      text: `Hi ${name}! Welcome to Junk & Gems. Thank you for joining our community of eco-conscious creators.`,
+      text: `Hi ${name}! Welcome to Junk & Gems. Thank you for joining our community.`,
       html: getWelcomeEmailHtml(name)
     }).catch(err => console.error('Failed to send welcome email:', err));
+    
+    console.log(`✅ User created: ${user.name} (${user.email}${phone_number ? ', ' + phone_number : ''})`);
     
     res.json({ 
       message: "User created successfully", 
@@ -343,12 +377,13 @@ app.post("/signup", async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        username: user.username
+        username: user.username,
+        phone_number: user.phone_number
       }
     });
 
   } catch (err) {
-    console.error("Signup error:", err); 
+    console.error("❌ Signup error:", err); 
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
@@ -460,6 +495,46 @@ app.post("/reset-password", async (req, res) => {
   } catch (err) {
     console.error("Reset password error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+app.post("/api/add-phone-number-column", async (req, res) => {
+  try {
+    console.log('📱 Adding phone_number column to users table...');
+
+    // Check if phone_number column exists
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'phone_number'
+    `);
+
+    if (columnCheck.rows.length === 0) {
+      // Add the column
+      await pool.query(`
+        ALTER TABLE users 
+        ADD COLUMN phone_number VARCHAR(20)
+      `);
+      console.log('✅ Added phone_number column');
+    } else {
+      console.log('✅ phone_number column already exists');
+    }
+
+    // Create index for phone number lookups
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_users_phone_number 
+      ON users(phone_number) 
+      WHERE phone_number IS NOT NULL
+    `);
+    console.log('✅ Created index on phone_number');
+
+    res.json({ 
+      success: true, 
+      message: "Phone number column added successfully" 
+    });
+  } catch (err) {
+    console.error("❌ Add phone number column error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
 
@@ -1330,7 +1405,7 @@ app.get("/api/contributors", async (req, res) => {
       LIMIT 10
     `);
     
-    console.log(`✅ Found ${result.rows.length} contributors`);
+    console.log(` Found ${result.rows.length} contributors`);
     
     // Ensure all contributors have profile pictures
     const contributorsWithImages = result.rows.map(contributor => ({
@@ -1348,15 +1423,15 @@ app.get("/api/contributors", async (req, res) => {
 // Update user profile
 app.put("/api/users/:id/profile", authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { name, specialty, bio, user_type } = req.body;
+  const { name, specialty, bio, user_type, phone_number } = req.body;
 
   try {
     const result = await pool.query(
       `UPDATE users 
-       SET name = $1, specialty = $2, bio = $3, user_type = $4 
-       WHERE id = $5 
-       RETURNING id, name, username, profile_image_url, specialty, bio, user_type`,
-      [name, specialty, bio, user_type, id]
+       SET name = $1, specialty = $2, bio = $3, user_type = $4, phone_number = $5
+       WHERE id = $6 
+       RETURNING id, name, username, profile_image_url, specialty, bio, user_type, phone_number`,
+      [name, specialty, bio, user_type, phone_number, id]
     );
 
     if (result.rows.length === 0) {
@@ -1369,6 +1444,8 @@ app.put("/api/users/:id/profile", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+console.log(' Phone number support added to signup system');
 
 // Upload profile picture to Cloudinary
 app.post("/api/users/:id/profile-picture", authenticateToken, async (req, res) => {
@@ -2309,7 +2386,7 @@ app.get("/api/users/:userId/profile", async (req, res) => {
       SELECT 
         id, name, username, profile_image_url, 
         user_type, specialty, bio, donation_count,
-        available_gems, created_at
+        available_gems, created_at, phone_number, email
       FROM users 
       WHERE id = $1
     `, [userId]);
@@ -2320,13 +2397,12 @@ app.get("/api/users/:userId/profile", async (req, res) => {
 
     const user = result.rows[0];
     
-    // Get user stats from materials table
+    // Get user stats
     const donationsCount = await pool.query(
       'SELECT COUNT(*) FROM materials WHERE uploader_id = $1',
       [userId]
     );
     
-    // Get products count (if products table exists with artisan_id)
     let productsCount = { rows: [{ count: '0' }] };
     try {
       productsCount = await pool.query(
