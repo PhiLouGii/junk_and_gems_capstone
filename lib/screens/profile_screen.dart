@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/screens/buy_gems_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
@@ -742,7 +743,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildGemsCounter() {
-    return Container(
+  return GestureDetector(
+    onTap: () async {
+      // Navigate to Buy Gems screen
+      final newBalance = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuyGemsScreen(
+            userId: widget.userId,
+            currentGems: userGems,
+          ),
+        ),
+      );
+      
+      // Update gems if purchase was made
+      if (newBalance != null) {
+        setState(() {
+          userGems = newBalance;
+        });
+        await _loadUserGems(); // Refresh from server
+      }
+    },
+    child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -770,10 +792,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontSize: 18,
             ),
           ),
+          const SizedBox(width: 8),
+          const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBioSection() {
     return Container(
