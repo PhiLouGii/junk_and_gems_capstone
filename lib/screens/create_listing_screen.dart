@@ -11,6 +11,304 @@ import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'browse_materials_screen.dart';
 
+class StructuredLocationWidget extends StatefulWidget {
+  final Function(Map<String, String>) onLocationChanged;
+  final Map<String, String>? initialLocation;
+
+  const StructuredLocationWidget({
+    super.key,
+    required this.onLocationChanged,
+    this.initialLocation,
+  });
+
+  @override
+  State<StructuredLocationWidget> createState() => _StructuredLocationWidgetState();
+}
+
+class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
+  String? _selectedArea;
+  final _landmarkController = TextEditingController();
+  final _directionsController = TextEditingController();
+  final _customAreaController = TextEditingController();
+  bool _isCustomArea = false;
+
+  // Maseru neighborhoods and landmarks
+  final List<String> _areas = [
+    'Thetsane',
+    'Lithabaneng',
+    'Katlehong',
+    'Ha Tšosane',
+    'Maseru West',
+    'Ha Matala',
+    'Masowe',
+    'Ha Thetsane',
+    'Pioneer Mall',
+    'Maseru Mall',
+    'Kick4Life Centre',
+    'NRH Mall',
+    'Setsoto Stadium',
+    'Custom Location...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Load initial values if provided
+    if (widget.initialLocation != null) {
+      _selectedArea = widget.initialLocation!['area'];
+      _landmarkController.text = widget.initialLocation!['landmark'] ?? '';
+      _directionsController.text = widget.initialLocation!['directions'] ?? '';
+      
+      if (_selectedArea != null && !_areas.contains(_selectedArea)) {
+        _isCustomArea = true;
+        _customAreaController.text = _selectedArea!;
+        _selectedArea = 'Custom Location...';
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _landmarkController.dispose();
+    _directionsController.dispose();
+    _customAreaController.dispose();
+    super.dispose();
+  }
+
+  void _notifyLocationChange() {
+    final area = _isCustomArea ? _customAreaController.text : _selectedArea;
+    
+    final locationData = {
+      'area': area ?? '',
+      'landmark': _landmarkController.text,
+      'directions': _directionsController.text,
+      'formatted': _formatLocation(),
+    };
+    
+    widget.onLocationChanged(locationData);
+  }
+
+  String _formatLocation() {
+    List<String> parts = [];
+    
+    final area = _isCustomArea ? _customAreaController.text : _selectedArea;
+    if (area != null && area.isNotEmpty && area != 'Custom Location...') {
+      parts.add(area);
+    }
+    
+    if (_landmarkController.text.isNotEmpty) {
+      parts.add(_landmarkController.text);
+    }
+    
+    if (_directionsController.text.isNotEmpty) {
+      parts.add(_directionsController.text);
+    }
+    
+    return parts.join(' • ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Location *',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        // Area/Neighborhood Dropdown
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButton<String>(
+              value: _selectedArea,
+              hint: Row(
+                children: [
+                  const Icon(Icons.location_city, color: Color(0xFF88844D), size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Select Area / Neighborhood',
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+              isExpanded: true,
+              underline: const SizedBox(),
+              dropdownColor: Theme.of(context).cardColor,
+              icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF88844D)),
+              items: _areas.map((area) {
+                return DropdownMenuItem(
+                  value: area,
+                  child: Row(
+                    children: [
+                      Icon(
+                        area == 'Custom Location...' 
+                            ? Icons.add_location_alt 
+                            : Icons.location_on,
+                        color: const Color(0xFF88844D),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        area,
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          fontWeight: area == 'Custom Location...' 
+                              ? FontWeight.bold 
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedArea = value;
+                  _isCustomArea = value == 'Custom Location...';
+                  if (!_isCustomArea) {
+                    _customAreaController.clear();
+                  }
+                });
+                _notifyLocationChange();
+              },
+            ),
+          ),
+        ),
+        
+        // Custom Area Input (shows when "Custom Location..." is selected)
+        if (_isCustomArea) ...[
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBEC092), width: 1),
+            ),
+            child: TextField(
+              controller: _customAreaController,
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+              decoration: InputDecoration(
+                hintText: 'Enter your area name',
+                hintStyle: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                prefixIcon: const Icon(Icons.edit_location_alt, color: Color(0xFF88844D)),
+              ),
+              onChanged: (_) => _notifyLocationChange(),
+            ),
+          ),
+        ],
+        
+        const SizedBox(height: 12),
+        
+        // Landmark / Street
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
+          ),
+          child: TextField(
+            controller: _landmarkController,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            decoration: InputDecoration(
+              hintText: 'Landmark or Street (e.g., Next to Shell Garage)',
+              hintStyle: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              prefixIcon: const Icon(Icons.place, color: Color(0xFF88844D)),
+            ),
+            onChanged: (_) => _notifyLocationChange(),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Extra Directions
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
+          ),
+          child: TextField(
+            controller: _directionsController,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            maxLines: 2,
+            decoration: InputDecoration(
+              hintText: 'Extra Directions (e.g., Blue gate, behind big tree)',
+              hintStyle: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Icon(Icons.directions, color: Color(0xFF88844D)),
+              ),
+            ),
+            onChanged: (_) => _notifyLocationChange(),
+          ),
+        ),
+        
+        // Preview of formatted location
+        if (_formatLocation().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFBEC092).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Color(0xFF88844D),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Location: ${_formatLocation()}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class CreateListingScreen extends StatefulWidget {
   const CreateListingScreen({super.key});
 
@@ -25,6 +323,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   DateTime? _availableUntil;
   bool _isFragile = false;
   List<XFile> _images = [];
+  Map<String, String> _locationData = {}; // ✅ NEW: Location data storage
   final Map<String, bool> _contactPreferences = {
     'In-app Chat': false,
     'Phone': false,
@@ -34,7 +333,6 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
-  final _locationController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _isSubmitting = false;
   bool _isAuthInitialized = false;
@@ -47,7 +345,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   // 🔥 NEW: Initialize Auth Provider on Screen Load
   Future<void> _initializeAuth() async {
-    print('🔐 Initializing auth in CreateListingScreen...');
+    print('🔍 Initializing auth in CreateListingScreen...');
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
@@ -98,7 +396,6 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
-    _locationController.dispose();
     super.dispose();
   }
 
@@ -192,10 +489,13 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           hintText: 'e.g., 5 items or 1kg'
         ),
         const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Location', 
-          controller: _locationController, 
-          hintText: 'Maseru West, Lesotho'
+        // ✅ REPLACED: Old text field with StructuredLocationWidget
+        StructuredLocationWidget(
+          onLocationChanged: (locationData) {
+            setState(() {
+              _locationData = locationData;
+            });
+          },
         ),
       ],
     );
@@ -491,13 +791,13 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   // 🔥 IMPROVED: Enhanced Submit with Better Auth Checking
   Future<void> _submitListing() async {
-    // Validate required fields
+    // ✅ UPDATED: Validate required fields including location
     if (_titleController.text.isEmpty || 
         _descriptionController.text.isEmpty || 
         _selectedCategory == null || 
-        _locationController.text.isEmpty) {
+        (_locationData['area'] == null || _locationData['area']!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields')),
+        const SnackBar(content: Text('Please fill in all required fields including location')),
       );
       return;
     }
@@ -507,7 +807,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     
     // 🔥 ENHANCED DEBUG LOGGING
     print('=' * 60);
-    print('🔐 AUTH CHECK IN SUBMIT LISTING');
+    print('🔍 AUTH CHECK IN SUBMIT LISTING');
     print('Is Authenticated: ${authProvider.isAuthenticated}');
     print('Is Initialized: ${authProvider.isInitialized}');
     print('User object: ${authProvider.user}');
@@ -606,19 +906,22 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         formattedContactPrefs[key] = value ?? false;
       });
 
-      // Prepare the material data
+      // ✅ UPDATED: Prepare the material data with structured location
       final materialData = {
         'title': _titleController.text,
         'description': _descriptionController.text,
         'category': _selectedCategory!,
         'quantity': _quantityController.text.isNotEmpty ? _quantityController.text : 'Not specified',
-        'location': _locationController.text,
         'delivery_option': _selectedDeliveryOption ?? 'Needs Pickup',
         'available_from': _availableFrom?.toIso8601String(),
         'available_until': _availableUntil?.toIso8601String(),
         'is_fragile': _isFragile,
         'contact_preferences': formattedContactPrefs,
         'uploader_id': uploaderId,
+        'location': _locationData['formatted'] ?? '',
+        'location_area': _locationData['area'] ?? '',
+        'location_landmark': _locationData['landmark'] ?? '',
+        'location_directions': _locationData['directions'] ?? '',
       };
 
       print('Material data prepared: $materialData');
@@ -781,7 +1084,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 }
 
-// Image Upload Widget (unchanged)
+// Image Upload Widget
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
   const ImageUploadWidget({super.key, required this.onImagesChanged});

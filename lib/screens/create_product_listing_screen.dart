@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,6 +7,304 @@ import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/services/product_service.dart';
+
+class StructuredLocationWidget extends StatefulWidget {
+  final Function(Map<String, String>) onLocationChanged;
+  final Map<String, String>? initialLocation;
+
+  const StructuredLocationWidget({
+    super.key,
+    required this.onLocationChanged,
+    this.initialLocation,
+  });
+
+  @override
+  State<StructuredLocationWidget> createState() => _StructuredLocationWidgetState();
+}
+
+class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
+  String? _selectedArea;
+  final _landmarkController = TextEditingController();
+  final _directionsController = TextEditingController();
+  final _customAreaController = TextEditingController();
+  bool _isCustomArea = false;
+
+  // Maseru neighborhoods and landmarks
+  final List<String> _areas = [
+    'Thetsane',
+    'Lithabaneng',
+    'Katlehong',
+    'Ha Tšosane',
+    'Maseru West',
+    'Ha Matala',
+    'Masowe',
+    'Ha Thetsane',
+    'Pioneer Mall',
+    'Maseru Mall',
+    'Kick4Life Centre',
+    'NRH Mall',
+    'Setsoto Stadium',
+    'Custom Location...',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Load initial values if provided
+    if (widget.initialLocation != null) {
+      _selectedArea = widget.initialLocation!['area'];
+      _landmarkController.text = widget.initialLocation!['landmark'] ?? '';
+      _directionsController.text = widget.initialLocation!['directions'] ?? '';
+      
+      if (_selectedArea != null && !_areas.contains(_selectedArea)) {
+        _isCustomArea = true;
+        _customAreaController.text = _selectedArea!;
+        _selectedArea = 'Custom Location...';
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _landmarkController.dispose();
+    _directionsController.dispose();
+    _customAreaController.dispose();
+    super.dispose();
+  }
+
+  void _notifyLocationChange() {
+    final area = _isCustomArea ? _customAreaController.text : _selectedArea;
+    
+    final locationData = {
+      'area': area ?? '',
+      'landmark': _landmarkController.text,
+      'directions': _directionsController.text,
+      'formatted': _formatLocation(),
+    };
+    
+    widget.onLocationChanged(locationData);
+  }
+
+  String _formatLocation() {
+    List<String> parts = [];
+    
+    final area = _isCustomArea ? _customAreaController.text : _selectedArea;
+    if (area != null && area.isNotEmpty && area != 'Custom Location...') {
+      parts.add(area);
+    }
+    
+    if (_landmarkController.text.isNotEmpty) {
+      parts.add(_landmarkController.text);
+    }
+    
+    if (_directionsController.text.isNotEmpty) {
+      parts.add(_directionsController.text);
+    }
+    
+    return parts.join(' • ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Location *',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        // Area/Neighborhood Dropdown
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: DropdownButton<String>(
+              value: _selectedArea,
+              hint: Row(
+                children: [
+                  const Icon(Icons.location_city, color: Color(0xFF88844D), size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Select Area / Neighborhood',
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
+              isExpanded: true,
+              underline: const SizedBox(),
+              dropdownColor: Theme.of(context).cardColor,
+              icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF88844D)),
+              items: _areas.map((area) {
+                return DropdownMenuItem(
+                  value: area,
+                  child: Row(
+                    children: [
+                      Icon(
+                        area == 'Custom Location...' 
+                            ? Icons.add_location_alt 
+                            : Icons.location_on,
+                        color: const Color(0xFF88844D),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        area,
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                          fontWeight: area == 'Custom Location...' 
+                              ? FontWeight.bold 
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedArea = value;
+                  _isCustomArea = value == 'Custom Location...';
+                  if (!_isCustomArea) {
+                    _customAreaController.clear();
+                  }
+                });
+                _notifyLocationChange();
+              },
+            ),
+          ),
+        ),
+        
+        // Custom Area Input (shows when "Custom Location..." is selected)
+        if (_isCustomArea) ...[
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBEC092), width: 1),
+            ),
+            child: TextField(
+              controller: _customAreaController,
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+              decoration: InputDecoration(
+                hintText: 'Enter your area name',
+                hintStyle: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                prefixIcon: const Icon(Icons.edit_location_alt, color: Color(0xFF88844D)),
+              ),
+              onChanged: (_) => _notifyLocationChange(),
+            ),
+          ),
+        ],
+        
+        const SizedBox(height: 12),
+        
+        // Landmark / Street
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
+          ),
+          child: TextField(
+            controller: _landmarkController,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            decoration: InputDecoration(
+              hintText: 'Landmark or Street (e.g., Next to Shell Garage)',
+              hintStyle: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              prefixIcon: const Icon(Icons.place, color: Color(0xFF88844D)),
+            ),
+            onChanged: (_) => _notifyLocationChange(),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Extra Directions
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBEC092), width: 1),
+          ),
+          child: TextField(
+            controller: _directionsController,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            maxLines: 2,
+            decoration: InputDecoration(
+              hintText: 'Extra Directions (e.g., Blue gate, behind big tree)',
+              hintStyle: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              ),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Icon(Icons.directions, color: Color(0xFF88844D)),
+              ),
+            ),
+            onChanged: (_) => _notifyLocationChange(),
+          ),
+        ),
+        
+        // Preview of formatted location
+        if (_formatLocation().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFBEC092).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Color(0xFF88844D),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Location: ${_formatLocation()}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class ImageUploadWidget extends StatefulWidget {
   final Function(List<XFile>) onImagesChanged;
@@ -23,12 +320,12 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
   Future<void> _pickImages() async {
     try {
-      print('📸 Opening image picker...');
+      print('Opening image picker...');
       
       // Pick multiple images from gallery
       final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 85, // Compress images to reduce size
-        maxWidth: 1920, // Limit dimensions to reduce file size
+        imageQuality: 85,
+        maxWidth: 1920,
         maxHeight: 1920,
       );
       
@@ -89,12 +386,14 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       }
 
       if (copiedImages.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to process selected images'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to process selected images'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
 
@@ -104,21 +403,25 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
           int availableSlots = 5 - _images.length;
           _images.addAll(copiedImages.take(availableSlots));
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         } else {
           _images.addAll(copiedImages);
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Added ${copiedImages.length} image(s)'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Added ${copiedImages.length} image(s)'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       });
       
@@ -176,20 +479,24 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
       setState(() {
         if (_images.length >= 5) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Maximum 5 images allowed'),
-              backgroundColor: Colors.orange,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Maximum 5 images allowed'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         } else {
           _images.add(XFile(targetPath));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Photo added'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Photo added'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       });
 
@@ -212,27 +519,34 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
   void _showImageSourceOptions() {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
         return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImages();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Take Photo'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _takePhoto();
-                },
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_library, color: Color(0xFF88844D)),
+                  title: const Text('Choose from Gallery'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImages();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt, color: Color(0xFF88844D)),
+                  title: const Text('Take Photo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _takePhoto();
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -269,25 +583,25 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(
                           Icons.cloud_upload_outlined, 
                           size: 40,
-                          color: Color(0xFF88844D),
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Tap to add product images',
                           style: TextStyle(
-                            color: Color(0xFF88844D),
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           'Gallery or Camera',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF88844D),
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                           ),
                         ),
                       ],
@@ -299,7 +613,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                     itemCount: _images.length + (_images.length < 5 ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == _images.length) {
-                        // Add more button
                         return GestureDetector(
                           onTap: _showImageSourceOptions,
                           child: Container(
@@ -311,7 +624,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                               border: Border.all(
                                 color: const Color(0xFFBEC092),
                                 width: 2,
-                                style: BorderStyle.solid,
                               ),
                             ),
                             child: const Center(
@@ -348,12 +660,14 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                                   widget.onImagesChanged(_images);
                                 });
                                 
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Image removed'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Image removed'),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
                               },
                               child: Container(
                                 padding: const EdgeInsets.all(4),
@@ -369,7 +683,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                               ),
                             ),
                           ),
-                          // Image number badge
                           Positioned(
                             bottom: 4,
                             left: 4,
@@ -416,7 +729,6 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
   @override
   void dispose() {
-    // Clean up - optionally delete temporary files
     super.dispose();
   }
 }
@@ -433,13 +745,13 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   String? _selectedCondition;
   double _price = 0.0;
   List<XFile> _images = [];
+  Map<String, String> _locationData = {}; // ✅ NEW: Location data storage
   bool _isSubmitting = false;
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _materialsController = TextEditingController();
   final _dimensionsController = TextEditingController();
-  final _locationController = TextEditingController();
 
   @override
   void dispose() {
@@ -447,7 +759,6 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
     _descriptionController.dispose();
     _materialsController.dispose();
     _dimensionsController.dispose();
-    _locationController.dispose();
     super.dispose();
   }
 
@@ -527,7 +838,14 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         const SizedBox(height: 20),
         _buildPriceField(),
         const SizedBox(height: 20),
-        _buildTextField('Location', _locationController, 'Enter your location'),
+        // ✅ REPLACED: Old text field with StructuredLocationWidget
+        StructuredLocationWidget(
+          onLocationChanged: (locationData) {
+            setState(() {
+              _locationData = locationData;
+            });
+          },
+        ),
         const SizedBox(height: 10),
         Text(
           '* Required fields',
@@ -671,7 +989,7 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         setState(() {
           _images = images;
         });
-        print(' Images updated: ${images.length} images selected');
+        print('📸 Images updated: ${images.length} images selected');
       },
     );
   }
@@ -703,142 +1021,150 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   }
 
   Future<void> _submitProduct() async {
-  print(' Starting product submission...');
-  
-  // Validation
-  if (_titleController.text.isEmpty) {
-    return _showErrorDialog('Please enter a product name');
-  }
-  if (_descriptionController.text.isEmpty) {
-    return _showErrorDialog('Please enter a product description');
-  }
-  if (_selectedCategory == null) {
-    return _showErrorDialog('Please select a product category');
-  }
-  if (_selectedCondition == null) {
-    return _showErrorDialog('Please select the product condition');
-  }
-  if (_price <= 0) {
-    return _showErrorDialog('Please enter a valid price');
-  }
-  if (_images.isEmpty) {
-    return _showErrorDialog('Please select at least one image');
-  }
-
-  setState(() => _isSubmitting = true);
-
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
-    final userName = prefs.getString('userName') ?? 'Unknown User';
+    print('🚀 Starting product submission...');
     
-    if (userId == null) {
-      setState(() => _isSubmitting = false);
-      return _showErrorDialog('Please login to list a product');
+    // Validation
+    if (_titleController.text.isEmpty) {
+      return _showErrorDialog('Please enter a product name');
+    }
+    if (_descriptionController.text.isEmpty) {
+      return _showErrorDialog('Please enter a product description');
+    }
+    if (_selectedCategory == null) {
+      return _showErrorDialog('Please select a product category');
+    }
+    if (_selectedCondition == null) {
+      return _showErrorDialog('Please select the product condition');
+    }
+    if (_price <= 0) {
+      return _showErrorDialog('Please enter a valid price');
+    }
+    if (_images.isEmpty) {
+      return _showErrorDialog('Please select at least one image');
+    }
+    // ✅ NEW: Validate location
+    if (_locationData['area'] == null || _locationData['area']!.isEmpty) {
+      return _showErrorDialog('Please select a location');
     }
 
-    print(' User ID: $userId');
-    print(' User Name: $userName');
-    print(' Images to upload: ${_images.length}');
+    setState(() => _isSubmitting = true);
 
-    // Show progress dialog
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return WillPopScope(
-            onWillPop: () async => false,
-            child: AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF88844D)),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Uploading images...',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'This may take a minute on mobile',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    }
-
-    // Prepare product data
-    final productData = {
-      'title': _titleController.text.trim(),
-      'description': _descriptionController.text.trim(),
-      'price': _price,
-      'category': _selectedCategory,
-      'condition': _selectedCondition,
-      'materials_used': _materialsController.text.trim(),
-      'dimensions': _dimensionsController.text.trim(),
-      'location': _locationController.text.trim(),
-      'artisan_id': userId,
-      'creator_name': userName,
-    };
-
-    print('📦 Product data prepared');
-
-    // Call ProductService to create product
-    final success = await ProductService.createProduct(productData, _images);
-
-    if (mounted) {
-      Navigator.pop(context); // Close progress dialog
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('userId');
+      final userName = prefs.getString('userName') ?? 'Unknown User';
       
-      if (success) {
-        _showSuccessDialog();
-      } else {
-        _showErrorDialog(
-          'Failed to create product. Please check:\n'
-          '• Your internet connection\n'
-          '• Image sizes (try smaller images)\n'
-          '• Network signal strength'
+      if (userId == null) {
+        setState(() => _isSubmitting = false);
+        return _showErrorDialog('Please login to list a product');
+      }
+
+      print('👤 User ID: $userId');
+      print('👤 User Name: $userName');
+      print('📸 Images to upload: ${_images.length}');
+      print('📍 Location: ${_locationData['formatted']}');
+
+      // Show progress dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return WillPopScope(
+              onWillPop: () async => false,
+              child: AlertDialog(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF88844D)),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Uploading images...',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This may take a minute on mobile',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       }
-    }
 
-  } catch (e) {
-    print(' Error creating product: $e');
-    
-    if (mounted) {
-      Navigator.pop(context); // Close progress dialog if open
-      
-      String errorMessage = 'Error: ${e.toString()}';
-      
-      // Provide helpful error messages
-      if (e.toString().contains('SocketException') || 
-          e.toString().contains('Network')) {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (e.toString().contains('timeout') || 
-                 e.toString().contains('Timeout')) {
-        errorMessage = 'Upload timeout. Your connection may be slow. Try:\n'
-                      '• Using fewer images\n'
-                      '• Connecting to a faster network\n'
-                      '• Trying again in a moment';
+      // ✅ UPDATED: Prepare product data with structured location
+      final productData = {
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': _price,
+        'category': _selectedCategory,
+        'condition': _selectedCondition,
+        'materials_used': _materialsController.text.trim(),
+        'dimensions': _dimensionsController.text.trim(),
+        'location': _locationData['formatted'] ?? '',
+        'location_area': _locationData['area'] ?? '',
+        'location_landmark': _locationData['landmark'] ?? '',
+        'location_directions': _locationData['directions'] ?? '',
+        'artisan_id': userId,
+        'creator_name': userName,
+      };
+
+      print('📦 Product data prepared');
+
+      // Call ProductService to create product
+      final success = await ProductService.createProduct(productData, _images);
+
+      if (mounted) {
+        Navigator.pop(context); // Close progress dialog
+        
+        if (success) {
+          _showSuccessDialog();
+        } else {
+          _showErrorDialog(
+            'Failed to create product. Please check:\n'
+            '• Your internet connection\n'
+            '• Image sizes (try smaller images)\n'
+            '• Network signal strength'
+          );
+        }
       }
+
+    } catch (e) {
+      print('❌ Error creating product: $e');
       
-      _showErrorDialog(errorMessage);
-    }
-  } finally {
-    if (mounted) {
-      setState(() => _isSubmitting = false);
+      if (mounted) {
+        Navigator.pop(context); // Close progress dialog if open
+        
+        String errorMessage = 'Error: ${e.toString()}';
+        
+        // Provide helpful error messages
+        if (e.toString().contains('SocketException') || 
+            e.toString().contains('Network')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else if (e.toString().contains('timeout') || 
+                   e.toString().contains('Timeout')) {
+          errorMessage = 'Upload timeout. Your connection may be slow. Try:\n'
+                        '• Using fewer images\n'
+                        '• Connecting to a faster network\n'
+                        '• Trying again in a moment';
+        }
+        
+        _showErrorDialog(errorMessage);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
-}
 
   void _showErrorDialog(String message) {
     showDialog(

@@ -1034,7 +1034,7 @@ app.post("/materials", async (req, res) => {
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   
   const { 
-    title, description, category, quantity, location, delivery_option, 
+    title, description, category, quantity, location, location_area, location_landmark, location_directions, delivery_option, 
     available_from, available_until, is_fragile, contact_preferences,
     image_urls, uploader_id 
   } = req.body;
@@ -1085,28 +1085,32 @@ app.post("/materials", async (req, res) => {
     console.log('Inserting material into database...');
 
     // Insert the material
-    const result = await pool.query(
-      `INSERT INTO materials 
-       (title, description, category, quantity, location, delivery_option, 
-        available_from, available_until, is_fragile, contact_preferences, 
-        image_data_base64, uploader_id) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
-       RETURNING *`,
-      [
-        title, 
-        description, 
-        category, 
-        quantity || 'Not specified', 
-        location, 
-        delivery_option || 'Needs Pickup', 
-        available_from || new Date().toISOString(),
-        available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        is_fragile || false, 
-        contactPrefs, 
-        imageUrls, 
-        uploader_id
-      ]
-    );
+const result = await pool.query(
+  `INSERT INTO materials 
+   (title, description, category, quantity, location, location_area, location_landmark, location_directions, 
+    delivery_option, 
+    available_from, available_until, is_fragile, contact_preferences, 
+    image_data_base64, uploader_id) 
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
+   RETURNING *`,
+  [
+    title, 
+    description, 
+    category, 
+    quantity || 'Not specified', 
+    location, 
+    location_area,
+    location_landmark, 
+    location_directions, 
+    delivery_option || 'Needs Pickup', 
+    available_from || new Date().toISOString(),
+    available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    is_fragile || false, 
+    contactPrefs, 
+    imageUrls, 
+    uploader_id
+  ]
+);
 
     const insertedMaterial = result.rows[0];
     console.log(`Material inserted with ID: ${insertedMaterial.id}`);
@@ -2395,7 +2399,8 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
   
   const { 
     title, description, price, category, condition, 
-    materials_used, dimensions, location, artisan_id, creator_name 
+    materials_used, dimensions, location, location_area, 
+    location_landmark, location_directions, artisan_id, creator_name 
   } = req.body;
 
   try {
@@ -2419,7 +2424,7 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
     }
 
     const actualCreatorName = userResult.rows[0].name;
-    console.log(`User verified: ${actualCreatorName}`);
+    console.log(`✅ User verified: ${actualCreatorName}`);
 
     // Process image URLs from request body
     let imageUrls = [];
@@ -2436,7 +2441,7 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
           imageUrls = req.body.image_urls;
         }
         
-        console.log(`Received ${imageUrls.length} Cloudinary image URLs`);
+        console.log(`📸 Received ${imageUrls.length} Cloudinary image URLs`);
         
         // Log each URL to verify they're valid
         imageUrls.forEach((url, index) => {
@@ -2444,34 +2449,35 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
           
           // Validate URL format
           if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            console.log(`Warning: URL ${index + 1} doesn't start with http/https`);
+            console.log(`⚠️ Warning: URL ${index + 1} doesn't start with http/https`);
           }
         });
         
       } catch (parseErr) {
-        console.log('Error parsing image_urls:', parseErr);
+        console.log('❌ Error parsing image_urls:', parseErr);
         imageUrls = [];
       }
     } else {
-      console.log('No image_urls provided in request');
+      console.log('⚠️ No image_urls provided in request');
     }
 
     // Ensure we have at least one image
     if (imageUrls.length === 0) {
-      console.log('No valid image URLs found');
+      console.log('❌ No valid image URLs found');
       return res.status(400).json({ 
         error: "At least one product image is required" 
       });
     }
 
-    console.log('Inserting product into database...');
+    console.log('💾 Inserting product into database...');
 
-    // Insert the product with image_data_base64 containing Cloudinary URLs
+    // 🔥 FIXED: Correct number of placeholders (13 values = $1 to $13)
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
-        dimensions, location, artisan_id, image_data_base64, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()) 
+        dimensions, location, location_area, location_landmark, location_directions, 
+        artisan_id, image_data_base64, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) 
        RETURNING *`,
       [
         title, 
@@ -2482,14 +2488,17 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
         materials_used || null, 
         dimensions || null, 
         location || null, 
+        location_area || null, 
+        location_landmark || null, 
+        location_directions || null, 
         parseInt(artisan_id),
         imageUrls  // Store Cloudinary URLs as array
       ]
     );
 
     const insertedProduct = result.rows[0];
-    console.log(`Product inserted with ID: ${insertedProduct.id}`);
-    console.log(`Stored ${imageUrls.length} image URLs in database`);
+    console.log(`✅ Product inserted with ID: ${insertedProduct.id}`);
+    console.log(`📸 Stored ${imageUrls.length} image URLs in database`);
 
     // Format response
     const responseProduct = {
@@ -2502,6 +2511,9 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
       materials_used: insertedProduct.materials_used,
       dimensions: insertedProduct.dimensions,
       location: insertedProduct.location,
+      location_area: insertedProduct.location_area,
+      location_landmark: insertedProduct.location_landmark,
+      location_directions: insertedProduct.location_directions,
       artisan_id: insertedProduct.artisan_id,
       creator_name: actualCreatorName,
       image_urls: insertedProduct.image_data_base64,  // Return the stored URLs
@@ -2509,13 +2521,13 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
       created_at: insertedProduct.created_at
     };
 
-    console.log('Sending response with product data');
-    console.log('=' * 60);
+    console.log('✅ Sending response with product data');
+    console.log('='.repeat(60));
     
     res.status(201).json(responseProduct);
 
   } catch (err) {
-    console.error("Server error creating product:", err);
+    console.error("❌ Server error creating product:", err);
     console.error("Stack trace:", err.stack);
     res.status(500).json({ 
       error: "Server error: " + err.message,
