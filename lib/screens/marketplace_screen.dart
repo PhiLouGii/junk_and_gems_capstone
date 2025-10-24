@@ -2082,7 +2082,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        _navItem(Icons.dashboard, false, 'Dashboard', onTap: () {
+        _navItem(Icons.home_filled, false, 'Home', onTap: () {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -2093,13 +2093,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             ),
           );
         }),
-        _navItem(Icons.store, true, 'Marketplace', onTap: () {}),
-        _navItem(Icons.inventory, false, 'Materials', onTap: () {
+        _navItem(Icons.inventory_2, false, 'Browse', onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
           );
         }),
+        _navItem(Icons.shopping_bag_outlined, true, 'Shop', onTap: () {}),
         _navItem(Icons.notifications_outlined, false, 'Notifications', onTap: () {
           Navigator.push(
             context,
