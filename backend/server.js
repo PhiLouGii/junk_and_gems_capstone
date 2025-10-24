@@ -1090,61 +1090,70 @@ app.get("/materials", async (req, res) => {
         u.name as uploader,
         u.email as uploader_email,
         u.profile_image_url as uploader_avatar,
-        u.id as uploader_id
+        u.id as uploader_id,
+        claimer.name as claimer_name
       FROM materials m
       JOIN users u ON m.uploader_id = u.id
+      LEFT JOIN users claimer ON m.claimed_by = claimer.id
+      ${whereClause}
       ORDER BY m.created_at DESC
     `);
 
-     console.log(`Found ${result.rows.length} materials (including claimed)`);
+    console.log(`Found ${result.rows.length} materials (status: ${status || 'available/pending'})`);
 
-      // Convert database results to frontend format
-    const materials = result.rows.map(material => ({
-      id: material.id,
-      title: material.title,
-      description: material.description,
-      category: material.category,
-      quantity: material.quantity,
-      location: material.location,
-      delivery_option: material.delivery_option,
-      available_from: material.available_from,
-      available_until: material.available_until,
-      is_fragile: material.is_fragile,
-      contact_preferences: material.contact_preferences,
-      image_urls: material.image_data_base64 || [],
-      uploader: material.uploader_name,
-      uploader_id: material.uploader_id,
-      uploader_email: material.uploader_email,
-      uploader_avatar: material.uploader_avatar,
-      amount: material.quantity,
-      created_at: material.created_at,
-      time: formatTimeAgo(material.created_at),
-      
-      // New claim-related fields
-      claim_status: material.claim_status || 'available',
-      claimed_by: material.claimed_by,
-      claimer_name: material.claimer_name,
-      claim_requested_at: material.claim_requested_at,
-      claim_confirmed_at: material.claim_confirmed_at,
-      conversation_id: material.conversation_id,
-      
-      // Legacy fields for backwards compatibility
-      is_claimed: material.claim_status === 'confirmed',
-      claimed_at: material.claim_confirmed_at
-    }));
+    // Convert database results to frontend format
+    const materials = result.rows.map(row => {
       // Get images from image_data_base64 
-      const imageUrls = material.image_data_base64 || [];
+      const imageUrls = row.image_data_base64 || [];
       
       if (imageUrls.length > 0) {
-        console.log(`Material ${material.id} has ${imageUrls.length} images`);
+        console.log(`Material ${row.id} has ${imageUrls.length} images`);
       } else {
-        console.log(`Material ${material.id} has no images`);
+        console.log(`Material ${row.id} has no images`);
       }
 
-     res.json(materials);
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        category: row.category,
+        quantity: row.quantity,
+        location: row.location,
+        location_area: row.location_area,
+        location_landmark: row.location_landmark,
+        location_directions: row.location_directions,
+        delivery_option: row.delivery_option,
+        available_from: row.available_from,
+        available_until: row.available_until,
+        is_fragile: row.is_fragile,
+        contact_preferences: row.contact_preferences,
+        image_urls: imageUrls,
+        uploader: row.uploader_name,
+        uploader_id: row.uploader_id,
+        uploader_email: row.uploader_email,
+        uploader_avatar: row.uploader_avatar,
+        amount: row.quantity,
+        created_at: row.created_at,
+        time: formatTimeAgo(row.created_at),
+        
+        // New claim-related fields
+        claim_status: row.claim_status || 'available',
+        claimed_by: row.claimed_by,
+        claimer_name: row.claimer_name,
+        claim_requested_at: row.claim_requested_at,
+        claim_confirmed_at: row.claim_confirmed_at,
+        conversation_id: row.conversation_id,
+        
+        // Legacy fields for backwards compatibility
+        is_claimed: row.claim_status === 'confirmed',
+        claimed_at: row.claim_confirmed_at
+      };
+    });
+
+    res.json(materials);
   } catch (err) {
     console.error("Get materials error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
