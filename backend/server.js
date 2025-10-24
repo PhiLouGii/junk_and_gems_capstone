@@ -1073,6 +1073,16 @@ console.log(' Notification system initialized');
 // Get all materials with real data
 app.get("/materials", async (req, res) => {
   try {
+    const { status } = req.query; // ?status=available or ?status=pending or ?status=confirmed
+    
+    let whereClause = '';
+    if (status) {
+      whereClause = `WHERE m.claim_status = '${status}'`;
+    } else {
+      // By default, only show available and pending materials (not confirmed ones)
+      whereClause = `WHERE m.claim_status IN ('available', 'pending')`;
+    }
+    
     const result = await pool.query(`
       SELECT 
         m.*,
@@ -1089,7 +1099,39 @@ app.get("/materials", async (req, res) => {
      console.log(`Found ${result.rows.length} materials (including claimed)`);
 
       // Convert database results to frontend format
-    const materials = result.rows.map(material => {
+    const materials = result.rows.map(material => ({
+      id: material.id,
+      title: material.title,
+      description: material.description,
+      category: material.category,
+      quantity: material.quantity,
+      location: material.location,
+      delivery_option: material.delivery_option,
+      available_from: material.available_from,
+      available_until: material.available_until,
+      is_fragile: material.is_fragile,
+      contact_preferences: material.contact_preferences,
+      image_urls: material.image_data_base64 || [],
+      uploader: material.uploader_name,
+      uploader_id: material.uploader_id,
+      uploader_email: material.uploader_email,
+      uploader_avatar: material.uploader_avatar,
+      amount: material.quantity,
+      created_at: material.created_at,
+      time: formatTimeAgo(material.created_at),
+      
+      // New claim-related fields
+      claim_status: material.claim_status || 'available',
+      claimed_by: material.claimed_by,
+      claimer_name: material.claimer_name,
+      claim_requested_at: material.claim_requested_at,
+      claim_confirmed_at: material.claim_confirmed_at,
+      conversation_id: material.conversation_id,
+      
+      // Legacy fields for backwards compatibility
+      is_claimed: material.claim_status === 'confirmed',
+      claimed_at: material.claim_confirmed_at
+    }));
       // Get images from image_data_base64 
       const imageUrls = material.image_data_base64 || [];
       
@@ -1098,36 +1140,8 @@ app.get("/materials", async (req, res) => {
       } else {
         console.log(`Material ${material.id} has no images`);
       }
-    
-    const materialData = {
-        id: material.id,
-        title: material.title,
-        description: material.description,
-        category: material.category,
-        quantity: material.quantity,
-        location: material.location,
-        delivery_option: material.delivery_option,
-        available_from: material.available_from,
-        available_until: material.available_until,
-        is_fragile: material.is_fragile,
-        contact_preferences: material.contact_preferences,
-        image_urls: imageUrls, // Always use image_data_base64 content
-        uploader: material.uploader_name,
-        uploader_id: material.uploader_id, // IMPORTANT: Include uploader_id
-        uploader_email: material.uploader_email,
-        uploader_avatar: material.uploader_avatar,
-        amount: material.quantity,
-        created_at: material.created_at,
-        time: formatTimeAgo(material.created_at),
-        is_claimed: material.is_claimed || false, 
-        claimed_by: material.claimed_by, 
-        claimed_at: material.claimed_at
-      };
 
-      return materialData;
-    });
-
-    res.json(materials);
+     res.json(materials);
   } catch (err) {
     console.error("Get materials error:", err);
     res.status(500).json({ error: "Server error" });
@@ -1366,14 +1380,13 @@ app.get("/materials/search", async (req, res) => {
 });
 
 // Claim a material
-app.put('/materials/:id/claim', async (req, res) => {
+app.put('/materials/:id/claim', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { claimed_by } = req.body;
 
   try {
     console.log(`📋 Claim request for material ${id} by user ${claimed_by}`);
 
-    // Validate inputs
     if (!claimed_by) {
       return res.status(400).json({ error: 'claimed_by is required' });
     }
@@ -1393,18 +1406,25 @@ app.put('/materials/:id/claim', async (req, res) => {
 
     const material = materialResult.rows[0];
 
-    // Check if already claimed
-    if (material.is_claimed) {
+    // Check if already claimed or pending
+    if (material.claim_status === 'pending') {
       return res.status(400).json({ 
-        error: 'This material has already been claimed',
+        error: 'This material already has a pending claim request',
         claimed_by: material.claimed_by,
-        claimed_at: material.claimed_at
+        claim_requested_at: material.claim_requested_at
+      });
+    }
+
+    if (material.claim_status === 'confirmed') {
+      return res.status(400).json({ 
+        error: 'This material has already been claimed and confirmed',
+        claimed_by: material.claimed_by
       });
     }
 
     // Get claimer info
     const claimerResult = await pool.query(
-      'SELECT name, email FROM users WHERE id = $1',
+      'SELECT id, name, email FROM users WHERE id = $1',
       [claimed_by]
     );
 
@@ -1414,20 +1434,59 @@ app.put('/materials/:id/claim', async (req, res) => {
 
     const claimerInfo = claimerResult.rows[0];
 
-    // Update material to claimed
-    const updateResult = await pool.query(
-      `UPDATE materials 
-       SET is_claimed = TRUE, 
-           claimed_by = $1, 
-           claimed_at = NOW() 
-       WHERE id = $2 
-       RETURNING *`,
-      [claimed_by, id]
+    // Create or get conversation between donor and claimer
+    let conversationId;
+    const existingConv = await pool.query(`
+      SELECT c.id 
+      FROM conversations c
+      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
+      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
+      WHERE cp1.user_id = $1 AND cp2.user_id = $2
+      LIMIT 1
+    `, [material.uploader_id, claimed_by]);
+
+    if (existingConv.rows.length > 0) {
+      conversationId = existingConv.rows[0].id;
+    } else {
+      // Create new conversation
+      const newConv = await pool.query(
+        'INSERT INTO conversations (created_at, updated_at) VALUES (NOW(), NOW()) RETURNING id'
+      );
+      conversationId = newConv.rows[0].id;
+
+      // Add participants
+      await pool.query(
+        'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2), ($1, $3)',
+        [conversationId, material.uploader_id, claimed_by]
+      );
+    }
+
+    // Send initial message in conversation
+    await pool.query(
+      `INSERT INTO messages (conversation_id, sender_id, message_text, sent_at) 
+       VALUES ($1, $2, $3, NOW())`,
+      [
+        conversationId,
+        claimed_by,
+        `Hi! I'm interested in claiming your "${material.title}". Can we arrange pickup/delivery?`
+      ]
     );
 
-    console.log(`✅ Material ${id} claimed by user ${claimed_by}`);
+    // Update material to pending status
+    const updateResult = await pool.query(
+      `UPDATE materials 
+       SET claim_status = 'pending',
+           claimed_by = $1, 
+           claim_requested_at = NOW(),
+           conversation_id = $2
+       WHERE id = $3 
+       RETURNING *`,
+      [claimed_by, conversationId, id]
+    );
 
-    // Award gems to claimer
+    console.log(`✅ Material ${id} claim status set to PENDING by user ${claimed_by}`);
+
+    // Award gems to claimer for initiating claim
     try {
       await pool.query(
         "UPDATE users SET available_gems = available_gems + 2 WHERE id = $1",
@@ -1442,37 +1501,261 @@ app.put('/materials/:id/claim', async (req, res) => {
       console.log('⚠️ Could not award gems:', gemErr.message);
     }
 
-    // 📢 Notify uploader that their material was claimed
+    // 📢 Notify donor about claim request
     try {
       await createNotifications(
         [material.uploader_id],
         'material_claimed',
-        'Your Material Was Claimed! 🎉',
-        `${claimerInfo.name} has claimed your "${material.title}". They earned 2 gems!`,
+        'Material Claim Request! 🤝',
+        `${claimerInfo.name} wants to claim your "${material.title}". Check your messages to confirm!`,
         parseInt(claimed_by),
         14
       );
-      console.log(`📢 Notified uploader ${material.uploader_id} about claim`);
+      console.log(`📢 Notified donor ${material.uploader_id} about claim request`);
     } catch (notifErr) {
       console.log('⚠️ Could not send claim notification:', notifErr.message);
     }
 
-    // Send email notification to uploader
+    // Send email notification to donor
     sendEmail({
       to: material.uploader_email,
-      subject: 'Your Material Was Claimed!',
-      text: `Hi ${material.uploader_name}! Great news - ${claimerInfo.name} has claimed your "${material.title}". They'll be in touch soon!`,
-      html: getMaterialClaimedEmailHtml(material.uploader_name, material.title, claimerInfo.name)
-    }).catch(err => console.error('Failed to send claim email:', err));
+      subject: 'Material Claim Request - Action Required',
+      text: `Hi ${material.uploader_name}! ${claimerInfo.name} wants to claim your "${material.title}". Please check your messages to discuss details and confirm the donation.`,
+      html: getMaterialClaimRequestEmailHtml(material.uploader_name, material.title, claimerInfo.name, conversationId)
+    }).catch(err => console.error('Failed to send claim request email:', err));
 
     res.json({
       success: true,
-      message: 'Material claimed successfully',
-      material: updateResult.rows[0]
+      message: 'Claim request sent successfully',
+      material: updateResult.rows[0],
+      conversation_id: conversationId,
+      status: 'pending'
     });
 
   } catch (error) {
     console.error('❌ Error claiming material:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
+
+// Donor confirms the claim
+app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { donor_id } = req.body;
+
+  try {
+    console.log(`✅ Donor ${donor_id} confirming claim for material ${id}`);
+
+    // Get material details
+    const materialResult = await pool.query(
+      `SELECT m.*, u.name as claimer_name, u.email as claimer_email
+       FROM materials m
+       LEFT JOIN users u ON m.claimed_by = u.id
+       WHERE m.id = $1`,
+      [id]
+    );
+
+    if (materialResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    const material = materialResult.rows[0];
+
+    // Verify the person confirming is the donor
+    if (material.uploader_id !== parseInt(donor_id)) {
+      return res.status(403).json({ error: 'Only the donor can confirm the claim' });
+    }
+
+    // Check if there's a pending claim
+    if (material.claim_status !== 'pending') {
+      return res.status(400).json({ error: 'No pending claim to confirm' });
+    }
+
+    // Update material to confirmed status
+    await pool.query(
+      `UPDATE materials 
+       SET claim_status = 'confirmed',
+           claim_confirmed_at = NOW(),
+           is_claimed = TRUE,
+           claimed_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+
+    console.log(`✅ Material ${id} claim CONFIRMED by donor`);
+
+    // Award bonus gems to donor for confirming
+    try {
+      await pool.query(
+        "UPDATE users SET available_gems = available_gems + 3 WHERE id = $1",
+        [donor_id]
+      );
+      await pool.query(
+        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+        [donor_id, 3, `Earned for confirming donation: ${material.title}`]
+      );
+      console.log(`💎 Awarded 3 gems to donor ${donor_id}`);
+    } catch (gemErr) {
+      console.log('⚠️ Could not award gems:', gemErr.message);
+    }
+
+    // 📢 Notify claimer about confirmation
+    try {
+      await createNotifications(
+        [material.claimed_by],
+        'claim_confirmed',
+        'Claim Confirmed! 🎉',
+        `Your claim for "${material.title}" has been confirmed! Arrange pickup/delivery details.`,
+        parseInt(donor_id),
+        14
+      );
+      console.log(`📢 Notified claimer ${material.claimed_by} about confirmation`);
+    } catch (notifErr) {
+      console.log('⚠️ Could not send confirmation notification:', notifErr.message);
+    }
+
+    // Send confirmation message in conversation
+    if (material.conversation_id) {
+      await pool.query(
+        `INSERT INTO messages (conversation_id, sender_id, message_text, sent_at) 
+         VALUES ($1, $2, $3, NOW())`,
+        [
+          material.conversation_id,
+          donor_id,
+          `✅ Great! I've confirmed your claim for "${material.title}". Let's arrange the pickup/delivery details.`
+        ]
+      );
+    }
+
+    // Send email to claimer
+    if (material.claimer_email) {
+      sendEmail({
+        to: material.claimer_email,
+        subject: 'Claim Confirmed! 🎉',
+        text: `Great news! Your claim for "${material.title}" has been confirmed. Check your messages to arrange pickup/delivery.`,
+        html: getClaimConfirmedEmailHtml(material.claimer_name, material.title)
+      }).catch(err => console.error('Failed to send confirmation email:', err));
+    }
+
+    res.json({
+      success: true,
+      message: 'Claim confirmed successfully',
+      status: 'confirmed'
+    });
+
+  } catch (error) {
+    console.error('❌ Error confirming claim:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
+
+// Donor rejects the claim
+app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { donor_id } = req.body;
+
+  try {
+    console.log(`✅ Donor ${donor_id} confirming claim for material ${id}`);
+
+    // Get material details
+    const materialResult = await pool.query(
+      `SELECT m.*, u.name as claimer_name, u.email as claimer_email
+       FROM materials m
+       LEFT JOIN users u ON m.claimed_by = u.id
+       WHERE m.id = $1`,
+      [id]
+    );
+
+    if (materialResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    const material = materialResult.rows[0];
+
+    // Verify the person confirming is the donor
+    if (material.uploader_id !== parseInt(donor_id)) {
+      return res.status(403).json({ error: 'Only the donor can confirm the claim' });
+    }
+
+    // Check if there's a pending claim
+    if (material.claim_status !== 'pending') {
+      return res.status(400).json({ error: 'No pending claim to confirm' });
+    }
+
+    // Update material to confirmed status
+    await pool.query(
+      `UPDATE materials 
+       SET claim_status = 'confirmed',
+           claim_confirmed_at = NOW(),
+           is_claimed = TRUE,
+           claimed_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+
+    console.log(`✅ Material ${id} claim CONFIRMED by donor`);
+
+    // Award bonus gems to donor for confirming
+    try {
+      await pool.query(
+        "UPDATE users SET available_gems = available_gems + 3 WHERE id = $1",
+        [donor_id]
+      );
+      await pool.query(
+        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
+        [donor_id, 3, `Earned for confirming donation: ${material.title}`]
+      );
+      console.log(`💎 Awarded 3 gems to donor ${donor_id}`);
+    } catch (gemErr) {
+      console.log('⚠️ Could not award gems:', gemErr.message);
+    }
+
+    // 📢 Notify claimer about confirmation
+    try {
+      await createNotifications(
+        [material.claimed_by],
+        'claim_confirmed',
+        'Claim Confirmed! 🎉',
+        `Your claim for "${material.title}" has been confirmed! Arrange pickup/delivery details.`,
+        parseInt(donor_id),
+        14
+      );
+      console.log(`📢 Notified claimer ${material.claimed_by} about confirmation`);
+    } catch (notifErr) {
+      console.log('⚠️ Could not send confirmation notification:', notifErr.message);
+    }
+
+    // Send confirmation message in conversation
+    if (material.conversation_id) {
+      await pool.query(
+        `INSERT INTO messages (conversation_id, sender_id, message_text, sent_at) 
+         VALUES ($1, $2, $3, NOW())`,
+        [
+          material.conversation_id,
+          donor_id,
+          `✅ Great! I've confirmed your claim for "${material.title}". Let's arrange the pickup/delivery details.`
+        ]
+      );
+    }
+
+    // Send email to claimer
+    if (material.claimer_email) {
+      sendEmail({
+        to: material.claimer_email,
+        subject: 'Claim Confirmed! 🎉',
+        text: `Great news! Your claim for "${material.title}" has been confirmed. Check your messages to arrange pickup/delivery.`,
+        html: getClaimConfirmedEmailHtml(material.claimer_name, material.title)
+      }).catch(err => console.error('Failed to send confirmation email:', err));
+    }
+
+    res.json({
+      success: true,
+      message: 'Claim confirmed successfully',
+      status: 'confirmed'
+    });
+
+  } catch (error) {
+    console.error('❌ Error confirming claim:', error);
     res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
@@ -1506,6 +1789,202 @@ app.get("/users/:userId/materials", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+app.post("/api/setup-material-claiming-workflow", async (req, res) => {
+  try {
+    console.log('🔧 Setting up material claiming workflow...');
+
+    // Add claim_status column (pending, confirmed, rejected, completed)
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'materials' AND column_name = 'claim_status'
+        ) THEN
+          ALTER TABLE materials ADD COLUMN claim_status VARCHAR(50) DEFAULT 'available';
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Added claim_status column');
+
+    // Add claimed_by column (user who claimed it)
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'materials' AND column_name = 'claimed_by'
+        ) THEN
+          ALTER TABLE materials ADD COLUMN claimed_by INTEGER REFERENCES users(id);
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Added claimed_by column');
+
+    // Add claim_requested_at timestamp
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'materials' AND column_name = 'claim_requested_at'
+        ) THEN
+          ALTER TABLE materials ADD COLUMN claim_requested_at TIMESTAMP;
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Added claim_requested_at column');
+
+    // Add claim_confirmed_at timestamp
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'materials' AND column_name = 'claim_confirmed_at'
+        ) THEN
+          ALTER TABLE materials ADD COLUMN claim_confirmed_at TIMESTAMP;
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Added claim_confirmed_at column');
+
+    // Add conversation_id to link to chat
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'materials' AND column_name = 'conversation_id'
+        ) THEN
+          ALTER TABLE materials ADD COLUMN conversation_id INTEGER REFERENCES conversations(id);
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Added conversation_id column');
+
+    res.json({ 
+      success: true, 
+      message: "Material claiming workflow setup completed successfully" 
+    });
+  } catch (err) {
+    console.error(" Setup workflow error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
+  }
+});
+
+function getMaterialClaimRequestEmailHtml(donorName, materialTitle, claimerName, conversationId) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .button { display: inline-block; background: #88844D; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1> Material Claim Request</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${donorName},</p>
+          <p><strong>${claimerName}</strong> is interested in claiming your material:</p>
+          <p style="font-size: 18px; font-weight: bold; color: #88844D;">"${materialTitle}"</p>
+          <div class="alert-box">
+            <strong> Action Required:</strong> Please check your in-app messages to discuss pickup/delivery details with ${claimerName}. Once you've arranged everything, confirm the claim in the app.
+          </div>
+          <p><strong>Next Steps:</strong></p>
+          <ol>
+            <li>Open the app and check your messages</li>
+            <li>Discuss pickup/delivery details with ${claimerName}</li>
+            <li>Confirm or reject the claim</li>
+          </ol>
+          <a href="https://junkandgems.com/messages/${conversationId}" class="button">Open Messages</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function getClaimConfirmedEmailHtml(claimerName, materialTitle) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .success-box { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1> Claim Confirmed!</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${claimerName},</p>
+          <div class="success-box">
+            <strong> Great news!</strong> Your claim for "${materialTitle}" has been confirmed by the donor.
+          </div>
+          <p>Check your messages in the app to finalize pickup/delivery arrangements.</p>
+          <p>Thank you for contributing to a circular economy! 🌍♻️</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Cleanup job: Remove confirmed materials after 1 day
+app.post('/api/cleanup-confirmed-materials', async (req, res) => {
+  try {
+    console.log('🧹 Cleaning up confirmed materials older than 1 day...');
+
+    const result = await pool.query(`
+      DELETE FROM materials 
+      WHERE claim_status = 'confirmed' 
+        AND claim_confirmed_at < NOW() - INTERVAL '1 day'
+      RETURNING id, title
+    `);
+
+    console.log(` Deleted ${result.rows.length} confirmed materials`);
+    
+    res.json({
+      success: true,
+      deleted_count: result.rows.length,
+      materials: result.rows
+    });
+
+  } catch (error) {
+    console.error(' Cleanup error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Schedule cleanup to run every hour (you can use node-cron or call this manually)
+setInterval(async () => {
+  try {
+    await pool.query(`
+      DELETE FROM materials 
+      WHERE claim_status = 'confirmed' 
+        AND claim_confirmed_at < NOW() - INTERVAL '1 day'
+    `);
+    console.log(' Auto-cleanup: Removed old confirmed materials');
+  } catch (err) {
+    console.error(' Auto-cleanup error:', err);
+  }
+}, 3600000); // Run every hour
 
 // Get featured artisans
 app.get("/api/artisans", async (req, res) => {
