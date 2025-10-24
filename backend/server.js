@@ -392,12 +392,12 @@ app.post("/signup", async (req, res) => {
 async function createNotifications(userIds, type, title, message, relatedUserId = null, expiresInDays = 7) {
   try {
     if (!userIds || userIds.length === 0) {
-      console.log('⚠️ No users to notify');
+      console.log(' No users to notify');
       return { success: false, count: 0 };
     }
 
     const values = userIds.map((userId, index) => {
-      const baseIndex = index * 6;
+      const baseIndex = index * 5;
       return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, FALSE, NOW(), NOW() + INTERVAL '${expiresInDays} days')`;
     }).join(',');
 
