@@ -70,9 +70,9 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         _currentUserId = prefs.getString('userId');
         _token = prefs.getString('token');
       });
-      print('✅ Current User ID loaded: $_currentUserId');
+      print(' Current User ID loaded: $_currentUserId');
     } catch (e) {
-      print('❌ Error loading current user: $e');
+      print(' Error loading current user: $e');
     }
   }
 
@@ -81,6 +81,332 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+  
+void _showDonationInfoModal(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with gradient
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.recycling,
+                        size: 48,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Why Donate Materials?',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Make a difference while earning rewards',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Environmental Impact
+                    _buildInfoSection(
+                      context,
+                      icon: Icons.eco,
+                      iconColor: Colors.green,
+                      title: 'Environmental Impact',
+                      description: 'Your donations help reduce landfill waste and promote recycling. Every material you share contributes to a cleaner, more sustainable environment.',
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Community Support
+                    _buildInfoSection(
+                      context,
+                      icon: Icons.people,
+                      iconColor: Colors.blue,
+                      title: 'Support Local Artisans',
+                      description: 'Crafters and artisans in your community transform donated materials into beautiful, functional products. You\'re helping them access affordable supplies.',
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Earn Rewards
+                    _buildInfoSection(
+                      context,
+                      icon: Icons.diamond,
+                      iconColor: const Color(0xFF88844D),
+                      title: 'Earn Gems & Save Money',
+                      description: 'Get rewarded with Gems for every donation! Use your Gems to save money on marketplace purchases. The more you donate, the more you save.',
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Declutter
+                    _buildInfoSection(
+                      context,
+                      icon: Icons.home,
+                      iconColor: Colors.orange,
+                      title: 'Declutter Your Space',
+                      description: 'Turn unused items into valuable resources instead of throwing them away. Clear your space while helping others and the planet.',
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Stats highlight
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFFBEC092).withOpacity(0.2),
+                            const Color(0xFF88844D).withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFBEC092).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.tips_and_updates,
+                                color: Color(0xFF88844D),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Did You Know?',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Materials donated through our platform have helped create about 100 unique upcycled products, preventing tons of waste from reaching landfills!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Close button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF88844D),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Got It!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildInfoSection(
+  BuildContext context, {
+  required IconData icon,
+  required Color iconColor,
+  required String title,
+  required String description,
+}) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: iconColor,
+          size: 24,
+        ),
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+// UPDATE the _buildHeader method to include the info icon:
+
+Widget _buildHeader(BuildContext context) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        IconButton(
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+          onPressed: () => Navigator.pop(context),
+        ),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset('assets/images/logo.png', width: 40, height: 40),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Browse Materials',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => _showDonationInfoModal(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBEC092).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.help_outline,
+                            size: 16,
+                            color: Color(0xFF88844D),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (!_isLoading && !_hasError)
+                    Text(
+                      '${_materials.length} items available',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF88844D),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 48),
+      ],
+    ),
+  );
+}
 
   Future<void> _loadMaterials() async {
     try {
@@ -407,7 +733,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
           },
         );
       } catch (e) {
-        print('❌ Base64 image error: $e');
+        print(' Base64 image error: $e');
         return _buildCategoryPlaceholder('General');
       }
     }
@@ -458,61 +784,6 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
       floatingActionButton: _buildFloatingActionButton(context),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _buildBottomNavBar(context),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-            onPressed: () => Navigator.pop(context),
-          ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset('assets/images/logo.png', width: 40, height: 40),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Browse Materials',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                    if (!_isLoading && !_hasError)
-                      Text(
-                        '${_materials.length} items available',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: const Color(0xFF88844D),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
     );
   }
 
