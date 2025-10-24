@@ -130,36 +130,18 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
               ),
             ],
           ),
-          child: Column(
-            children: [
-              _buildPaymentMethodItem(
-                context,
-                'VISA/Mastercard Card (Credit/Debit)',
-                'assets/images/visa_logo.png',
-                '**** 6789',
-              ),
-              _buildDivider(context),
-              _buildPaymentMethodItem(
-                context,
-                'EcoCash',
-                'assets/images/ecocash_logo.png',
-                '**** 1234',
-              ),
-              _buildDivider(context),
-              _buildPaymentMethodItem(
-                context,
-                'M-Pesa',
-                'assets/images/mpesa_logo.png',
-                '**** 1234',
-              ),
-            ],
+          child: _buildPaymentMethodItem(
+            context,
+            'Cash on Delivery (COD)',
+            Icons.delivery_dining,
+            'Default payment method',
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPaymentMethodItem(BuildContext context, String title, String logoPath, String date) {
+  Widget _buildPaymentMethodItem(BuildContext context, String title, IconData icon, String subtitle) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -168,13 +150,13 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
+              color: const Color(0xFFBEC092).withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Image.asset(
-              logoPath,
-              width: 24,
-              height: 24,
+            child: Icon(
+              icon,
+              color: const Color(0xFF88844D),
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),
@@ -192,7 +174,7 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  date,
+                  subtitle,
                   style: TextStyle(
                     fontSize: 14,
                     color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
@@ -201,10 +183,17 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
               ],
             ),
           ),
-          Icon(
-            Icons.arrow_forward_ios,
-            color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
-            size: 16,
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF88844D).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: Color(0xFF88844D),
+              size: 18,
+            ),
           ),
         ],
       ),
@@ -283,7 +272,7 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFBEC092),
+                        color: const Color(0xFFBEC092).withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.account_balance, color: Color(0xFF88844D), size: 20),
@@ -294,7 +283,7 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Bank Account',
+                            'Cash Payout',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -303,15 +292,7 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '**** 6789',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Standard Lesotho Bank',
+                            'Receive earnings via COD pickup',
                             style: TextStyle(
                               fontSize: 14,
                               color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
@@ -432,8 +413,6 @@ class _PaymentsEarningsScreenState extends State<PaymentsEarningsScreen> {
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          // Removed the icon container as requested
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

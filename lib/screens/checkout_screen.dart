@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -26,28 +25,13 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  String _selectedPaymentMethod = 'Card (Credit/Debit)';
-  
-  // Card payment controllers
-  final TextEditingController _cardNumberController = TextEditingController();
-  final TextEditingController _expiryController = TextEditingController();
-  final TextEditingController _cvcController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  
   // COD controllers
   final TextEditingController _codAddressController = TextEditingController();
   final TextEditingController _codPhoneController = TextEditingController();
   final TextEditingController _codNotesController = TextEditingController();
-  
-  // USSD selected bank
-  String _selectedUssdBank = 'Standard Lesotho Bank';
 
   @override
   void dispose() {
-    _cardNumberController.dispose();
-    _expiryController.dispose();
-    _cvcController.dispose();
-    _nameController.dispose();
     _codAddressController.dispose();
     _codPhoneController.dispose();
     _codNotesController.dispose();
@@ -55,10 +39,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   double get finalTotal {
-    if (_selectedPaymentMethod == 'Cash on Delivery') {
-      return widget.total + 20; // Add M20 COD fee
-    }
-    return widget.total;
+    return widget.total + 20; // Add M20 COD fee
   }
 
   @override
@@ -82,13 +63,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           flex: 2,
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.all(20),
-                            child: Column(
-                              children: [
-                                _buildPaymentOptions(),
-                                const SizedBox(height: 20),
-                                _buildPaymentForm(),
-                              ],
-                            ),
+                            child: _buildCODForm(),
                           ),
                         ),
                         SizedBox(
@@ -107,9 +82,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         children: [
                           _buildOrderSummary(),
                           const SizedBox(height: 20),
-                          _buildPaymentOptions(),
-                          const SizedBox(height: 20),
-                          _buildPaymentForm(),
+                          _buildCODForm(),
                         ],
                       ),
                     );
@@ -293,39 +266,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ],
 
-          // Show COD fee if selected
-          if (_selectedPaymentMethod == 'Cash on Delivery') ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.delivery_dining, size: 16, color: Colors.orange),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Delivery Fee',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                  const Spacer(),
-                  const Text(
-                    '+M20.00',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
+            child: Row(
+              children: [
+                const Icon(Icons.delivery_dining, size: 16, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(
+                  'Delivery Fee',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+                const Spacer(),
+                const Text(
+                  '+M20.00',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
           
           const SizedBox(height: 16),
           Divider(
@@ -389,273 +359,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPaymentOptions() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.payment,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Payment Method',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          _buildPaymentOption(
-            title: 'Card (Credit/Debit)',
-            isSelected: _selectedPaymentMethod == 'Card (Credit/Debit)',
-            onTap: () {
-              setState(() {
-                _selectedPaymentMethod = 'Card (Credit/Debit)';
-              });
-            },
-            icon: Icons.credit_card,
-          ),
-          const SizedBox(height: 12),
-          
-          _buildPaymentOption(
-            title: 'Cash on Delivery',
-            subtitle: '+M20 delivery fee',
-            isSelected: _selectedPaymentMethod == 'Cash on Delivery',
-            onTap: () {
-              setState(() {
-                _selectedPaymentMethod = 'Cash on Delivery';
-              });
-            },
-            icon: Icons.delivery_dining,
-          ),
-          const SizedBox(height: 12),
-          
-          _buildPaymentOption(
-            title: 'USSD Payment',
-            subtitle: 'Dial from your phone',
-            isSelected: _selectedPaymentMethod == 'USSD Payment',
-            onTap: () {
-              setState(() {
-                _selectedPaymentMethod = 'USSD Payment';
-              });
-            },
-            icon: Icons.phone_android,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentOption({
-    required String title,
-    String? subtitle,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required IconData icon,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? const Color(0xFFBEC092).withOpacity(0.2) 
-              : Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected 
-                ? const Color(0xFF88844D) 
-                : const Color(0xFFBEC092).withOpacity(0.5),
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? const Color(0xFF88844D) 
-                    : const Color(0xFFBEC092).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : const Color(0xFF88844D),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (isSelected)
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF88844D),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check, color: Colors.white, size: 16),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentForm() {
-    switch (_selectedPaymentMethod) {
-      case 'Card (Credit/Debit)':
-        return _buildCardPaymentForm();
-      case 'Cash on Delivery':
-        return _buildCODForm();
-      case 'USSD Payment':
-        return _buildUSSDForm();
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  Widget _buildCardPaymentForm() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.credit_card,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Card Details',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          _buildTextField(
-            label: 'Card Number',
-            controller: _cardNumberController,
-            hintText: '1234 5678 9012 3456',
-            keyboardType: TextInputType.number,
-            icon: Icons.credit_card,
-          ),
-          const SizedBox(height: 16),
-          
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  label: 'Expiry Date',
-                  controller: _expiryController,
-                  hintText: 'MM/YY',
-                  icon: Icons.calendar_today,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildTextField(
-                  label: 'CVC',
-                  controller: _cvcController,
-                  hintText: '123',
-                  keyboardType: TextInputType.number,
-                  icon: Icons.lock_outline,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          _buildTextField(
-            label: 'Name on Card',
-            controller: _nameController,
-            hintText: 'John Doe',
-            icon: Icons.person_outline,
-          ),
-        ],
-      ),
     );
   }
 
@@ -804,308 +507,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildUSSDForm() {
-    final ussdCodes = {
-      'Standard Lesotho Bank': '*150#',
-      'Nedbank': '*120*3333#',
-      'FNB': '*120*321#',
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.phone_android,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'USSD Payment',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // Bank selection
-          Text(
-            'Select Your Bank',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          ...ussdCodes.keys.map((bank) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedUssdBank = bank;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _selectedUssdBank == bank
-                      ? const Color(0xFFBEC092).withOpacity(0.2)
-                      : Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _selectedUssdBank == bank
-                        ? const Color(0xFF88844D)
-                        : const Color(0xFFBEC092).withOpacity(0.5),
-                    width: 2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.account_balance,
-                      color: _selectedUssdBank == bank
-                          ? const Color(0xFF88844D)
-                          : Colors.grey,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        bank,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: _selectedUssdBank == bank
-                              ? FontWeight.bold
-                              : FontWeight.w600,
-                          color: Theme.of(context).textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                    ),
-                    if (_selectedUssdBank == bank)
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF88844D),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.check, color: Colors.white, size: 16),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          )),
-          
-          const SizedBox(height: 20),
-          
-          // USSD Code Display
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF88844D).withOpacity(0.1),
-                  const Color(0xFFBEC092).withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFBEC092).withOpacity(0.5),
-              ),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.dialpad, size: 16, color: Color(0xFF88844D)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Dial this code on your phone:',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      ussdCodes[_selectedUssdBank]!,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF88844D),
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: ussdCodes[_selectedUssdBank]!));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('USSD code copied!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.copy, color: Color(0xFF88844D)),
-                      tooltip: 'Copy code',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          
-          // Instructions
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFBEC092).withOpacity(0.2),
-                  const Color(0xFF88844D).withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 16, color: Color(0xFF88844D)),
-                    const SizedBox(width: 8),
-                    Text(
-                      'How to pay:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildInstructionStep('1', 'Dial ${ussdCodes[_selectedUssdBank]} from your phone'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('2', 'Select "Pay Merchant" or "Make Payment"'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('3', 'Enter merchant code: 12345'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('4', 'Enter amount: M${finalTotal.toStringAsFixed(2)}'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('5', 'Enter your PIN to confirm'),
-                const SizedBox(height: 8),
-                _buildInstructionStep('6', 'Come back and confirm your order'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          // Important note
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber, color: Colors.orange, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Your order will be confirmed once we verify your USSD payment',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBankDetailRow(String label, String value, {bool canCopy = false, bool isBold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: Theme.of(context).textTheme.bodyMedium?.color,
-          ),
-        ),
-        Row(
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-            if (canCopy) ...[
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: value));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('$label copied!'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: const Icon(Icons.copy, size: 16, color: Color(0xFF88844D)),
-              ),
-            ],
-          ],
-        ),
-      ],
     );
   }
 
@@ -1258,24 +659,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _processPayment(BuildContext context) async {
-    // Validate based on payment method
-    if (_selectedPaymentMethod == 'Card (Credit/Debit)') {
-      if (_cardNumberController.text.isEmpty ||
-          _expiryController.text.isEmpty ||
-          _cvcController.text.isEmpty ||
-          _nameController.text.isEmpty) {
-        _showErrorDialog(context, 'Please fill in all card details');
-        return;
-      }
-    } else if (_selectedPaymentMethod == 'Cash on Delivery') {
-      if (_codAddressController.text.isEmpty) {
-        _showErrorDialog(context, 'Please enter your delivery address');
-        return;
-      }
-      if (_codPhoneController.text.isEmpty) {
-        _showErrorDialog(context, 'Please enter your phone number');
-        return;
-      }
+    // Validate delivery information
+    if (_codAddressController.text.isEmpty) {
+      _showErrorDialog(context, 'Please enter your delivery address');
+      return;
+    }
+    if (_codPhoneController.text.isEmpty) {
+      _showErrorDialog(context, 'Please enter your phone number');
+      return;
     }
 
     // Show processing dialog
@@ -1313,18 +704,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     try {
       // Prepare order data
-      String paymentMethodCode = _selectedPaymentMethod == 'Card (Credit/Debit)' ? 'card'
-          : _selectedPaymentMethod == 'Cash on Delivery' ? 'cod'
-          : _selectedPaymentMethod == 'Bank Transfer' ? 'bank_transfer'
-          : 'ussd';
-
       final orderData = {
         'cartItems': widget.cartItems,
         'totalAmount': widget.subtotal,
         'appliedGems': widget.gemsDiscount,
-        'paymentMethod': paymentMethodCode,
+        'paymentMethod': 'cod',
         'deliveryAddress': _codAddressController.text,
         'phoneNumber': _codPhoneController.text,
+        'deliveryNotes': _codNotesController.text,
       };
 
       // Call backend API
@@ -1340,8 +727,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       Navigator.pop(context); // Close processing dialog
 
       if (response.statusCode == 201) {
-        final responseData = json.decode(response.body);
-        _showSuccessDialog(context, paymentMethodCode);
+        _showSuccessDialog(context);
       } else {
         final error = json.decode(response.body);
         _showErrorDialog(context, error['error'] ?? 'Order creation failed');
@@ -1352,28 +738,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  void _showSuccessDialog(BuildContext context, String paymentMethod) {
-    String message = '';
-    String title = '';
-    
-    switch (paymentMethod) {
-      case 'cod':
-        title = 'Order Confirmed!';
-        message = 'Your order has been placed. We\'ll call you to arrange delivery. Pay M${finalTotal.toStringAsFixed(2)} on delivery.';
-        break;
-      case 'bank_transfer':
-        title = 'Order Pending';
-        message = 'Your order is pending payment verification. We\'ll confirm once we verify your bank transfer.';
-        break;
-      case 'ussd':
-        title = 'Order Pending';
-        message = 'Your order is pending payment confirmation. We\'ll process it once your USSD payment is verified.';
-        break;
-      default:
-        title = 'Payment Successful!';
-        message = 'Your order has been confirmed and will be delivered soon.';
-    }
-
+  void _showSuccessDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1387,23 +752,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 color: const Color(0xFF88844D).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                paymentMethod == 'card' ? Icons.check_circle : Icons.schedule,
-                color: const Color(0xFF88844D),
+              child: const Icon(
+                Icons.check_circle,
+                color: Color(0xFF88844D),
                 size: 64,
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              title,
-              style: const TextStyle(
+            const Text(
+              'Order Confirmed!',
+              style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              message,
+              'Your order has been placed. We\'ll call you to arrange delivery. Pay M${finalTotal.toStringAsFixed(2)} on delivery.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
