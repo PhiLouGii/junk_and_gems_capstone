@@ -2040,93 +2040,85 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
       ],
     );
   }
+  Widget _navItem(IconData icon, bool isActive, String label, {required VoidCallback onTap}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          icon,
+          size: 28,
+          color: isActive ? const Color(0xFF88844D) : Colors.grey,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isActive ? const Color(0xFF88844D) : Colors.grey,
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildBottomNavBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF88844D),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 1,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DashboardScreen(
-                    userName: widget.userName,
-                    userId: widget.userId!,
-                  ),
-                ),
-              );
-              break;
-            case 1:
-              break;
-            case 2:
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BrowseMaterialsScreen(),
-                ),
-              );
-              break;
-            case 3:
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationsMessagesScreen(),
-                ),
-              );
-              break;
-            case 4:
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ProfileScreen(
-                    userId: widget.userId ?? '',
-                    userName: widget.userName,
-                  ),
-                ),
-              );
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.store),
-            label: 'Marketplace',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory),
-            label: 'Materials',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Notifications',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
-    );
-  }
+  return Container(
+    height: 70,
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 10,
+          offset: const Offset(0, -2),
+        ),
+      ],
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _navItem(Icons.dashboard, false, 'Dashboard', onTap: () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DashboardScreen(
+                userName: widget.userName,
+                userId: widget.userId ?? '',
+              ),
+            ),
+          );
+        }),
+        _navItem(Icons.store, true, 'Marketplace', onTap: () {}),
+        _navItem(Icons.inventory, false, 'Materials', onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+          );
+        }),
+        _navItem(Icons.notifications_outlined, false, 'Notifications', onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
+          );
+        }),
+        _navItem(Icons.person_outline, false, 'Profile', onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfileScreen(
+                userId: widget.userId ?? '',
+                userName: widget.userName,
+              ),
+            ),
+          );
+        }),
+      ],
+    ),
+  );
+}
 }
