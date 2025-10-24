@@ -135,49 +135,63 @@ class _NotificationsMessagesScreenState
       case 'new_user':
         return 'Say Hi';
       case 'material_claimed':
-        return 'View';
+        return 'View Details';
+      case 'new_material':
+        return 'Browse';
+      case 'new_product':
+        return 'Shop Now';
       case 'product_sold':
         return 'Details';
       case 'message':
         return 'Reply';
+      case 'achievement':
+      return 'View';
       default:
         return 'View';
     }
   }
 
   IconData _getIconForType(String type) {
-    switch (type) {
-      case 'new_user':
-        return Icons.person_add;
-      case 'material_claimed':
-        return Icons.inventory;
-      case 'product_sold':
-        return Icons.shopping_bag;
-      case 'message':
-        return Icons.message;
-      case 'achievement':
-        return Icons.stars;
-      default:
-        return Icons.notifications;
-    }
+  switch (type) {
+    case 'new_user':
+      return Icons.person_add;
+    case 'material_claimed':
+      return Icons.check_circle;
+    case 'new_material':  // NEW
+      return Icons.recycling;
+    case 'new_product':   // NEW
+      return Icons.shopping_bag;
+    case 'product_sold':
+      return Icons.sell;
+    case 'message':
+      return Icons.message;
+    case 'achievement':
+      return Icons.stars;
+    default:
+      return Icons.notifications;
   }
+}
 
   Color _getColorForType(String type) {
-    switch (type) {
-      case 'new_user':
-        return Colors.green;
-      case 'material_claimed':
-        return Colors.orange;
-      case 'product_sold':
-        return Colors.blue;
-      case 'message':
-        return Colors.purple;
-      case 'achievement':
-        return Colors.amber;
-      default:
-        return const Color(0xFF88844D);
-    }
+  switch (type) {
+    case 'new_user':
+      return Colors.green;
+    case 'material_claimed':
+      return Colors.orange;
+    case 'new_material':  // NEW
+      return const Color(0xFF88844D);
+    case 'new_product':   // NEW
+      return Colors.purple;
+    case 'product_sold':
+      return Colors.blue;
+    case 'message':
+      return Colors.pink;
+    case 'achievement':
+      return Colors.amber;
+    default:
+      return const Color(0xFF88844D);
   }
+}
 
   Future<void> _markNotificationAsRead(int notificationId) async {
     if (_currentUserId == null) return;
@@ -591,63 +605,74 @@ class _NotificationsMessagesScreenState
   }
 
   void _handleNotificationTap(Map<String, dynamic> notification) {
-    // Mark as read
-    if (notification['isUnread'] == true && notification['id'] != null) {
-      _markNotificationAsRead(notification['id']);
-    }
+  // Mark as read
+  if (notification['isUnread'] == true && notification['id'] != null) {
+    _markNotificationAsRead(notification['id']);
+  }
 
-    final type = notification['type'];
+  final type = notification['type'];
     
     switch (type) {
-      case 'new_user':
-        // Navigate to the new user's profile
-        if (notification['relatedUserId'] != null && notification['relatedUserName'] != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OtherUserProfileScreen(
-                userName: notification['relatedUserName'],
-                userId: notification['relatedUserId'].toString(),
-              ),
+    case 'new_user':
+      // Navigate to the new user's profile
+      if (notification['relatedUserId'] != null && notification['relatedUserName'] != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtherUserProfileScreen(
+              userName: notification['relatedUserName'],
+              userId: notification['relatedUserId'].toString(),
             ),
-          );
-        }
-        break;
-      case 'material_claimed':
-      case 'recommendation':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+          ),
         );
-        break;
-      case 'product_sold':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MarketplaceScreen(userName: 'User')),
-        );
-        break;
+      }
+      break;
+
+    case 'new_material':
+    case 'material_claimed':
+    case 'recommendation':
+      // Navigate to browse materials
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+      );
+      break;
+
+
+    case 'new_product':
+    case 'product_sold':
+      // Navigate to marketplace
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MarketplaceScreen(userName: 'User')),
+      );
+      break;
+
       case 'message':
-        // Would navigate to chat if we had the conversation data
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(notification['subtitle'] as String),
-            backgroundColor: const Color(0xFF88844D),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-        break;
+      // Switch to messages tab
+      _tabController.animateTo(1);
+      break;
+      
+    case 'achievement':
+      // Navigate to profile to see achievements
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ProfileScreen(userName: 'User', userId: '')),
+      );
+      break;
+
       default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(notification['subtitle'] as String),
-            backgroundColor: const Color(0xFF88844D),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-    }
+      // Show snackbar for unknown types
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(notification['subtitle'] as String),
+          backgroundColor: const Color(0xFF88844D),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
   }
+}
 
   Widget _buildMessagesTab(bool isDarkMode) {
     if (_errorMessage != null) {

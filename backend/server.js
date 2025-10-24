@@ -388,6 +388,59 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+// Send Notification to multiple users
+async function createNotifications(userIds, type, title, message, relatedUserId = null, expiresInDays = 7) {
+  try {
+    if (!userIds || userIds.length === 0) {
+      console.log('⚠️ No users to notify');
+      return { success: false, count: 0 };
+    }
+
+    const values = userIds.map((userId, index) => {
+      const baseIndex = index * 6;
+      return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, FALSE, NOW(), NOW() + INTERVAL '${expiresInDays} days')`;
+    }).join(',');
+
+    const params = userIds.flatMap(userId => [
+      userId,
+      type,
+      title,
+      message,
+      relatedUserId
+    ]);
+
+    const result = await pool.query(`
+      INSERT INTO user_notifications 
+        (user_id, notification_type, title, message, related_user_id, is_read, created_at, expires_at)
+      VALUES ${values}
+      RETURNING id
+    `, params);
+
+    console.log(`✅ Created ${result.rows.length} notifications of type: ${type}`);
+    return { success: true, count: result.rows.length };
+  } catch (error) {
+    console.error('❌ Error creating notifications:', error);
+    return { success: false, count: 0, error: error.message };
+  }
+}
+
+/**
+ * Get all active users except the specified user
+ */
+async function getAllActiveUsersExcept(excludeUserId) {
+  try {
+    const result = await pool.query(
+      'SELECT id FROM users WHERE id != $1 AND id IS NOT NULL',
+      [excludeUserId]
+    );
+    return result.rows.map(row => row.id);
+  } catch (error) {
+    console.error('❌ Error getting active users:', error);
+    return [];
+  }
+}
+
+
 // --- NEW PASSWORD RESET REQUEST ENDPOINT ---
 app.post("/request-password-reset", async (req, res) => {
   const { email } = req.body;
@@ -932,37 +985,90 @@ app.post('/api/notifications/create', async (req, res) => {
     if (!userIds || !notificationType || !title || !message) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields' 
+        error: 'Missing required fields: userIds, notificationType, title, message' 
       });
     }
 
-    const notificationValues = userIds.map(userId => 
-      `(${userId}, '${notificationType}', '${title}', '${message}', ${relatedUserId || 'NULL'}, FALSE, NOW(), NOW() + INTERVAL '${expiresInDays} days')`
-    ).join(',');
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'userIds must be a non-empty array' 
+      });
+    }
 
-    const result = await pool.query(`
-      INSERT INTO user_notifications 
-        (user_id, notification_type, title, message, related_user_id, is_read, created_at, expires_at)
-      VALUES ${notificationValues}
-      RETURNING id
-    `);
+    const result = await createNotifications(
+      userIds,
+      notificationType,
+      title,
+      message,
+      relatedUserId,
+      expiresInDays
+    );
 
-    res.json({
-      success: true,
-      message: `Created ${result.rows.length} notifications`,
-      createdCount: result.rows.length
-    });
+    if (result.success) {
+      res.json({
+        success: true,
+        message: `Created ${result.count} notifications`,
+        createdCount: result.count
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to create notifications'
+      });
+    }
 
   } catch (error) {
-    console.error('❌ Error creating notifications:', error);
+    console.error('❌ Error in notification endpoint:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Failed to create notifications' 
+      error: 'Failed to create notifications: ' + error.message 
     });
   }
 });
 
 console.log('User notification endpoints initialized');
+
+// ========================================
+// EMAIL TEMPLATES (Add these helper functions)
+// ========================================
+
+function getMaterialClaimedEmailHtml(uploaderName, materialTitle, claimerName) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .button { display: inline-block; background: #88844D; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 Material Claimed!</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${uploaderName},</p>
+          <p>Great news! <strong>${claimerName}</strong> has claimed your material:</p>
+          <p style="font-size: 18px; font-weight: bold; color: #88844D;">"${materialTitle}"</p>
+          <p>They'll be in touch soon to arrange pickup or delivery. Thank you for contributing to our recycling community! 🌍♻️</p>
+          <a href="https://junkandgems.com" class="button">View Your Materials</a>
+        </div>
+        <div class="footer">
+          <p>Junk & Gems - Turning Waste into Treasure</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+console.log(' Notification system initialized');
 
 // Get all materials with real data
 app.get("/materials", async (req, res) => {
@@ -1115,6 +1221,26 @@ const result = await pool.query(
     const insertedMaterial = result.rows[0];
     console.log(`Material inserted with ID: ${insertedMaterial.id}`);
 
+    // 📢 Notify all users about new material
+try {
+  const allUsers = await getAllActiveUsersExcept(uploader_id);
+  
+  if (allUsers.length > 0) {
+    const uploaderName = uploaderInfo.name || 'Someone';
+    await createNotifications(
+      allUsers,
+      'new_material',
+      'New Material Available! ♻️',
+      `${uploaderName} just donated ${title}. Check it out and claim it if you need it!`,
+      uploader_id,
+      7
+    );
+    console.log(`📢 Notified ${allUsers.length} users about new material`);
+  }
+} catch (notifErr) {
+  console.log('⚠️ Could not send material notifications:', notifErr.message);
+}
+
     // Award gems to uploader
     try {
       await pool.query(
@@ -1240,68 +1366,68 @@ app.get("/materials/search", async (req, res) => {
 });
 
 // Claim a material
-app.put("/materials/:id/claim", async (req, res) => {
+app.put('/materials/:id/claim', async (req, res) => {
   const { id } = req.params;
   const { claimed_by } = req.body;
 
-  console.log('🎯 Claim material request:');
-  console.log('Material ID:', id);
-  console.log('Claimed by user:', claimed_by);
-
   try {
-    // Validate input
+    console.log(`📋 Claim request for material ${id} by user ${claimed_by}`);
+
+    // Validate inputs
     if (!claimed_by) {
-      return res.status(400).json({ error: "claimed_by is required" });
+      return res.status(400).json({ error: 'claimed_by is required' });
     }
 
-    // Check if material exists
-    const materialCheck = await pool.query(
-      "SELECT * FROM materials WHERE id = $1",
+    // Get material info and uploader details
+    const materialResult = await pool.query(
+      `SELECT m.*, u.name as uploader_name, u.email as uploader_email 
+       FROM materials m 
+       JOIN users u ON m.uploader_id = u.id 
+       WHERE m.id = $1`,
       [id]
     );
 
-    if (materialCheck.rows.length === 0) {
-      console.log('❌ Material not found:', id);
-      return res.status(404).json({ error: "Material not found" });
+    if (materialResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
     }
 
-    const material = materialCheck.rows[0];
-    console.log('✅ Material found:', material.title);
+    const material = materialResult.rows[0];
 
     // Check if already claimed
     if (material.is_claimed) {
-      console.log('⚠️ Material already claimed');
       return res.status(400).json({ 
-        error: "Material already claimed",
-        claimed_by: material.claimed_by 
+        error: 'This material has already been claimed',
+        claimed_by: material.claimed_by,
+        claimed_at: material.claimed_at
       });
     }
 
-    // Check if user exists
-    const userCheck = await pool.query(
-      "SELECT id, name FROM users WHERE id = $1",
+    // Get claimer info
+    const claimerResult = await pool.query(
+      'SELECT name, email FROM users WHERE id = $1',
       [claimed_by]
     );
 
-    if (userCheck.rows.length === 0) {
-      console.log('❌ User not found:', claimed_by);
-      return res.status(404).json({ error: "User not found" });
+    if (claimerResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid claimer user ID' });
     }
 
-    console.log('✅ User found:', userCheck.rows[0].name);
+    const claimerInfo = claimerResult.rows[0];
 
     // Update material to claimed
-    const result = await pool.query(
+    const updateResult = await pool.query(
       `UPDATE materials 
-       SET is_claimed = true, claimed_by = $1, claimed_at = NOW() 
+       SET is_claimed = TRUE, 
+           claimed_by = $1, 
+           claimed_at = NOW() 
        WHERE id = $2 
        RETURNING *`,
       [claimed_by, id]
     );
 
-    console.log('✅ Material claimed successfully');
+    console.log(`✅ Material ${id} claimed by user ${claimed_by}`);
 
-    // Award gems to claimer (optional - 2 gems for claiming)
+    // Award gems to claimer
     try {
       await pool.query(
         "UPDATE users SET available_gems = available_gems + 2 WHERE id = $1",
@@ -1309,25 +1435,45 @@ app.put("/materials/:id/claim", async (req, res) => {
       );
       await pool.query(
         "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
-        [claimed_by, 2, `Claimed material: ${material.title}`]
+        [claimed_by, 2, `Earned for claiming material: ${material.title}`]
       );
-      console.log('💎 Awarded 2 gems for claiming');
+      console.log(`💎 Awarded 2 gems to claimer ${claimed_by}`);
     } catch (gemErr) {
       console.log('⚠️ Could not award gems:', gemErr.message);
     }
 
-    res.json({ 
-      success: true, 
-      message: "Material claimed successfully",
-      material: result.rows[0],
-      gems_earned: 2
+    // 📢 Notify uploader that their material was claimed
+    try {
+      await createNotifications(
+        [material.uploader_id],
+        'material_claimed',
+        'Your Material Was Claimed! 🎉',
+        `${claimerInfo.name} has claimed your "${material.title}". They earned 2 gems!`,
+        parseInt(claimed_by),
+        14
+      );
+      console.log(`📢 Notified uploader ${material.uploader_id} about claim`);
+    } catch (notifErr) {
+      console.log('⚠️ Could not send claim notification:', notifErr.message);
+    }
+
+    // Send email notification to uploader
+    sendEmail({
+      to: material.uploader_email,
+      subject: 'Your Material Was Claimed!',
+      text: `Hi ${material.uploader_name}! Great news - ${claimerInfo.name} has claimed your "${material.title}". They'll be in touch soon!`,
+      html: getMaterialClaimedEmailHtml(material.uploader_name, material.title, claimerInfo.name)
+    }).catch(err => console.error('Failed to send claim email:', err));
+
+    res.json({
+      success: true,
+      message: 'Material claimed successfully',
+      material: updateResult.rows[0]
     });
 
-  } catch (err) {
-    console.error("❌ Claim material error:", err);
-    res.status(500).json({ 
-      error: "Server error: " + err.message 
-    });
+  } catch (error) {
+    console.error('❌ Error claiming material:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
@@ -2471,7 +2617,7 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
 
     console.log('💾 Inserting product into database...');
 
-    // 🔥 FIXED: Correct number of placeholders (13 values = $1 to $13)
+    // Correct number of placeholders (13 values = $1 to $13)
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
@@ -2497,8 +2643,28 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
     );
 
     const insertedProduct = result.rows[0];
-    console.log(`✅ Product inserted with ID: ${insertedProduct.id}`);
-    console.log(`📸 Stored ${imageUrls.length} image URLs in database`);
+    console.log(`Product inserted with ID: ${insertedProduct.id}`);
+    console.log(` Stored ${imageUrls.length} image URLs in database`);
+
+    // 📢 Notify all users about new product
+try {
+  const allUsers = await getAllActiveUsersExcept(parseInt(artisan_id));
+  
+  if (allUsers.length > 0) {
+    const creatorName = actualCreatorName || 'An artisan';
+    await createNotifications(
+      allUsers,
+      'new_product',
+      'New Upcycled Product! 🎨',
+      `${creatorName} just listed "${title}" for M${parseFloat(price).toFixed(2)}. Check it out!`,
+      parseInt(artisan_id),
+      7
+    );
+    console.log(`📢 Notified ${allUsers.length} users about new product`);
+  }
+} catch (notifErr) {
+  console.log('⚠️ Could not send product notifications:', notifErr.message);
+}
 
     // Format response
     const responseProduct = {
