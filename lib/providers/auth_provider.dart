@@ -200,34 +200,38 @@ class AuthProvider with ChangeNotifier {
 
   //  Login with better storage
   Future<bool> login(String email, String password) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  _isLoading = true;
+  _error = null;
+  notifyListeners();
 
-    try {
-      print(' Attempting login for: $email');
+  try {
+    print(' Attempting login for: $email');
       
-      final response = await http.post(
-        Uri.parse('https://junk-and-gems-api.onrender.com/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
-      );
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    print(' Cleared all previous session data');
+    
+    final response = await http.post(
+      Uri.parse('https://junk-and-gems-api.onrender.com/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'email': email,
+        'password': password,
+      }),
+    );
 
-      print(' Login response status: ${response.statusCode}');
+    print(' Login response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        _token = data['token'];
-        _user = User.fromJson(data['user']);
+      final data = json.decode(response.body);
+      
+      _token = data['token'];
+      _user = User.fromJson(data['user']);
 
-        print(' Login successful!');
-        print('   User ID: ${_user?.id}');
-        print('   User Name: ${_user?.name}');
-        print('   User Email: ${_user?.email}');
+      print(' Login successful!');
+      print('   User ID: ${_user?.id}');
+      print('   User Name: ${_user?.name}');
+      print('   User Email: ${_user?.email}');
 
         // Use centralized save method
         await _saveAuthData();
@@ -238,14 +242,14 @@ class AuthProvider with ChangeNotifier {
       } else {
         final errorData = json.decode(response.body);
         _error = errorData['error'] ?? 'Login failed';
-        print('❌ Login failed: $_error');
+        print(' Login failed: $_error');
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (error) {
       _error = 'Login failed: $error';
-      print('❌ Login error: $error');
+      print(' Login error: $error');
       _isLoading = false;
       notifyListeners();
       return false;
