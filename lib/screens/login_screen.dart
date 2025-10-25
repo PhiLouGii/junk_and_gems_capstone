@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart'; 
+import 'package:junk_and_gems/providers/auth_provider.dart'; 
 import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
-import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,33 +23,19 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // 🔧 FIXED: Clear all old user data before login
+  // Clear all old user data before login
   Future<void> _clearOldUserData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    print('🗑️ Clearing old user data...');
+    print('Clearing old user data...');
     
     // Remove all user-specific data
-    await prefs.remove('token');
-    await prefs.remove('userId');
-    await prefs.remove('user_id');
-    await prefs.remove('userName');
-    await prefs.remove('user_name');
-    await prefs.remove('userEmail');
-    await prefs.remove('user_email');
-    await prefs.remove('username');
-    await prefs.remove('userBio');
-    await prefs.remove('user_bio');
-    await prefs.remove('profilePicture');
-    await prefs.remove('profile_picture');
-    await prefs.remove('userGems');
-    await prefs.remove('specialty');
-    await prefs.remove('user_type');
+    await prefs.clear(); 
     
-    print('✅ Old user data cleared');
+    print('Old user data cleared');
   }
 
-  // 🔧 FIXED: Handles login with proper data clearing
+  // Handles login with proper AuthProvider integration
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -58,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('🔐 Starting login process...');
+      print('Starting login process...');
       
       // STEP 1: Clear old user data first
       await _clearOldUserData();
@@ -73,77 +60,62 @@ class _LoginScreenState extends State<LoginScreen> {
         }),
       );
 
-      print('📥 Login response status: ${response.statusCode}');
-      print('📥 Login response body: ${response.body}');
+      print('Login response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         
-        // STEP 3: Store new user data
+        print('   Login response data:');
+        print('   User: ${result['user']}');
+        print('   Token: ${result['token']?.substring(0, 20)}...');
+        
+        // Store data in the format AuthProvider expects
         final prefs = await SharedPreferences.getInstance();
         
-        final userId = result['user']['id'].toString();
-        final userName = result['user']['name'];
-        final userEmail = result['user']['email'];
-        final username = result['user']['username'] ?? userEmail.split('@')[0];
         final token = result['token'];
+        final userData = result['user'];
         
-        print('💾 Storing new user data:');
-        print('  - ID: $userId');
-        print('  - Name: $userName');
-        print('  - Email: $userEmail');
-        print('  - Username: $username');
-        
-        // Store all user data with both key formats for compatibility
+        // Store in BOTH formats for compatibility
+        await prefs.setString('auth_token', token);
         await prefs.setString('token', token);
-        await prefs.setString('userId', userId);
-        await prefs.setString('user_id', userId);
-        await prefs.setString('userName', userName);
-        await prefs.setString('user_name', userName);
-        await prefs.setString('userEmail', userEmail);
-        await prefs.setString('user_email', userEmail);
-        await prefs.setString('username', username);
+        await prefs.setString('user_data', json.encode(userData));
         
-        // STEP 4: Fetch fresh profile data from server
-        print('🌐 Fetching fresh profile data...');
-        try {
-          final profileResponse = await http.get(
-            Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
-          );
-          
-          if (profileResponse.statusCode == 200) {
-            final profileData = json.decode(profileResponse.body);
-            
-            // Store profile-specific data
-            await prefs.setString('userBio', profileData['bio'] ?? '');
-            await prefs.setString('user_bio', profileData['bio'] ?? '');
-            await prefs.setString('profilePicture', profileData['profile_image_url'] ?? '');
-            await prefs.setString('profile_picture', profileData['profile_image_url'] ?? '');
-            await prefs.setInt('userGems', profileData['available_gems'] ?? 0);
-            await prefs.setString('specialty', profileData['specialty'] ?? '');
-            await prefs.setString('user_type', profileData['user_type'] ?? 'contributor');
-            
-            print('✅ Profile data loaded:');
-            print('  - Bio: ${profileData['bio'] ?? '(empty)'}');
-            print('  - Profile Picture: ${profileData['profile_image_url'] ?? '(none)'}');
-            print('  - Gems: ${profileData['available_gems'] ?? 0}');
-          } else {
-            print('⚠️ Could not fetch profile data: ${profileResponse.statusCode}');
-          }
-        } catch (profileError) {
-          print('⚠️ Profile fetch error (non-critical): $profileError');
+        // Also store individual fields for backward compatibility
+        await prefs.setString('userId', userData['id'].toString());
+        await prefs.setString('userName', userData['name']);
+        await prefs.setString('userEmail', userData['email']);
+        
+        print(' Stored user data:');
+        print('   user_data: ${json.encode(userData)}');
+        print('   userId: ${userData['id']}');
+        print('   userName: ${userData['name']}');
+        
+        // Update AuthProvider
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.initialize(); // This will load from SharedPreferences
+        
+        print(' AuthProvider initialized:');
+        print('   Auth User ID: ${authProvider.user?.id}');
+        print('   Auth User Name: ${authProvider.user?.name}');
+        print('   Is Authenticated: ${authProvider.isAuthenticated}');
+        
+        // Verify AuthProvider has correct user
+        if (authProvider.user?.id != userData['id']) {
+          print(' WARNING: AuthProvider user ID mismatch!');
+          print('   Expected: ${userData['id']}');
+          print('   Got: ${authProvider.user?.id}');
         }
 
-        print('✅ Login successful!');
+        print(' Login successful!');
 
-        // STEP 5: Navigate to dashboard
+        // STEP 3: Navigate to dashboard
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => DashboardScreen(
-                userId: userId,
-                userName: userName,
+                userId: userData['id'].toString(),
+                userName: userData['name'],
               ),
             ),
           );
@@ -153,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception(errorData['error'] ?? 'Login failed');
       }
     } catch (e) {
-      print('❌ Login failed: $e');
+      print(' Login failed: $e');
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
@@ -171,25 +143,50 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextButton(
       onPressed: () async {
         final prefs = await SharedPreferences.getInstance();
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
         
-        print('🔍 DEBUG AUTH STATUS:');
-        print('All keys: ${prefs.getKeys()}');
-        print('Token: ${prefs.getString('token')?.substring(0, 20)}...');
-        print('User ID: ${prefs.getString('userId')}');
-        print('User Name: ${prefs.getString('userName')}');
-        print('User Email: ${prefs.getString('userEmail')}');
-        print('User Bio: ${prefs.getString('userBio')}');
-        print('Profile Picture: ${prefs.getString('profilePicture')}');
-        print('User Gems: ${prefs.getInt('userGems')}');
-        
-        final hasToken = prefs.getString('token') != null;
-        final hasUserId = prefs.getString('userId') != null;
+        print(' DEBUG AUTH STATUS:');
+        print('SharedPreferences:');
+        print('  All keys: ${prefs.getKeys()}');
+        print('  user_data: ${prefs.getString('user_data')}');
+        print('  userId: ${prefs.getString('userId')}');
+        print('  userName: ${prefs.getString('userName')}');
+        print('');
+        print('AuthProvider:');
+        print('  Is Authenticated: ${authProvider.isAuthenticated}');
+        print('  User ID: ${authProvider.user?.id}');
+        print('  User Name: ${authProvider.user?.name}');
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Logged in: ${hasToken && hasUserId}\nCheck console for details'),
-              duration: const Duration(seconds: 3),
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Auth Debug Info'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('SharedPreferences:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Text('user_data: ${prefs.getString('user_data')}'),
+                    Text('userId: ${prefs.getString('userId')}'),
+                    Text('userName: ${prefs.getString('userName')}'),
+                    SizedBox(height: 16),
+                    Text('AuthProvider:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Text('Authenticated: ${authProvider.isAuthenticated}'),
+                    Text('User ID: ${authProvider.user?.id}'),
+                    Text('User Name: ${authProvider.user?.name}'),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('OK'),
+                ),
+              ],
             ),
           );
         }
