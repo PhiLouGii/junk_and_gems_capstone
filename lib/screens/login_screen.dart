@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart'; 
-import 'package:junk_and_gems/providers/auth_provider.dart'; 
+import 'package:provider/provider.dart'; // ✅ ADD THIS
+import 'package:junk_and_gems/providers/auth_provider.dart'; // ✅ ADD THIS
 import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
@@ -23,19 +23,19 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // Clear all old user data before login
+  // 🔧 FIXED: Clear all old user data before login
   Future<void> _clearOldUserData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    print('Clearing old user data...');
+    print('🗑️ Clearing old user data...');
     
     // Remove all user-specific data
-    await prefs.clear(); 
+    await prefs.clear(); // ✅ Just clear everything
     
-    print('Old user data cleared');
+    print('✅ Old user data cleared');
   }
 
-  // Handles login with proper AuthProvider integration
+  // 🔧 FIXED: Handles login with proper AuthProvider integration
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -45,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('Starting login process...');
+      print('🔐 Starting login process...');
       
       // STEP 1: Clear old user data first
       await _clearOldUserData();
@@ -60,16 +60,16 @@ class _LoginScreenState extends State<LoginScreen> {
         }),
       );
 
-      print('Login response status: ${response.statusCode}');
+      print('📥 Login response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
         
-        print('   Login response data:');
+        print('📦 Login response data:');
         print('   User: ${result['user']}');
         print('   Token: ${result['token']?.substring(0, 20)}...');
         
-        // Store data in the format AuthProvider expects
+        // ✅ CRITICAL FIX: Store data in the format AuthProvider expects
         final prefs = await SharedPreferences.getInstance();
         
         final token = result['token'];
@@ -85,28 +85,36 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('userName', userData['name']);
         await prefs.setString('userEmail', userData['email']);
         
-        print(' Stored user data:');
+        print('💾 Stored user data:');
         print('   user_data: ${json.encode(userData)}');
         print('   userId: ${userData['id']}');
         print('   userName: ${userData['name']}');
         
-        // Update AuthProvider
+        // ✅ CRITICAL FIX: LOGOUT first, then initialize with new user
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.initialize(); // This will load from SharedPreferences
         
-        print(' AuthProvider initialized:');
+        // Force logout to clear any old user data from memory
+        await authProvider.logout();
+        print('🔄 Logged out old user from AuthProvider');
+        
+        // Now initialize with the NEW user data
+        await authProvider.initialize();
+        
+        print('✅ AuthProvider re-initialized with new user:');
         print('   Auth User ID: ${authProvider.user?.id}');
         print('   Auth User Name: ${authProvider.user?.name}');
         print('   Is Authenticated: ${authProvider.isAuthenticated}');
         
         // Verify AuthProvider has correct user
         if (authProvider.user?.id != userData['id']) {
-          print(' WARNING: AuthProvider user ID mismatch!');
+          print('⚠️ WARNING: AuthProvider user ID mismatch!');
           print('   Expected: ${userData['id']}');
           print('   Got: ${authProvider.user?.id}');
+        } else {
+          print('✅ AuthProvider user ID matches! Login successful.');
         }
 
-        print(' Login successful!');
+        print('✅ Login successful!');
 
         // STEP 3: Navigate to dashboard
         if (mounted) {
@@ -125,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception(errorData['error'] ?? 'Login failed');
       }
     } catch (e) {
-      print(' Login failed: $e');
+      print('❌ Login failed: $e');
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
@@ -145,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         
-        print(' DEBUG AUTH STATUS:');
+        print('🔍 DEBUG AUTH STATUS:');
         print('SharedPreferences:');
         print('  All keys: ${prefs.getKeys()}');
         print('  user_data: ${prefs.getString('user_data')}');

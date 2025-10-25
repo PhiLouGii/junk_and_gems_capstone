@@ -69,28 +69,22 @@ class AuthProvider with ChangeNotifier {
   bool get isInitialized => _isInitialized;
 
   AuthProvider() {
-    print(' AuthProvider constructor called');
+    print('AuthProvider constructor called');
   }
 
-  //  Initialize with better error handling
+  //nitialize with proper reset handling
   Future<void> initialize() async {
     print(' Initializing AuthProvider...');
     print('   Already initialized: $_isInitialized');
     print('   Current user: ${_user?.name}');
     print('   Is authenticated: $isAuthenticated');
 
-    // If already initialized and authenticated, just return
-    if (_isInitialized && _user != null && _token != null) {
-      print(' AuthProvider already initialized with user: ${_user?.name}');
-      return;
-    }
-
     await _loadStoredAuth();
     
     _isInitialized = true;
     
     if (_user != null && _token != null) {
-      print(' Loaded user from storage: ${_user?.name} (ID: ${_user?.id})');
+      print('Loaded user from storage: ${_user?.name} (ID: ${_user?.id})');
     } else {
       print('ℹ️ No user logged in - user needs to login');
     }
@@ -103,14 +97,12 @@ class AuthProvider with ChangeNotifier {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       
-      // Print all stored keys for debugging
       print(' Checking SharedPreferences...');
       print('   All keys: ${prefs.getKeys()}');
       
       // Try to load from primary storage keys
       String? token = prefs.getString('auth_token');
       String? userData = prefs.getString('user_data');
-
 
       if (token == null) {
         token = prefs.getString('token');
@@ -122,12 +114,12 @@ class AuthProvider with ChangeNotifier {
 
       if (token != null && userData != null) {
         _token = token;
-        _user = User.fromJson(json.decode(userData));
-        print(' Successfully loaded stored user: ${_user?.name} (ID: ${_user?.id})');
+        final userJson = json.decode(userData);
+        _user = User.fromJson(userJson);
+        print('Successfully loaded stored user: ${_user?.name} (ID: ${_user?.id})');
       } else if (token != null) {
-        print(' Have token but no user_data, attempting to reconstruct...');
+        print('Have token but no user_data, attempting to reconstruct...');
         
-        // Try to get userId (could be String or int)
         int? userId;
         if (prefs.containsKey('userId')) {
           final userIdValue = prefs.get('userId');
@@ -157,86 +149,92 @@ class AuthProvider with ChangeNotifier {
           // Save properly for next time
           await _saveAuthData();
           
-          print(' Successfully reconstructed user from individual fields');
+          print('Successfully reconstructed user from individual fields');
         } else {
-          print(' Could not reconstruct user data');
+          print('Could not reconstruct user data');
+          _user = null;
+          _token = null;
         }
       } else {
         print('ℹ️ No stored auth found (no token or user data)');
+        _user = null;
+        _token = null;
       }
     } catch (e, stackTrace) {
-      print(' Error loading stored auth: $e');
+      print('Error loading stored auth: $e');
       print('Stack trace: $stackTrace');
+      _user = null;
+      _token = null;
     }
   }
 
   // Centralized method to save auth data consistently
   Future<void> _saveAuthData() async {
     if (_user == null || _token == null) {
-      print(' Cannot save auth data - user or token is null');
+      print('Cannot save auth data - user or token is null');
       return;
     }
 
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       
-      // Primary storage (recommended)
+      // Primary storage
       await prefs.setString('auth_token', _token!);
       await prefs.setString('user_data', json.encode(_user!.toJson()));
       
       // Legacy/backup storage for compatibility
       await prefs.setString('token', _token!);
-      await prefs.setString('userId', _user!.id.toString()); // Store as String for consistency
+      await prefs.setString('userId', _user!.id.toString());
       await prefs.setString('userName', _user!.name);
       await prefs.setString('userEmail', _user!.email);
       
       print(' Auth data saved successfully');
-      print('   User ID: ${_user!.id} (saved as String: "${_user!.id.toString()}")');
-      print('   Keys saved: ${prefs.getKeys()}');
+      print('   User ID: ${_user!.id}');
+      print('   User Name: ${_user!.name}');
     } catch (e) {
-      print(' Error saving auth data: $e');
+      print('Error saving auth data: $e');
     }
   }
 
-  //  Login with better storage
+  //Login with better storage
   Future<bool> login(String email, String password) async {
-  _isLoading = true;
-  _error = null;
-  notifyListeners();
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
-  try {
-    print(' Attempting login for: $email');
+    try {
+      print('Attempting login for: $email');
       
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    print(' Cleared all previous session data');
-    
-    final response = await http.post(
-      Uri.parse('https://junk-and-gems-api.onrender.com/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'email': email,
-        'password': password,
-      }),
-    );
+      // Clear existing session first
+      await logout();
+      
+      final response = await http.post(
+        Uri.parse('https://junk-and-gems-api.onrender.com/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
+      );
 
-    print(' Login response status: ${response.statusCode}');
+      print('Login response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      
-      _token = data['token'];
-      _user = User.fromJson(data['user']);
+        final data = json.decode(response.body);
+        
+        _token = data['token'];
+        _user = User.fromJson(data['user']);
 
-      print(' Login successful!');
-      print('   User ID: ${_user?.id}');
-      print('   User Name: ${_user?.name}');
-      print('   User Email: ${_user?.email}');
+        print(' Login successful!');
+        print('   User ID: ${_user?.id}');
+        print('   User Name: ${_user?.name}');
+        print('   User Email: ${_user?.email}');
 
         // Use centralized save method
         await _saveAuthData();
 
         _isLoading = false;
+        _isInitialized = true; // Mark as initialized after successful login
         notifyListeners();
         return true;
       } else {
@@ -263,7 +261,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      print(' Attempting signup for: $email');
+      print('Attempting signup for: $email');
       
       final response = await http.post(
         Uri.parse('https://junk-and-gems-api.onrender.com/signup'),
@@ -275,7 +273,7 @@ class AuthProvider with ChangeNotifier {
         }),
       );
 
-      print(' Signup response status: ${response.statusCode}');
+      print('Signup response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -283,7 +281,7 @@ class AuthProvider with ChangeNotifier {
         _token = data['token'];
         _user = User.fromJson(data['user']);
 
-        print(' Signup successful!');
+        print('Signup successful!');
         print('   User ID: ${_user?.id}');
         print('   User Name: ${_user?.name}');
         print('   User Email: ${_user?.email}');
@@ -292,44 +290,46 @@ class AuthProvider with ChangeNotifier {
         await _saveAuthData();
 
         _isLoading = false;
+        _isInitialized = true;
         notifyListeners();
         return true;
       } else {
         final errorData = json.decode(response.body);
         _error = errorData['error'] ?? 'Signup failed';
-        print(' Signup failed: $_error');
+        print('Signup failed: $_error');
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (error) {
       _error = 'Signup failed: $error';
-      print(' Signup error: $error');
+      print('Signup error: $error');
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
 
-  // Logout with comprehensive cleanup
+  // Logout with comprehensive cleanup and proper reset
   Future<void> logout() async {
-    print(' Logging out user: ${_user?.name}');
+    print('Logging out user: ${_user?.name}');
     
+    // Clear in-memory state FIRST
     _user = null;
     _token = null;
     _error = null;
-    _isInitialized = false; // Reset initialization flag
-
-    // Clear ALL stored auth data
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('user_data');
-    await prefs.remove('userId');
-    await prefs.remove('userName');
-    await prefs.remove('userEmail');
-    await prefs.remove('token');
-
-    print(' Logout complete - all auth data cleared');
+    _isInitialized = false; 
+    
+    // Then clear storage
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); 
+      
+      print('Logout complete - all auth data cleared (memory + storage)');
+    } catch (e) {
+      print('Error clearing SharedPreferences: $e');
+    }
+    
     notifyListeners();
   }
 
@@ -365,7 +365,7 @@ class AuthProvider with ChangeNotifier {
     if (_user?.id == null || _token == null) return;
 
     try {
-      print(' Refreshing user data for user ${_user!.id}...');
+      print('🔄 Refreshing user data for user ${_user!.id}...');
       
       final response = await http.get(
         Uri.parse('https://junk-and-gems-api.onrender.com/api/users/${_user!.id}/profile'),
@@ -381,13 +381,13 @@ class AuthProvider with ChangeNotifier {
         // Update stored data
         await _saveAuthData();
         
-        print(' User data refreshed successfully');
+        print('User data refreshed successfully');
         notifyListeners();
       } else {
-        print(' Failed to refresh user data: ${response.statusCode}');
+        print('Failed to refresh user data: ${response.statusCode}');
       }
     } catch (e) {
-      print(' Error refreshing user data: $e');
+      print('Error refreshing user data: $e');
     }
   }
 }
