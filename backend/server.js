@@ -1073,44 +1073,44 @@ console.log(' Notification system initialized');
 // Get all materials with real data
 app.get("/materials", async (req, res) => {
   try {
-    const { status } = req.query; // ?status=available or ?status=pending or ?status=confirmed
+    const { status } = req.query;
     
     let whereClause = '';
     if (status) {
       whereClause = `WHERE m.claim_status = '${status}'`;
     } else {
-      // By default, only show available and pending materials (not confirmed ones)
       whereClause = `WHERE m.claim_status IN ('available', 'pending')`;
     }
     
     const result = await pool.query(`
       SELECT 
         m.*,
-        u.name as uploader_name,
-        u.name as uploader,
+        COALESCE(u.name, 'Unknown User') as uploader_name,
         u.email as uploader_email,
         u.profile_image_url as uploader_avatar,
-        u.id as uploader_id,
+        m.uploader_id as uploader_id,
         claimer.name as claimer_name
       FROM materials m
-      JOIN users u ON m.uploader_id = u.id
+      LEFT JOIN users u ON m.uploader_id = u.id
       LEFT JOIN users claimer ON m.claimed_by = claimer.id
       ${whereClause}
       ORDER BY m.created_at DESC
     `);
 
-    console.log(`Found ${result.rows.length} materials (status: ${status || 'available/pending'})`);
+    console.log(`✅ Found ${result.rows.length} materials`);
 
-    // Convert database results to frontend format
     const materials = result.rows.map(row => {
-      // Get images from image_data_base64 
-      const imageUrls = row.image_data_base64 || [];
+      // 🔍 ADD DEBUGGING
+      console.log(`📦 Material ${row.id}:`);
+      console.log(`   Uploader ID (from materials table): ${row.uploader_id} (type: ${typeof row.uploader_id})`);
+      console.log(`   Uploader Name (from JOIN): ${row.uploader_name}`);
       
-      if (imageUrls.length > 0) {
-        console.log(`Material ${row.id} has ${imageUrls.length} images`);
-      } else {
-        console.log(`Material ${row.id} has no images`);
+      // ⚠️ LOG WARNING if name is NULL or "Unknown User"
+      if (!row.uploader_name || row.uploader_name === 'Unknown User') {
+        console.log(`   ⚠️ WARNING: Could not find user with ID ${row.uploader_id} in users table!`);
       }
+
+      const imageUrls = row.image_data_base64 || [];
 
       return {
         id: row.id,
@@ -1128,23 +1128,20 @@ app.get("/materials", async (req, res) => {
         is_fragile: row.is_fragile,
         contact_preferences: row.contact_preferences,
         image_urls: imageUrls,
-        uploader: row.uploader_name,
+        uploader: row.uploader_name || 'Unknown User',  // ✅ Use actual name from JOIN
+        uploader_name: row.uploader_name || 'Unknown User',  
         uploader_id: row.uploader_id,
         uploader_email: row.uploader_email,
         uploader_avatar: row.uploader_avatar,
         amount: row.quantity,
         created_at: row.created_at,
         time: formatTimeAgo(row.created_at),
-        
-        // New claim-related fields
         claim_status: row.claim_status || 'available',
         claimed_by: row.claimed_by,
         claimer_name: row.claimer_name,
         claim_requested_at: row.claim_requested_at,
         claim_confirmed_at: row.claim_confirmed_at,
         conversation_id: row.conversation_id,
-        
-        // Legacy fields for backwards compatibility
         is_claimed: row.claim_status === 'confirmed',
         claimed_at: row.claim_confirmed_at
       };
@@ -1152,10 +1149,73 @@ app.get("/materials", async (req, res) => {
 
     res.json(materials);
   } catch (err) {
-    console.error("Get materials error:", err);
+    console.error("❌ Get materials error:", err);
+    console.error("Stack trace:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
+
+app.get("/api/debug/material/:id", async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    console.log(`🔍 Checking material ${id} in database...`);
+    
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name,
+        u.email as uploader_email,
+        u.id as uploader_id
+      FROM materials m
+      JOIN users u ON m.uploader_id = u.id
+      WHERE m.id = $1
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Material not found" });
+    }
+    
+    const material = result.rows[0];
+    
+    console.log(` Material found:`);
+    console.log(`   Title: ${material.title}`);
+    console.log(`   Uploader ID: ${material.uploader_id}`);
+    console.log(`   Uploader Name: ${material.uploader_name}`);
+    console.log(`   Has images: ${material.image_data_base64 ? 'Yes' : 'No'}`);
+    
+    if (material.image_data_base64) {
+      console.log(`   Image type: ${typeof material.image_data_base64}`);
+      console.log(`   Is array: ${Array.isArray(material.image_data_base64)}`);
+      if (Array.isArray(material.image_data_base64)) {
+        console.log(`   Image count: ${material.image_data_base64.length}`);
+        material.image_data_base64.forEach((url, idx) => {
+          console.log(`   Image ${idx + 1}: ${url}`);
+        });
+      }
+    }
+    
+    res.json({
+      material: material,
+      uploader_info: {
+        id: material.uploader_id,
+        name: material.uploader_name,
+        email: material.uploader_email
+      },
+      image_info: {
+        has_images: !!material.image_data_base64,
+        is_array: Array.isArray(material.image_data_base64),
+        count: Array.isArray(material.image_data_base64) ? material.image_data_base64.length : 0,
+        urls: material.image_data_base64 || []
+      }
+    });
+    
+  } catch (err) {
+    console.error(" Debug material error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Create new material/donation with base64 images
 app.post("/materials", async (req, res) => {

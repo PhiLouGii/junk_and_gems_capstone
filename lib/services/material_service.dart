@@ -52,10 +52,13 @@ class MaterialService {
         'is_fragile': materialData['is_fragile'] ?? false,
         'contact_preferences': materialData['contact_preferences'] ?? {},
         'image_urls': imageUrls,  // CRITICAL: Send Cloudinary URLs as array
-        'uploader_id': materialData['uploader_id'] ?? 3,
+        'uploader_id': materialData['uploader_id'],
+        'location_area': materialData['location_area'] ?? '',
+      'location_landmark': materialData['location_landmark'] ?? '',
+      'location_directions': materialData['location_directions'] ?? '',
       };
 
-      print('📤 Sending material data to server...');
+      print(' Sending material data to server...');
       print('Material details:');
       print('   - Title: ${requestData['title']}');
       print('   - Category: ${requestData['category']}');

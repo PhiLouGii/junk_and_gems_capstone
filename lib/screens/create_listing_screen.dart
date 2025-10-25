@@ -343,7 +343,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     _initializeAuth();
   }
 
-  // 🔥 NEW: Initialize Auth Provider on Screen Load
+  // Initialize Auth Provider on Screen Load
   Future<void> _initializeAuth() async {
     print('🔍 Initializing auth in CreateListingScreen...');
     
@@ -789,9 +789,9 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     );
   }
 
-  // 🔥 IMPROVED: Enhanced Submit with Better Auth Checking
+  //Enhanced Submit with Better Auth Checking
   Future<void> _submitListing() async {
-    // ✅ UPDATED: Validate required fields including location
+    // Validate required fields including location
     if (_titleController.text.isEmpty || 
         _descriptionController.text.isEmpty || 
         _selectedCategory == null || 
@@ -802,18 +802,19 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       return;
     }
 
-    // Get the logged-in user's ID from auth provider
+    //Get user ID directly from SharedPreferences FIRST
+    final prefs = await SharedPreferences.getInstance();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
-    // 🔥 ENHANCED DEBUG LOGGING
-    print('=' * 60);
-    print('🔍 AUTH CHECK IN SUBMIT LISTING');
+    //ENHANCED DEBUG LOGGING
+    print('=' * 80);
+    print('AUTH CHECK IN SUBMIT LISTING');
     print('Is Authenticated: ${authProvider.isAuthenticated}');
     print('Is Initialized: ${authProvider.isInitialized}');
     print('User object: ${authProvider.user}');
     print('User ID: ${authProvider.user?.id}');
     print('User name: ${authProvider.user?.name}');
-    print('=' * 60);
+    print('=' * 80);
     
     // 🔥 IMPROVED: Try to restore session from SharedPreferences if not authenticated
     if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
@@ -906,7 +907,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         formattedContactPrefs[key] = value ?? false;
       });
 
-      // ✅ UPDATED: Prepare the material data with structured location
+      //Prepare the material data with structured location
       final materialData = {
         'title': _titleController.text,
         'description': _descriptionController.text,
