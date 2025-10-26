@@ -76,6 +76,132 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
     }
   }
 
+  Future<void> _deleteMaterial(String materialId, String title) async {
+  // Show confirmation dialog
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Delete Material?',
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: Text(
+        'Are you sure you want to delete "$title"? This action cannot be undone.',
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyMedium?.color,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(
+            'Cancel',
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  // Show loading
+  if (mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text('Deleting "$title"...'),
+          ],
+        ),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+  }
+
+  try {
+    print('🗑️ Deleting material $materialId');
+    
+    final response = await http.delete(
+      Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (_token != null) 'Authorization': 'Bearer $_token',
+      },
+    );
+
+    print('Delete response status: ${response.statusCode}');
+
+    // Close the snackbar
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (response.statusCode == 200) {
+      if (mounted) {
+        // Close the material details modal
+        Navigator.pop(context);
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ "$title" deleted successfully'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // Reload materials
+        await _loadMaterials();
+      }
+    } else {
+      throw Exception('Failed to delete material: ${response.body}');
+    }
+  } catch (error) {
+    print('Error deleting material: $error');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete material: $error'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+}
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -1888,21 +2014,28 @@ Widget _buildHeader(BuildContext context) {
                       ),
                     ),
                     
-                    const SizedBox(height: 24),
+                     const SizedBox(height: 24),
                     
                     // Action Buttons
                     if (isOwnMaterial) ...[
+                      // Owner info banner
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0xFFBEC092).withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFBEC092).withOpacity(0.5)),
+                          border: Border.all(
+                            color: const Color(0xFFBEC092).withOpacity(0.5),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: const Color(0xFF88844D)),
+                            Icon(
+                              Icons.info_outline,
+                              color: const Color(0xFF88844D),
+                              size: 20,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -1910,37 +2043,126 @@ Widget _buildHeader(BuildContext context) {
                                 style: TextStyle(
                                   color: const Color(0xFF88844D),
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      
+                      // Edit and Delete buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CreateListingScreen(
+                                      isEditing: true,
+                                      existingMaterial: material,
+                                    ),
+                                  ),
+                                );
+                                
+                                if (result == true) {
+                                  _loadMaterials();
+                                }
+                              },
+                              icon: const Icon(Icons.edit, size: 18),
+                              label: const Text(
+                                'Edit',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF88844D),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _deleteMaterial(
+                                  material['id'].toString(),
+                                  material['title'],
+                                );
+                              },
+                              icon: const Icon(Icons.delete, size: 18),
+                              label: const Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ] else ...[
+                      // Claim and Chat buttons for other users' materials
                       Row(
                         children: [
                           Expanded(
                             flex: 2,
                             child: ElevatedButton.icon(
-                              onPressed: isClaimed ? null : () {
-                                Navigator.pop(context);
-                                _claimMaterial(material['id'].toString(), material['title']);
-                              },
+                              onPressed: isClaimed
+                                  ? null
+                                  : () {
+                                      Navigator.pop(context);
+                                      _claimMaterial(
+                                        material['id'].toString(),
+                                        material['title'],
+                                      );
+                                    },
                               icon: Icon(
                                 isClaimed ? Icons.pending : Icons.volunteer_activism,
                                 size: 20,
                               ),
                               label: Text(
                                 isClaimed ? 'Claimed (Pending)' : 'Claim Material',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isClaimed ? Colors.orange[300] : const Color(0xFF88844D),
+                                backgroundColor: isClaimed
+                                    ? Colors.orange[300]
+                                    : const Color(0xFF88844D),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
+                                elevation: 0,
+                                disabledBackgroundColor: Colors.orange[300],
+                                disabledForegroundColor: Colors.white,
                               ),
                             ),
                           ),
@@ -1958,10 +2180,17 @@ Widget _buildHeader(BuildContext context) {
                               icon: const Icon(Icons.chat_bubble_outline, size: 18),
                               label: const Text(
                                 'Chat',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFBEC092), width: 2),
+                                foregroundColor: const Color(0xFF88844D),
+                                side: const BorderSide(
+                                  color: Color(0xFFBEC092),
+                                  width: 2,
+                                ),
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),

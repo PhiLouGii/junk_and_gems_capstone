@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
@@ -302,7 +303,14 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
 }
 
 class CreateListingScreen extends StatefulWidget {
-  const CreateListingScreen({super.key});
+  final bool isEditing;
+  final Map<String, dynamic>? existingMaterial;
+  
+  const CreateListingScreen({
+    super.key, 
+    this.isEditing = false,
+    this.existingMaterial,
+  });
 
   @override
   State<CreateListingScreen> createState() => _CreateListingScreenState();
@@ -334,20 +342,73 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     super.initState();
     _initializeAuth().then((_) {
       _debugPrintStoredData();
+      _loadExistingMaterial();
     });
   }
 
-  // ✅ FIXED: Initialize Auth Provider
+  void _loadExistingMaterial() {
+  if (!widget.isEditing || widget.existingMaterial == null) return;
+  
+  final material = widget.existingMaterial!;
+  
+  _titleController.text = material['title'] ?? '';
+  _descriptionController.text = material['description'] ?? '';
+  _selectedCategory = material['category'];
+  _quantityController.text = material['quantity'] ?? '';
+  _selectedDeliveryOption = material['delivery_option'] ?? 'Needs Pickup';
+  _isFragile = material['is_fragile'] ?? false;
+  
+  // Load location data
+  if (material['location'] != null) {
+    _locationData = {
+      'formatted': material['location'],
+      'area': material['location_area'] ?? '',
+      'landmark': material['location_landmark'] ?? '',
+      'directions': material['location_directions'] ?? '',
+    };
+  }
+  
+  // Load dates
+  if (material['available_from'] != null) {
+    try {
+      _availableFrom = DateTime.parse(material['available_from']);
+    } catch (e) {
+      print('Error parsing available_from: $e');
+    }
+  }
+  
+  if (material['available_until'] != null) {
+    try {
+      _availableUntil = DateTime.parse(material['available_until']);
+    } catch (e) {
+      print('Error parsing available_until: $e');
+    }
+  }
+  
+  // Load contact preferences
+  if (material['contact_preferences'] != null) {
+    final prefs = material['contact_preferences'] as Map<String, dynamic>;
+    prefs.forEach((key, value) {
+      if (_contactPreferences.containsKey(key)) {
+        _contactPreferences[key] = value == true;
+      }
+    });
+  }
+  
+  setState(() {});
+}
+
+  // Initialize Auth Provider
   Future<void> _initializeAuth() async {
-    print('🔍 Initializing auth in CreateListingScreen...');
+    print('Initializing auth in CreateListingScreen...');
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
-    // ✅ ALWAYS re-initialize to get latest user data
-    print('⏳ Re-initializing auth provider...');
+    //ALWAYS re-initialize to get latest user data
+    print('Re-initializing auth provider...');
     await authProvider.initialize();
     
-    print('✅ Auth initialization complete');
+    print('Auth initialization complete');
     print('   User: ${authProvider.user?.name}');
     print('   User ID: ${authProvider.user?.id}');
     print('   Is Authenticated: ${authProvider.isAuthenticated}');
@@ -359,13 +420,13 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     }
     
     if (!authProvider.isAuthenticated) {
-      print('⚠️ User not authenticated after initialization');
+      print('User not authenticated after initialization');
       if (mounted) {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted && !authProvider.isAuthenticated) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('⚠️ Please log in to create a listing'),
+                content: Text('Please log in to create a listing'),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 3),
               ),
@@ -374,18 +435,18 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         });
       }
     } else {
-      print('✅ User authenticated successfully: ${authProvider.user?.name}');
+      print('User authenticated successfully: ${authProvider.user?.name}');
     }
   }
 
-  // ✅ NEW: Debug method
+  // Debug method
   Future<void> _debugPrintStoredData() async {
     final prefs = await SharedPreferences.getInstance();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     print('');
     print('=' * 80);
-    print('📋 STORED DATA CHECK IN CREATE LISTING SCREEN');
+    print('STORED DATA CHECK IN CREATE LISTING SCREEN');
     print('=' * 80);
     print('SharedPreferences:');
     print('  All Keys: ${prefs.getKeys()}');
@@ -414,7 +475,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
-    // ✅ Show loading while auth initializes
+    //Show loading while auth initializes
     if (!_isAuthInitialized) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -460,25 +521,25 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      children: [
-        IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-          onPressed: () => Navigator.pop(context),
-        ),
+  return Row(
+    children: [
+      IconButton(
+        icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+        onPressed: () => Navigator.pop(context),
+      ),
         Image.asset('assets/images/logo.png', width: 60, height: 60),
-        const SizedBox(width: 12),
-        Text(
-          'Share the Goods',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+      const SizedBox(width: 12),
+      Text(
+        widget.isEditing ? 'Edit Material' : 'Share the Goods', // ✅ CHANGE THIS
+        style: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 
   Widget _buildCreateListing1() {
     return Column(
@@ -816,12 +877,15 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF7F2E4)),
                 ),
               )
-            : const Text('Submit Listing', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            : Text(
+                widget.isEditing ? 'Update Material' : 'Submit Listing', // ✅ CHANGE THIS
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
       ),
     );
   }
 
-  // ✅ FIXED: Submit with proper user ID retrieval
+  //Submit with proper user ID retrieval
   Future<void> _submitListing() async {
     if (_titleController.text.isEmpty || 
         _descriptionController.text.isEmpty || 
@@ -883,23 +947,23 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       uploaderEmail = authProvider.user?.email;
       
       if (uploaderId != null) {
-        print('✅ Got user from AuthProvider:');
+        print('Got user from AuthProvider:');
         print('   ID: $uploaderId, Name: $uploaderName');
       }
     }
     
     print('');
-    print('📦 Final User Data:');
+    print('Final User Data:');
     print('   Uploader ID: $uploaderId (type: ${uploaderId.runtimeType})');
     print('   Uploader Name: $uploaderName');
     print('   Uploader Email: $uploaderEmail');
     print('');
-    print('🔑 All SharedPreferences Keys: ${prefs.getKeys()}');
+    print('All SharedPreferences Keys: ${prefs.getKeys()}');
     print('=' * 80);
     
     // Final validation
     if (uploaderId == null) {
-      print('❌ CRITICAL: Could not get user ID from any source!');
+      print('CRITICAL: Could not get user ID from any source!');
       print('   Checked user_data: ${prefs.getString('user_data')}');
       print('   Checked userId: ${prefs.get('userId')}');
       print('   Checked AuthProvider: ${authProvider.user?.id}');
@@ -928,7 +992,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       return;
     }
     
-    print('✅ Proceeding with uploader ID: $uploaderId ($uploaderName)');
+    print('Proceeding with uploader ID: $uploaderId ($uploaderName)');
     print('=' * 80);
 
     setState(() {
@@ -962,7 +1026,22 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
       print('Material data prepared: $materialData');
 
-      bool success = await MaterialService.createMaterial(materialData, _images);
+      bool success;
+      if (widget.isEditing && widget.existingMaterial != null) {
+        // Update existing material
+        final response = await http.put(
+          Uri.parse('https://junk-and-gems-api.onrender.com/materials/${widget.existingMaterial!['id']}'),
+    headers: {
+      'Content-Type': 'application/json',
+      if (prefs.getString('token') != null) 'Authorization': 'Bearer ${prefs.getString('token')}',
+    },
+    body: json.encode(materialData),
+  );
+  success = response.statusCode == 200;
+} else {
+  // Create new material
+  success = await MaterialService.createMaterial(materialData, _images);
+}
 
       if (success) {
         if (mounted) {
