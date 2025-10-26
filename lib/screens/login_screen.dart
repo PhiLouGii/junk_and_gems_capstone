@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart'; // ✅ ADD THIS
-import 'package:junk_and_gems/providers/auth_provider.dart'; // ✅ ADD THIS
+import 'package:provider/provider.dart'; 
+import 'package:junk_and_gems/providers/auth_provider.dart'; 
 import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
@@ -23,19 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  // 🔧 FIXED: Clear all old user data before login
-  Future<void> _clearOldUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    print('🗑️ Clearing old user data...');
-    
-    // Remove all user-specific data
-    await prefs.clear(); // ✅ Just clear everything
-    
-    print('✅ Old user data cleared');
-  }
-
-  // 🔧 FIXED: Handles login with proper AuthProvider integration
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -46,11 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       print('🔐 Starting login process...');
-      
-      // STEP 1: Clear old user data first
-      await _clearOldUserData();
 
-      // STEP 2: Make login API call
       final response = await http.post(
         Uri.parse('https://junk-and-gems-api.onrender.com/login'),
         headers: {'Content-Type': 'application/json'},
@@ -67,56 +50,46 @@ class _LoginScreenState extends State<LoginScreen> {
         
         print('📦 Login response data:');
         print('   User: ${result['user']}');
-        print('   Token: ${result['token']?.substring(0, 20)}...');
+        print('   Token exists: ${result['token'] != null}');
         
-        // ✅ CRITICAL FIX: Store data in the format AuthProvider expects
         final prefs = await SharedPreferences.getInstance();
+        
+        // ✅ Clear ONLY auth-related keys (not everything!)
+        print('🗑️ Clearing old auth data...');
+        await prefs.remove('auth_token');
+        await prefs.remove('token');
+        await prefs.remove('user_data');
+        await prefs.remove('userId');
+        await prefs.remove('userName');
+        await prefs.remove('userEmail');
         
         final token = result['token'];
         final userData = result['user'];
         
-        // Store in BOTH formats for compatibility
+        print('💾 Saving new user data...');
+        // Store in BOTH formats
         await prefs.setString('auth_token', token);
         await prefs.setString('token', token);
         await prefs.setString('user_data', json.encode(userData));
-        
-        // Also store individual fields for backward compatibility
         await prefs.setString('userId', userData['id'].toString());
         await prefs.setString('userName', userData['name']);
         await prefs.setString('userEmail', userData['email']);
         
-        print('💾 Stored user data:');
-        print('   user_data: ${json.encode(userData)}');
+        print('✅ Stored user data:');
         print('   userId: ${userData['id']}');
         print('   userName: ${userData['name']}');
         
-        // ✅ CRITICAL FIX: LOGOUT first, then initialize with new user
+        // ✅ Update AuthProvider
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        
-        // Force logout to clear any old user data from memory
-        await authProvider.logout();
-        print('🔄 Logged out old user from AuthProvider');
-        
-        // Now initialize with the NEW user data
         await authProvider.initialize();
         
-        print('✅ AuthProvider re-initialized with new user:');
-        print('   Auth User ID: ${authProvider.user?.id}');
-        print('   Auth User Name: ${authProvider.user?.name}');
+        print('✅ AuthProvider initialized:');
+        print('   User ID: ${authProvider.user?.id}');
+        print('   User Name: ${authProvider.user?.name}');
         print('   Is Authenticated: ${authProvider.isAuthenticated}');
-        
-        // Verify AuthProvider has correct user
-        if (authProvider.user?.id != userData['id']) {
-          print('⚠️ WARNING: AuthProvider user ID mismatch!');
-          print('   Expected: ${userData['id']}');
-          print('   Got: ${authProvider.user?.id}');
-        } else {
-          print('✅ AuthProvider user ID matches! Login successful.');
-        }
 
         print('✅ Login successful!');
 
-        // STEP 3: Navigate to dashboard
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -146,24 +119,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Debug button to test stored authentication data
   Widget _buildDebugButton() {
     return TextButton(
       onPressed: () async {
         final prefs = await SharedPreferences.getInstance();
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        
-        print('🔍 DEBUG AUTH STATUS:');
-        print('SharedPreferences:');
-        print('  All keys: ${prefs.getKeys()}');
-        print('  user_data: ${prefs.getString('user_data')}');
-        print('  userId: ${prefs.getString('userId')}');
-        print('  userName: ${prefs.getString('userName')}');
-        print('');
-        print('AuthProvider:');
-        print('  Is Authenticated: ${authProvider.isAuthenticated}');
-        print('  User ID: ${authProvider.user?.id}');
-        print('  User Name: ${authProvider.user?.name}');
         
         if (mounted) {
           showDialog(
