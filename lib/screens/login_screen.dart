@@ -44,9 +44,23 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       print('📥 Login response status: ${response.statusCode}');
+      print('📥 Login response body: ${response.body}'); // ✅ ADD THIS LINE
 
       if (response.statusCode == 200) {
-        final result = json.decode(response.body);
+        // ✅ ADD: Check if response body is empty
+        if (response.body.isEmpty) {
+          throw Exception('Server returned empty response');
+        }
+        
+        // ✅ ADD: Try-catch around JSON decode
+        late final Map<String, dynamic> result;
+        try {
+          result = json.decode(response.body);
+        } catch (jsonError) {
+          print('❌ JSON parsing error: $jsonError');
+          print('   Response body: "${response.body}"');
+          throw Exception('Invalid response from server: $jsonError');
+        }
         
         print('📦 Login response data:');
         print('   User: ${result['user']}');
