@@ -34,6 +34,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   Map<String, String> _userData = {};
   int _cartItemCount = 0;
   List<dynamic> _newProducts = [];
+  List<dynamic> _recentlyAddedProducts = [];
   bool _isLoadingNewProducts = false;
   String _searchQuery = '';
   bool _isSearching = false;
@@ -380,45 +381,53 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   }
 
   Future<void> _fetchNewProducts() async {
-    if (_isLoadingNewProducts) return;
-    
-    setState(() {
-      _isLoadingNewProducts = true;
-    });
+  if (_isLoadingNewProducts) return;
+  
+  setState(() {
+    _isLoadingNewProducts = true;
+  });
 
     try {
-      final response = await http.get(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 90));
+    final response = await http.get(
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
+      headers: {'Content-Type': 'application/json'},
+    ).timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
-        final List<dynamic> products = json.decode(response.body);
+      final List<dynamic> products = json.decode(response.body);
         
         final userCreatedProducts = products.where((product) {
-          final productId = int.tryParse(product['id']?.toString() ?? '0') ?? 0;
-          return productId >= 17;
-        }).toList();
+        final productId = int.tryParse(product['id']?.toString() ?? '0') ?? 0;
+        return productId >= 17;
+      }).toList();
         
         setState(() {
+        if (userCreatedProducts.length <= 5) {
           _newProducts = userCreatedProducts;
-        });
-      } else {
-        setState(() {
-          _newProducts = [];
-        });
-      }
-    } catch (error) {
-      print('Error fetching new products: $error');
+          _recentlyAddedProducts = [];
+        } else {
+          _newProducts = userCreatedProducts.take(5).toList();
+          _recentlyAddedProducts = userCreatedProducts.skip(5).toList();
+        }
+      });
+    } else {
       setState(() {
         _newProducts = [];
-      });
-    } finally {
-      setState(() {
-        _isLoadingNewProducts = false;
+        _recentlyAddedProducts = [];
       });
     }
+  } catch (error) {
+    print('Error fetching new products: $error');
+    setState(() {
+      _newProducts = [];
+      _recentlyAddedProducts = [];
+    });
+  } finally {
+    setState(() {
+      _isLoadingNewProducts = false;
+    });
   }
+}
 
   Future<void> _searchProducts(String query) async {
     if (query.isEmpty) {
@@ -1601,100 +1610,100 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   }
 
   Widget _buildNewProductsSection(double maxWidth) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF88844D),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.fiber_new,
-                color: Colors.white,
-                size: 20,
-              ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF88844D),
+              borderRadius: BorderRadius.circular(10),
             ),
+              child: const Icon(
+              Icons.fiber_new,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                'New Products',
-                style: TextStyle(
-                  fontSize: maxWidth > 600 ? 20 : 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
+            child: Text(
+              'New Products',
+              style: TextStyle(
+                fontSize: maxWidth > 600 ? 20 : 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
+          ),
             Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.refresh,
-                  color: Color(0xFF88844D),
-                ),
-                onPressed: _fetchNewProducts,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(10),
             ),
-          ],
-        ),
+             child: IconButton(
+              icon: const Icon(
+                Icons.refresh,
+                color: Color(0xFF88844D),
+              ),
+              onPressed: _fetchNewProducts,
+            ),
+          ),
+        ],
+      ),
         const SizedBox(height: 16),
-        _isLoadingNewProducts
-            ? Container(
-                height: 220,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFBEC092).withOpacity(0.3),
-                    width: 2,
-                  ),
+      _isLoadingNewProducts
+          ? Container(
+              height: 220,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFBEC092).withOpacity(0.3),
+                  width: 2,
                 ),
+              ),
                 child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        color: const Color(0xFF88844D),
-                        strokeWidth: 3,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Loading products...',
-                        style: TextStyle(
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : _newProducts.isEmpty
-                ? Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFBEC092).withOpacity(0.3),
-                        width: 2,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      color: const Color(0xFF88844D),
+                      strokeWidth: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading products...',
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                     ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.inventory_2_outlined,
-                            size: 48,
-                            color: const Color(0xFF88844D).withOpacity(0.5),
-                          ),
+                  ],
+                ),
+              ),
+            )
+            : _newProducts.isEmpty
+              ? Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFFBEC092).withOpacity(0.3),
+                      width: 2,
+                    ),
+                  ),
+                     child: Center(
+                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 48,
+                          color: const Color(0xFF88844D).withOpacity(0.5),
+                        ),
                           const SizedBox(height: 12),
                           Text(
                             'No products yet',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/services/material_service.dart';
@@ -7,7 +8,6 @@ import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:junk_and_gems/providers/theme_provider.dart';
-import 'package:junk_and_gems/utils/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'browse_materials_screen.dart';
 
@@ -32,7 +32,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
   final _customAreaController = TextEditingController();
   bool _isCustomArea = false;
 
-  // Maseru neighborhoods and landmarks
   final List<String> _areas = [
     'Thetsane',
     'Lithabaneng',
@@ -53,8 +52,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
   @override
   void initState() {
     super.initState();
-    
-    // Load initial values if provided
     if (widget.initialLocation != null) {
       _selectedArea = widget.initialLocation!['area'];
       _landmarkController.text = widget.initialLocation!['landmark'] ?? '';
@@ -123,7 +120,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
         ),
         const SizedBox(height: 12),
         
-        // Area/Neighborhood Dropdown
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -190,7 +186,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
           ),
         ),
         
-        // Custom Area Input (shows when "Custom Location..." is selected)
         if (_isCustomArea) ...[
           const SizedBox(height: 12),
           Container(
@@ -218,7 +213,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
         
         const SizedBox(height: 12),
         
-        // Landmark / Street
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -243,7 +237,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
         
         const SizedBox(height: 12),
         
-        // Extra Directions
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -270,7 +263,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
           ),
         ),
         
-        // Preview of formatted location
         if (_formatLocation().isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
@@ -323,7 +315,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   DateTime? _availableUntil;
   bool _isFragile = false;
   List<XFile> _images = [];
-  Map<String, String> _locationData = {}; // ✅ NEW: Location data storage
+  Map<String, String> _locationData = {};
   final Map<String, bool> _contactPreferences = {
     'In-app Chat': false,
     'Phone': false,
@@ -340,29 +332,19 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeAuth();
+    _initializeAuth().then((_) {
+      _debugPrintStoredData();
+    });
   }
 
-  // Initialize Auth Provider on Screen Load
+  // ✅ FIXED: Initialize Auth Provider
   Future<void> _initializeAuth() async {
     print('🔍 Initializing auth in CreateListingScreen...');
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
-    // Check if already initialized
-    if (authProvider.isInitialized) {
-      print('✅ Auth already initialized');
-      print('   User: ${authProvider.user?.name}');
-      print('   User ID: ${authProvider.user?.id}');
-      print('   Is Authenticated: ${authProvider.isAuthenticated}');
-      setState(() {
-        _isAuthInitialized = true;
-      });
-      return;
-    }
-    
-    // Initialize auth provider
-    print('⏳ Waiting for auth provider to initialize...');
+    // ✅ ALWAYS re-initialize to get latest user data
+    print('⏳ Re-initializing auth provider...');
     await authProvider.initialize();
     
     print('✅ Auth initialization complete');
@@ -376,19 +358,48 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       });
     }
     
-    // If still not authenticated after initialization, show warning
     if (!authProvider.isAuthenticated) {
       print('⚠️ User not authenticated after initialization');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Please log in to create a listing'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && !authProvider.isAuthenticated) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('⚠️ Please log in to create a listing'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        });
       }
+    } else {
+      print('✅ User authenticated successfully: ${authProvider.user?.name}');
     }
+  }
+
+  // ✅ NEW: Debug method
+  Future<void> _debugPrintStoredData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    print('');
+    print('=' * 80);
+    print('📋 STORED DATA CHECK IN CREATE LISTING SCREEN');
+    print('=' * 80);
+    print('SharedPreferences:');
+    print('  All Keys: ${prefs.getKeys()}');
+    print('  user_data: ${prefs.getString('user_data')}');
+    print('  userId: ${prefs.get('userId')}');
+    print('  userName: ${prefs.getString('userName')}');
+    print('');
+    print('AuthProvider:');
+    print('  Is Initialized: ${authProvider.isInitialized}');
+    print('  Is Authenticated: ${authProvider.isAuthenticated}');
+    print('  User: ${authProvider.user?.name}');
+    print('  User ID: ${authProvider.user?.id}');
+    print('=' * 80);
+    print('');
   }
 
   @override
@@ -402,6 +413,28 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    
+    // ✅ Show loading while auth initializes
+    if (!_isAuthInitialized) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: const Color(0xFF88844D)),
+              const SizedBox(height: 16),
+              Text(
+                'Loading...',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -489,7 +522,6 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           hintText: 'e.g., 5 items or 1kg'
         ),
         const SizedBox(height: 20),
-        // ✅ REPLACED: Old text field with StructuredLocationWidget
         StructuredLocationWidget(
           onLocationChanged: (locationData) {
             setState(() {
@@ -789,9 +821,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     );
   }
 
-  //Enhanced Submit with Better Auth Checking
+  // ✅ FIXED: Submit with proper user ID retrieval
   Future<void> _submitListing() async {
-    // Validate required fields including location
     if (_titleController.text.isEmpty || 
         _descriptionController.text.isEmpty || 
         _selectedCategory == null || 
@@ -802,97 +833,103 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
       return;
     }
 
-    //Get user ID directly from SharedPreferences FIRST
     final prefs = await SharedPreferences.getInstance();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
-    //ENHANCED DEBUG LOGGING
     print('=' * 80);
-    print('AUTH CHECK IN SUBMIT LISTING');
-    print('Is Authenticated: ${authProvider.isAuthenticated}');
-    print('Is Initialized: ${authProvider.isInitialized}');
-    print('User object: ${authProvider.user}');
-    print('User ID: ${authProvider.user?.id}');
-    print('User name: ${authProvider.user?.name}');
+    print('🔍 CRITICAL AUTH CHECK - GETTING USER ID');
     print('=' * 80);
     
-    // 🔥 IMPROVED: Try to restore session from SharedPreferences if not authenticated
-    if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
-      print('⚠️ User not authenticated, attempting to restore session...');
-      
+    int? uploaderId;
+    String? uploaderName;
+    String? uploaderEmail;
+    
+    // Method 1: Try user_data JSON
+    final userDataStr = prefs.getString('user_data');
+    if (userDataStr != null) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('token');
-        
-        // 🔥 FIX: Try both String and int for userId (depends on how it was stored)
-        int? userId;
-        if (prefs.containsKey('userId')) {
-          // Try to get as int first
-          userId = prefs.getInt('userId');
-          
-          // If null, maybe it's stored as String, try to parse it
-          if (userId == null) {
-            final userIdStr = prefs.getString('userId');
-            if (userIdStr != null) {
-              userId = int.tryParse(userIdStr);
-            }
-          }
-        }
-        
-        final userName = prefs.getString('userName');
-        final userEmail = prefs.getString('userEmail');
-        
-        print('📦 SharedPreferences check:');
-        print('   Token: ${token != null ? "EXISTS (${token.substring(0, 20)}...)" : "NULL"}');
-        print('   User ID: $userId (type: ${userId.runtimeType})');
-        print('   User Name: $userName');
-        print('   User Email: $userEmail');
-        
-        // Also print all keys to debug
-        print('   All SharedPreferences keys: ${prefs.getKeys()}');
-        
-        if (token != null && userId != null) {
-          print('✅ Found stored credentials, re-initializing auth...');
-          await authProvider.initialize();
-          
-          // Check again after initialization
-          if (authProvider.isAuthenticated && authProvider.user?.id != null) {
-            print('✅ Auth restored successfully!');
-            print('   User: ${authProvider.user?.name}');
-            print('   User ID: ${authProvider.user?.id}');
-          } else {
-            print('❌ Auth restoration failed after initialize()');
-            print('   Auth provider state:');
-            print('     isAuthenticated: ${authProvider.isAuthenticated}');
-            print('     user: ${authProvider.user}');
-            _showLoginError();
-            return;
-          }
-        } else {
-          print('❌ No stored credentials found');
-          print('   Token exists: ${token != null}');
-          print('   UserId exists: ${userId != null}');
-          _showLoginError();
-          return;
-        }
-      } catch (e, stackTrace) {
-        print('❌ Error restoring session: $e');
-        print('Stack trace: $stackTrace');
-        _showLoginError();
-        return;
+        final userData = json.decode(userDataStr);
+        uploaderId = userData['id'];
+        uploaderName = userData['name'];
+        uploaderEmail = userData['email'];
+        print('✅ Got user from user_data JSON:');
+        print('   ID: $uploaderId, Name: $uploaderName');
+      } catch (e) {
+        print('⚠️ Failed to parse user_data: $e');
       }
     }
     
-    final int? uploaderId = authProvider.user?.id;
-    
+    // Method 2: Try individual keys (fallback)
     if (uploaderId == null) {
-      print('❌ Uploader ID is still null after all checks');
-      _showLoginError();
+      final userIdValue = prefs.get('userId');
+      if (userIdValue is int) {
+        uploaderId = userIdValue;
+      } else if (userIdValue is String) {
+        uploaderId = int.tryParse(userIdValue);
+      }
+      uploaderName = prefs.getString('userName');
+      uploaderEmail = prefs.getString('userEmail');
+      
+      if (uploaderId != null) {
+        print('✅ Got user from individual keys:');
+        print('   ID: $uploaderId, Name: $uploaderName');
+      }
+    }
+    
+    // Method 3: Try AuthProvider (last resort)
+    if (uploaderId == null) {
+      uploaderId = authProvider.user?.id;
+      uploaderName = authProvider.user?.name;
+      uploaderEmail = authProvider.user?.email;
+      
+      if (uploaderId != null) {
+        print('✅ Got user from AuthProvider:');
+        print('   ID: $uploaderId, Name: $uploaderName');
+      }
+    }
+    
+    print('');
+    print('📦 Final User Data:');
+    print('   Uploader ID: $uploaderId (type: ${uploaderId.runtimeType})');
+    print('   Uploader Name: $uploaderName');
+    print('   Uploader Email: $uploaderEmail');
+    print('');
+    print('🔑 All SharedPreferences Keys: ${prefs.getKeys()}');
+    print('=' * 80);
+    
+    // Final validation
+    if (uploaderId == null) {
+      print('❌ CRITICAL: Could not get user ID from any source!');
+      print('   Checked user_data: ${prefs.getString('user_data')}');
+      print('   Checked userId: ${prefs.get('userId')}');
+      print('   Checked AuthProvider: ${authProvider.user?.id}');
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Authentication Error'),
+            content: Text(
+              'Could not find logged-in user data. Please log in again.\n\n'
+              'Debug Info:\n'
+              '- user_data exists: ${prefs.getString('user_data') != null}\n'
+              '- userId exists: ${prefs.get('userId') != null}\n'
+              '- AuthProvider user: ${authProvider.user?.name ?? 'null'}'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
       return;
     }
     
-    print('✅ Proceeding with uploader ID: $uploaderId (${authProvider.user!.name})');
-    print('=' * 60);
+    print('✅ Proceeding with uploader ID: $uploaderId ($uploaderName)');
+    print('=' * 80);
 
     setState(() {
       _isSubmitting = true;
@@ -901,13 +938,11 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
     try {
       print('Starting material creation process...');
 
-      // Ensure contact preferences are properly formatted
       Map<String, bool> formattedContactPrefs = {};
       _contactPreferences.forEach((key, value) {
         formattedContactPrefs[key] = value ?? false;
       });
 
-      //Prepare the material data with structured location
       final materialData = {
         'title': _titleController.text,
         'description': _descriptionController.text,
@@ -927,11 +962,9 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
       print('Material data prepared: $materialData');
 
-      // Create the material using the service
       bool success = await MaterialService.createMaterial(materialData, _images);
 
       if (success) {
-        // Show success dialog
         if (mounted) {
           showDialog(
             context: context,
@@ -961,8 +994,8 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(context); // Close dialog
-                    Navigator.pop(context, true); // Return to previous screen
+                    Navigator.pop(context);
+                    Navigator.pop(context, true);
                   },
                   child: Text(
                     'OK', 
@@ -991,27 +1024,6 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
           _isSubmitting = false;
         });
       }
-    }
-  }
-
-  // 🔥 NEW: Helper method to show login error
-  void _showLoginError() {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('❌ Please log in to create a listing'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'LOGIN',
-            textColor: Colors.white,
-            onPressed: () {
-              // TODO: Add navigation to login screen here
-              // Navigator.pushNamed(context, '/login');
-            },
-          ),
-        ),
-      );
     }
   }
 
