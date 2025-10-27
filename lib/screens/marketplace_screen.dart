@@ -926,6 +926,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
                                 _buildFeaturedProducts(maxWidth),
                                 const SizedBox(height: 32),
                                 _buildNewProductsSection(maxWidth),
+                                if (_recentlyAddedProducts.isNotEmpty) ...[  
+                                  const SizedBox(height: 32),                 
+                                  _buildRecentlyAddedSection(maxWidth),     
+                                ],                                            
                                 const SizedBox(height: 32),
                                 _buildCategories(maxWidth),
                                 const SizedBox(height: 32),
@@ -1914,7 +1918,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
-  Widget _buildRecentlyAddedSection(double maxWidth) {
+   Widget _buildRecentlyAddedSection(double maxWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
