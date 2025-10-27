@@ -62,14 +62,16 @@ class _LoginScreenState extends State<LoginScreen> {
           throw Exception('Invalid response from server: $jsonError');
         }
         
-        print('📦 Login response data:');
+        print(' Login response data:');
         print('   User: ${result['user']}');
         print('   Token exists: ${result['token'] != null}');
         
         final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', result['token']);
+        await prefs.setString('userId', result['user']['id'].toString());
         
-        // ✅ Clear ONLY auth-related keys (not everything!)
-        print('🗑️ Clearing old auth data...');
+        // Clear ONLY auth-related keys (not everything!)
+        print('Clearing old auth data...');
         await prefs.remove('auth_token');
         await prefs.remove('token');
         await prefs.remove('user_data');

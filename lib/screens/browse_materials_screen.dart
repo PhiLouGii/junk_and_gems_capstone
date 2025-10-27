@@ -64,17 +64,18 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
   Future<void> _loadCurrentUser() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      setState(() {
-        _currentUserId = prefs.getString('userId');
-        _token = prefs.getString('token');
-      });
-      print(' Current User ID loaded: $_currentUserId');
-    } catch (e) {
-      print(' Error loading current user: $e');
-    }
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentUserId = prefs.getString('userId');
+      _token = prefs.getString('token');
+    });
+    print('Current User ID loaded: $_currentUserId');
+    print('Token loaded: ${_token != null ? "YES (${_token!.length} chars)" : "NO"}'); // ✅ Add this
+  } catch (e) {
+    print('Error loading current user: $e');
   }
+}
 
   Future<void> _deleteMaterial(String materialId, String title) async {
   // Show confirmation dialog
@@ -744,6 +745,7 @@ Widget _buildHeader(BuildContext context) {
     print('User name: ${authProvider.user?.name}');
     print('Is authenticated: ${authProvider.isAuthenticated}');
     print('Is initialized: ${authProvider.isInitialized}');
+    print('Token exists: ${_token != null}');
     print('=' * 50);
 
     if (!authProvider.isAuthenticated || authProvider.user?.id == null) {
@@ -773,18 +775,19 @@ Widget _buildHeader(BuildContext context) {
       }
     }
 
-    print('User authenticated, proceeding with claim...');
-
     try {
-      print('Claiming material $materialId for user ${authProvider.user!.id}');
+    print('🔑 Token being sent: ${_token?.substring(0, 20)}...'); 
       
       final response = await http.put(
-        Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId/claim'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'claimed_by': authProvider.user!.id,
-        }),
-      );
+      Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId/claim'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_token', 
+      },
+      body: json.encode({
+        'claimed_by': authProvider.user!.id,
+      }),
+    );
 
       print('Claim response status: ${response.statusCode}');
       print('Claim response body: ${response.body}');
