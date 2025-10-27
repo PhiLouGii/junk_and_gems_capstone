@@ -1914,6 +1914,227 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
     );
   }
 
+  Widget _buildRecentlyAddedSection(double maxWidth) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFBEC092),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.history,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Recently Added',
+                style: TextStyle(
+                  fontSize: maxWidth > 600 ? 20 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: maxWidth > 600 ? 240 : 220,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recentlyAddedProducts.length,
+            itemBuilder: (context, index) {
+              final product = _recentlyAddedProducts[index];
+
+              String title = product['title'] ?? 'Untitled';
+              String artisan = product['creator_name'] ?? 'Unknown Artisan';
+              String price = 'M${product['price']?.toString() ?? '0'}';
+              String productId = product['id']?.toString() ?? '';
+              String artisanId = product['artisan_id']?.toString() ?? '';
+              String description = product['description'] ?? '';
+
+              String imageSource = 'assets/images/placeholder.jpg';
+
+              if (product['image_urls'] != null && 
+                  product['image_urls'] is List && 
+                  (product['image_urls'] as List).isNotEmpty) {
+                final imageUrl = product['image_urls'][0].toString();
+                if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                  imageSource = imageUrl;
+                }
+              }
+              
+              if (imageSource == 'assets/images/placeholder.jpg' && 
+                  product['image_data_base64'] != null && 
+                  product['image_data_base64'] is List && 
+                  (product['image_data_base64'] as List).isNotEmpty) {
+                final imageData = product['image_data_base64'][0].toString();
+                if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+                  imageSource = imageData;
+                } else if (imageData.startsWith('data:image')) {
+                  imageSource = imageData;
+                }
+              }
+              
+              if (imageSource == 'assets/images/placeholder.jpg' && 
+                  product['image_url'] != null && 
+                  product['image_url'].toString().isNotEmpty) {
+                final imageUrl = product['image_url'].toString();
+                if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                  imageSource = imageUrl;
+                }
+              }
+
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProductDetailScreen(
+                        product: {
+                          'title': title,
+                          'artisan': artisan,
+                          'price': price,
+                          'image': imageSource,
+                          'artisan_id': artisanId,
+                          'id': productId,
+                          'description': description,
+                        },
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: maxWidth > 600 ? 180 : 160,
+                  margin: EdgeInsets.only(
+                    right: index == _recentlyAddedProducts.length - 1 ? 0 : 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFFBEC092).withOpacity(0.3),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF88844D).withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: maxWidth > 600 ? 140 : 120,
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(14),
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(14),
+                          ),
+                          child: _buildImage(imageSource),
+                        ),
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'By $artisan',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    price,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF88844D),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      _addToCart({
+                                        'id': productId,
+                                        'title': title,
+                                        'price': price,
+                                        'image': imageSource,
+                                        'artisan': artisan,
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.shopping_bag_outlined,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategories(double maxWidth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
