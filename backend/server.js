@@ -1097,17 +1097,16 @@ app.get("/materials", async (req, res) => {
       ORDER BY m.created_at DESC
     `);
 
-    console.log(`✅ Found ${result.rows.length} materials`);
+    console.log(`Found ${result.rows.length} materials`);
 
     const materials = result.rows.map(row => {
-      // 🔍 ADD DEBUGGING
-      console.log(`📦 Material ${row.id}:`);
+      console.log(`Material ${row.id}:`);
       console.log(`   Uploader ID (from materials table): ${row.uploader_id} (type: ${typeof row.uploader_id})`);
       console.log(`   Uploader Name (from JOIN): ${row.uploader_name}`);
       
-      // ⚠️ LOG WARNING if name is NULL or "Unknown User"
+      // LOG WARNING if name is NULL or "Unknown User"
       if (!row.uploader_name || row.uploader_name === 'Unknown User') {
-        console.log(`   ⚠️ WARNING: Could not find user with ID ${row.uploader_id} in users table!`);
+        console.log(`WARNING: Could not find user with ID ${row.uploader_id} in users table!`);
       }
 
       const imageUrls = row.image_data_base64 || [];
@@ -1149,7 +1148,7 @@ app.get("/materials", async (req, res) => {
 
     res.json(materials);
   } catch (err) {
-    console.error("❌ Get materials error:", err);
+    console.error("Get materials error:", err);
     console.error("Stack trace:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
@@ -1719,12 +1718,12 @@ app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
 });
 
 // Donor rejects the claim
-app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
+app.put('/materials/:id/reject-claim', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { donor_id } = req.body;
+  const { donor_id, reason } = req.body;
 
   try {
-    console.log(`✅ Donor ${donor_id} confirming claim for material ${id}`);
+    console.log(`Donor ${donor_id} rejecting claim for material ${id}`);
 
     // Get material details
     const materialResult = await pool.query(
@@ -1741,60 +1740,45 @@ app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
 
     const material = materialResult.rows[0];
 
-    // Verify the person confirming is the donor
+    // Verify the person rejecting is the donor
     if (material.uploader_id !== parseInt(donor_id)) {
-      return res.status(403).json({ error: 'Only the donor can confirm the claim' });
+      return res.status(403).json({ error: 'Only the donor can reject the claim' });
     }
 
     // Check if there's a pending claim
     if (material.claim_status !== 'pending') {
-      return res.status(400).json({ error: 'No pending claim to confirm' });
+      return res.status(400).json({ error: 'No pending claim to reject' });
     }
 
-    // Update material to confirmed status
+    // Reset material to available
     await pool.query(
       `UPDATE materials 
-       SET claim_status = 'confirmed',
-           claim_confirmed_at = NOW(),
-           is_claimed = TRUE,
-           claimed_at = NOW()
+       SET claim_status = 'available',
+           claimed_by = NULL,
+           claim_requested_at = NULL,
+           claim_confirmed_at = NULL
        WHERE id = $1`,
       [id]
     );
 
-    console.log(`✅ Material ${id} claim CONFIRMED by donor`);
+    console.log(`Material ${id} claim REJECTED, back to available`);
 
-    // Award bonus gems to donor for confirming
-    try {
-      await pool.query(
-        "UPDATE users SET available_gems = available_gems + 3 WHERE id = $1",
-        [donor_id]
-      );
-      await pool.query(
-        "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
-        [donor_id, 3, `Earned for confirming donation: ${material.title}`]
-      );
-      console.log(`💎 Awarded 3 gems to donor ${donor_id}`);
-    } catch (gemErr) {
-      console.log('⚠️ Could not award gems:', gemErr.message);
-    }
-
-    // 📢 Notify claimer about confirmation
+    //Notify claimer about rejection
     try {
       await createNotifications(
         [material.claimed_by],
-        'claim_confirmed',
-        'Claim Confirmed! 🎉',
-        `Your claim for "${material.title}" has been confirmed! Arrange pickup/delivery details.`,
+        'claim_rejected',
+        'Claim Not Approved',
+        `Your claim for "${material.title}" was not approved. The material is available again for others.`,
         parseInt(donor_id),
-        14
+        7
       );
-      console.log(`📢 Notified claimer ${material.claimed_by} about confirmation`);
+      console.log(`Notified claimer ${material.claimed_by} about rejection`);
     } catch (notifErr) {
-      console.log('⚠️ Could not send confirmation notification:', notifErr.message);
+      console.log('Could not send rejection notification:', notifErr.message);
     }
 
-    // Send confirmation message in conversation
+    // Send rejection message in conversation
     if (material.conversation_id) {
       await pool.query(
         `INSERT INTO messages (conversation_id, sender_id, message_text, sent_at) 
@@ -1802,7 +1786,7 @@ app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
         [
           material.conversation_id,
           donor_id,
-          `✅ Great! I've confirmed your claim for "${material.title}". Let's arrange the pickup/delivery details.`
+          `Sorry, I've decided not to proceed with the claim for "${material.title}". ${reason || 'The material is available for others now.'}`
         ]
       );
     }
@@ -1811,24 +1795,55 @@ app.put('/materials/:id/confirm-claim', authenticateToken, async (req, res) => {
     if (material.claimer_email) {
       sendEmail({
         to: material.claimer_email,
-        subject: 'Claim Confirmed! 🎉',
-        text: `Great news! Your claim for "${material.title}" has been confirmed. Check your messages to arrange pickup/delivery.`,
-        html: getClaimConfirmedEmailHtml(material.claimer_name, material.title)
-      }).catch(err => console.error('Failed to send confirmation email:', err));
+        subject: 'Claim Not Approved',
+        text: `Unfortunately, your claim for "${material.title}" was not approved. The material is available again.`,
+        html: getClaimRejectedEmailHtml(material.claimer_name, material.title, reason)
+      }).catch(err => console.error('Failed to send rejection email:', err));
     }
 
     res.json({
       success: true,
-      message: 'Claim confirmed successfully',
-      status: 'confirmed'
+      message: 'Claim rejected successfully',
+      status: 'available'
     });
 
   } catch (error) {
-    console.error('❌ Error confirming claim:', error);
+    console.error('Error rejecting claim:', error);
     res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
+// Add email template for rejection
+function getClaimRejectedEmailHtml(claimerName, materialTitle, reason) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #FF6B6B, #FFA07A); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .info-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Claim Not Approved</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${claimerName},</p>
+          <p>Unfortunately, your claim for "${materialTitle}" was not approved by the donor.</p>
+          ${reason ? `<div class="info-box"><strong>Reason:</strong> ${reason}</div>` : ''}
+          <p><strong>Don't worry!</strong> There are many other materials available in the community. Keep browsing and you'll find something perfect for your project! 🎨</p>
+          <p>The material is now available again for others to claim.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
 // Get user's posted materials
 app.get("/users/:userId/materials", authenticateToken, async (req, res) => {
   const { userId } = req.params;

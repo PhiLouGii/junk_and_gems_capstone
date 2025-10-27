@@ -152,7 +152,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
   }
 
   try {
-    print('🗑️ Deleting material $materialId');
+    print('Deleting material $materialId');
     
     final response = await http.delete(
       Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId'),
@@ -175,7 +175,7 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ "$title" deleted successfully'),
+            content: Text('"$title" deleted successfully'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -199,6 +199,107 @@ class _BrowseMaterialsScreenState extends State<BrowseMaterialsScreen> {
         ),
       );
     }
+  }
+}
+
+Future<void> _confirmClaim(String materialId) async {
+  if (_currentUserId == null || _token == null) {
+    _showErrorSnackbar('Please log in');
+    return;
+  }
+
+  try {
+    print('Confirming claim for material $materialId');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: CircularProgressIndicator(color: const Color(0xFF88844D)),
+      ),
+    );
+
+    final response = await http.put(
+      Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId/confirm-claim'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+      body: json.encode({
+        'donor_id': _currentUserId,
+      }),
+    );
+
+    if (mounted) Navigator.pop(context); // Close loading
+
+    if (response.statusCode == 200) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Claim confirmed! Material will be removed shortly.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _loadMaterials(); // Reload to remove confirmed material
+      }
+    } else {
+      throw Exception('Failed to confirm claim: ${response.body}');
+    }
+  } catch (error) {
+    if (mounted) Navigator.pop(context); // Close loading if still open
+    print('Error confirming claim: $error');
+    _showErrorSnackbar('Failed to confirm claim');
+  }
+}
+
+Future<void> _rejectClaim(String materialId) async {
+  if (_currentUserId == null || _token == null) {
+    _showErrorSnackbar('Please log in');
+    return;
+  }
+
+  try {
+    print('Rejecting claim for material $materialId');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: CircularProgressIndicator(color: const Color(0xFF88844D)),
+      ),
+    );
+
+    final response = await http.put(
+      Uri.parse('https://junk-and-gems-api.onrender.com/materials/$materialId/reject-claim'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_token',
+      },
+      body: json.encode({
+        'donor_id': _currentUserId,
+        'reason': 'Changed my mind about this donation',
+      }),
+    );
+
+    if (mounted) Navigator.pop(context); // Close loading
+
+    if (response.statusCode == 200) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Material claim rejected. It\'s available again.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        await _loadMaterials(); 
+      }
+    } else {
+      throw Exception('Failed to reject claim: ${response.body}');
+    }
+  } catch (error) {
+    if (mounted) Navigator.pop(context);
+    print('Error rejecting claim: $error');
+    _showErrorSnackbar('Failed to reject claim');
   }
 }
 
@@ -1729,7 +1830,7 @@ Widget _buildHeader(BuildContext context) {
   }
 
   void _showMaterialDetails(BuildContext context, {required dynamic material}) {
-    // ✅ UPDATED: Comprehensive image handling for details modal
+    // Comprehensive image handling for details modal
     bool hasImages = false;
     String imageUrl = '';
 
@@ -1771,7 +1872,7 @@ Widget _buildHeader(BuildContext context) {
                                 'Unknown User';
     final bool isOwnMaterial = uploaderId.isNotEmpty && _currentUserId == uploaderId;
 
-    print('📝 Material Details Debug:');
+    print(' Material Details Debug:');
     print('   Material ID: ${material['id']}');
     print('   Uploader ID from data: $uploaderId');
     print('   Current User ID: $_currentUserId');
@@ -2015,6 +2116,92 @@ Widget _buildHeader(BuildContext context) {
                     ),
                     
                      const SizedBox(height: 24),
+
+                     if (isOwnMaterial && material['claim_status'] == 'pending') ...[
+  const SizedBox(height: 24),
+  Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Colors.orange.withOpacity(0.1),
+          Colors.orange.withOpacity(0.05),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.orange),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.pending_actions, color: Colors.orange, size: 24),
+            const SizedBox(width: 12),
+            Text(
+              'Pending Claim Request',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '${material['claimer_name'] ?? 'Someone'} wants to claim this material.',
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _confirmClaim(material['id'].toString());
+                },
+                icon: const Icon(Icons.check_circle, size: 20),
+                label: const Text('Confirm'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _rejectClaim(material['id'].toString());
+                },
+                icon: const Icon(Icons.cancel, size: 20),
+                label: const Text('Reject'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red, width: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ),
+],
                     
                     // Action Buttons
                     if (isOwnMaterial) ...[
