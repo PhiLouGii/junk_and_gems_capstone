@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:junk_and_gems/services/product_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:junk_and_gems/widgets/map_location_picker.dart';
 
 class StructuredLocationWidget extends StatefulWidget {
   final Function(Map<String, String>) onLocationChanged;
@@ -28,8 +30,13 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
   final _directionsController = TextEditingController();
   final _customAreaController = TextEditingController();
   bool _isCustomArea = false;
+  
+  // Map location data
+  double? _latitude;
+  double? _longitude;
+  String? _mapAddress;
+  bool _isUsingMapLocation = false;
 
-  // Maseru neighborhoods and landmarks
   final List<String> _areas = [
     'Thetsane',
     'Lithabaneng',
@@ -50,12 +57,18 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
   @override
   void initState() {
     super.initState();
-    
-    // Load initial values if provided
     if (widget.initialLocation != null) {
       _selectedArea = widget.initialLocation!['area'];
       _landmarkController.text = widget.initialLocation!['landmark'] ?? '';
       _directionsController.text = widget.initialLocation!['directions'] ?? '';
+      
+      // Load map coordinates if available
+      if (widget.initialLocation!['latitude'] != null) {
+        _latitude = double.tryParse(widget.initialLocation!['latitude'] ?? '');
+        _longitude = double.tryParse(widget.initialLocation!['longitude'] ?? '');
+        _mapAddress = widget.initialLocation!['map_address'];
+        _isUsingMapLocation = _latitude != null && _longitude != null;
+      }
       
       if (_selectedArea != null && !_areas.contains(_selectedArea)) {
         _isCustomArea = true;
@@ -81,12 +94,21 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
       'landmark': _landmarkController.text,
       'directions': _directionsController.text,
       'formatted': _formatLocation(),
+      // Include map coordinates if available
+      'latitude': _latitude?.toString() ?? '',
+      'longitude': _longitude?.toString() ?? '',
+      'map_address': _mapAddress ?? '',
+      'is_map_location': _isUsingMapLocation.toString(),
     };
     
     widget.onLocationChanged(locationData);
   }
 
   String _formatLocation() {
+    if (_isUsingMapLocation && _mapAddress != null) {
+      return _mapAddress!;
+    }
+    
     List<String> parts = [];
     
     final area = _isCustomArea ? _customAreaController.text : _selectedArea;
@@ -105,22 +127,146 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
     return parts.join(' • ');
   }
 
+  Future<void> _openMapPicker() async {
+    LatLng? initialLocation;
+    if (_latitude != null && _longitude != null) {
+      initialLocation = LatLng(_latitude!, _longitude!);
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapLocationPicker(
+          onLocationSelected: (locationData) {
+            setState(() {
+              _latitude = locationData['latitude'];
+              _longitude = locationData['longitude'];
+              _mapAddress = locationData['address'];
+              _isUsingMapLocation = true;
+              
+              // Auto-fill area if nearest area was found
+              if (locationData['nearest_area'] != null) {
+                final nearestArea = locationData['nearest_area'] as String;
+                if (_areas.contains(nearestArea)) {
+                  _selectedArea = nearestArea;
+                  _isCustomArea = false;
+                }
+              }
+            });
+            _notifyLocationChange();
+          },
+          initialLocation: initialLocation,
+        ),
+      ),
+    );
+  }
+
+  void _clearMapLocation() {
+    setState(() {
+      _latitude = null;
+      _longitude = null;
+      _mapAddress = null;
+      _isUsingMapLocation = false;
+    });
+    _notifyLocationChange();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Location *',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Location *',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _openMapPicker,
+              icon: const Icon(Icons.map, size: 18, color: Color(0xFF88844D)),
+              label: const Text(
+                'Pick on Map',
+                style: TextStyle(color: Color(0xFF88844D)),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         
-        // Area/Neighborhood Dropdown
+        // Show map location if selected
+        if (_isUsingMapLocation && _mapAddress != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF88844D).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF88844D), width: 2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, color: Color(0xFF88844D), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Map Location Selected',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: _clearMapLocation,
+                      tooltip: 'Clear map location',
+                      color: Colors.red,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _mapAddress!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Coordinates: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              '- OR -',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        
+        // Structured form fields
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -180,6 +326,10 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
                   if (!_isCustomArea) {
                     _customAreaController.clear();
                   }
+                  // Clear map location when using form
+                  if (!_isCustomArea) {
+                    _isUsingMapLocation = false;
+                  }
                 });
                 _notifyLocationChange();
               },
@@ -187,7 +337,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
           ),
         ),
         
-        // Custom Area Input (shows when "Custom Location..." is selected)
         if (_isCustomArea) ...[
           const SizedBox(height: 12),
           Container(
@@ -215,7 +364,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
         
         const SizedBox(height: 12),
         
-        // Landmark / Street
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -240,7 +388,6 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
         
         const SizedBox(height: 12),
         
-        // Extra Directions
         Container(
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -267,8 +414,7 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
           ),
         ),
         
-        // Preview of formatted location
-        if (_formatLocation().isNotEmpty) ...[
+        if (_formatLocation().isNotEmpty && !_isUsingMapLocation) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),

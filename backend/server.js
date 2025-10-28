@@ -1104,7 +1104,6 @@ app.get("/materials", async (req, res) => {
       console.log(`   Uploader ID (from materials table): ${row.uploader_id} (type: ${typeof row.uploader_id})`);
       console.log(`   Uploader Name (from JOIN): ${row.uploader_name}`);
       
-      // LOG WARNING if name is NULL or "Unknown User"
       if (!row.uploader_name || row.uploader_name === 'Unknown User') {
         console.log(`WARNING: Could not find user with ID ${row.uploader_id} in users table!`);
       }
@@ -1121,13 +1120,18 @@ app.get("/materials", async (req, res) => {
         location_area: row.location_area,
         location_landmark: row.location_landmark,
         location_directions: row.location_directions,
+        // Include map location fields
+        latitude: row.latitude,
+        longitude: row.longitude,
+        map_address: row.map_address,
+        is_map_location: row.is_map_location || false,
         delivery_option: row.delivery_option,
         available_from: row.available_from,
         available_until: row.available_until,
         is_fragile: row.is_fragile,
         contact_preferences: row.contact_preferences,
         image_urls: imageUrls,
-        uploader: row.uploader_name || 'Unknown User',  // ✅ Use actual name from JOIN
+        uploader: row.uploader_name || 'Unknown User',
         uploader_name: row.uploader_name || 'Unknown User',  
         uploader_id: row.uploader_id,
         uploader_email: row.uploader_email,
@@ -1151,6 +1155,230 @@ app.get("/materials", async (req, res) => {
     console.error("Get materials error:", err);
     console.error("Stack trace:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// ============================================
+// PUT /materials/:id - Update material with map location support
+// ============================================
+app.put("/materials/:id", async (req, res) => {
+  console.log('Received material update request for ID:', req.params.id);
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
+  const { id } = req.params;
+  const { 
+    title, description, category, quantity, 
+    location, location_area, location_landmark, location_directions,
+    // ✅ NEW: Map location fields
+    latitude, longitude, map_address, is_map_location,
+    delivery_option, 
+    available_from, available_until, is_fragile, contact_preferences,
+    image_urls
+  } = req.body;
+ 
+  try {
+    // Check if material exists
+    const checkMaterial = await pool.query(
+      'SELECT * FROM materials WHERE id = $1',
+      [id]
+    );
+
+    if (checkMaterial.rows.length === 0) {
+      return res.status(404).json({ error: "Material not found" });
+    }
+
+    // Process images
+    let imageUrls = checkMaterial.rows[0].image_data_base64 || [];
+    if (image_urls && Array.isArray(image_urls)) {
+      imageUrls = image_urls;
+    }
+
+    // Process contact preferences
+    let contactPrefs = checkMaterial.rows[0].contact_preferences || {};
+    if (contact_preferences) {
+      if (typeof contact_preferences === 'string') {
+        try {
+          contactPrefs = JSON.parse(contact_preferences);
+        } catch (e) {
+          contactPrefs = {};
+        }
+      } else if (typeof contact_preferences === 'object') {
+        contactPrefs = contact_preferences;
+      }
+    }
+
+    console.log('Updating material in database...');
+
+    // ✅ UPDATED: Update with map location fields
+    const result = await pool.query(
+      `UPDATE materials 
+       SET title = $1, description = $2, category = $3, quantity = $4,
+           location = $5, location_area = $6, location_landmark = $7, location_directions = $8,
+           latitude = $9, longitude = $10, map_address = $11, is_map_location = $12,
+           delivery_option = $13,
+           available_from = $14, available_until = $15, is_fragile = $16,
+           contact_preferences = $17, image_data_base64 = $18,
+           updated_at = NOW()
+       WHERE id = $19
+       RETURNING *`,
+      [
+        title || checkMaterial.rows[0].title,
+        description || checkMaterial.rows[0].description,
+        category || checkMaterial.rows[0].category,
+        quantity || checkMaterial.rows[0].quantity,
+        location || map_address || checkMaterial.rows[0].location,
+        location_area || checkMaterial.rows[0].location_area,
+        location_landmark || checkMaterial.rows[0].location_landmark,
+        location_directions || checkMaterial.rows[0].location_directions,
+        // ✅ NEW: Map location fields
+        latitude ? parseFloat(latitude) : checkMaterial.rows[0].latitude,
+        longitude ? parseFloat(longitude) : checkMaterial.rows[0].longitude,
+        map_address || checkMaterial.rows[0].map_address,
+        is_map_location !== undefined ? (is_map_location === 'true' || is_map_location === true) : checkMaterial.rows[0].is_map_location,
+        delivery_option || checkMaterial.rows[0].delivery_option,
+        available_from || checkMaterial.rows[0].available_from,
+        available_until || checkMaterial.rows[0].available_until,
+        is_fragile !== undefined ? is_fragile : checkMaterial.rows[0].is_fragile,
+        contactPrefs,
+        imageUrls,
+        id
+      ]
+    );
+
+    const updatedMaterial = result.rows[0];
+    console.log(`Material updated with ID: ${updatedMaterial.id}`);
+
+    // Get uploader info
+    const uploaderInfo = await pool.query(
+      'SELECT name, email, profile_image_url FROM users WHERE id = $1',
+      [updatedMaterial.uploader_id]
+    );
+
+    const uploader = uploaderInfo.rows[0] || { name: 'Unknown User' };
+
+    // ✅ UPDATED: Return with map location data
+    const formattedMaterial = {
+      id: updatedMaterial.id,
+      title: updatedMaterial.title,
+      description: updatedMaterial.description,
+      category: updatedMaterial.category,
+      quantity: updatedMaterial.quantity,
+      location: updatedMaterial.location,
+      location_area: updatedMaterial.location_area,
+      location_landmark: updatedMaterial.location_landmark,
+      location_directions: updatedMaterial.location_directions,
+      // ✅ NEW: Include map location fields
+      latitude: updatedMaterial.latitude,
+      longitude: updatedMaterial.longitude,
+      map_address: updatedMaterial.map_address,
+      is_map_location: updatedMaterial.is_map_location,
+      delivery_option: updatedMaterial.delivery_option,
+      available_from: updatedMaterial.available_from,
+      available_until: updatedMaterial.available_until,
+      is_fragile: updatedMaterial.is_fragile,
+      contact_preferences: updatedMaterial.contact_preferences,
+      image_urls: updatedMaterial.image_data_base64 || [],
+      uploader_id: updatedMaterial.uploader_id,
+      uploader: uploader.name,
+      uploader_name: uploader.name,
+      uploader_email: uploader.email,
+      uploader_avatar: uploader.profile_image_url,
+      amount: updatedMaterial.quantity,
+      time: formatTimeAgo(updatedMaterial.updated_at || updatedMaterial.created_at),
+      created_at: updatedMaterial.created_at,
+      updated_at: updatedMaterial.updated_at,
+      claim_status: updatedMaterial.claim_status,
+      is_claimed: updatedMaterial.claim_status === 'confirmed',
+      claimed_by: updatedMaterial.claimed_by,
+      claimed_at: updatedMaterial.claim_confirmed_at
+    };
+
+    console.log('Sending update response');
+    res.json(formattedMaterial);
+  } catch (err) {
+    console.error("Update material error:", err);
+    console.error("Stack trace:", err.stack);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+app.get("/materials/nearby", async (req, res) => {
+  try {
+    const { lat, lng, radius = 5000 } = req.query; // radius in meters (default 5km)
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+
+    console.log(`Finding materials near: ${userLat}, ${userLng} within ${radius}m`);
+
+    // Using Haversine formula to calculate distance
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        COALESCE(u.name, 'Unknown User') as uploader_name,
+        u.email as uploader_email,
+        u.profile_image_url as uploader_avatar,
+        (
+          6371000 * acos(
+            cos(radians($1)) * cos(radians(m.latitude)) *
+            cos(radians(m.longitude) - radians($2)) +
+            sin(radians($1)) * sin(radians(m.latitude))
+          )
+        ) AS distance
+      FROM materials m
+      LEFT JOIN users u ON m.uploader_id = u.id
+      WHERE m.latitude IS NOT NULL 
+        AND m.longitude IS NOT NULL
+        AND m.claim_status IN ('available', 'pending')
+      HAVING distance <= $3
+      ORDER BY distance
+    `, [userLat, userLng, parseFloat(radius)]);
+
+    console.log(`Found ${result.rows.length} nearby materials`);
+
+    const materials = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      quantity: row.quantity,
+      location: row.location,
+      location_area: row.location_area,
+      location_landmark: row.location_landmark,
+      location_directions: row.location_directions,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      map_address: row.map_address,
+      is_map_location: row.is_map_location,
+      distance: Math.round(row.distance), // in meters
+      delivery_option: row.delivery_option,
+      available_from: row.available_from,
+      available_until: row.available_until,
+      is_fragile: row.is_fragile,
+      contact_preferences: row.contact_preferences,
+      image_urls: row.image_data_base64 || [],
+      uploader: row.uploader_name || 'Unknown User',
+      uploader_name: row.uploader_name || 'Unknown User',
+      uploader_id: row.uploader_id,
+      uploader_email: row.uploader_email,
+      uploader_avatar: row.uploader_avatar,
+      created_at: row.created_at,
+      time: formatTimeAgo(row.created_at),
+      claim_status: row.claim_status || 'available'
+    }));
+
+    res.json({
+      count: materials.length,
+      materials: materials
+    });
+
+  } catch (err) {
+    console.error('Error fetching nearby materials:', err);
+    res.status(500).json({ error: 'Failed to fetch nearby materials' });
   }
 });
 
@@ -1222,7 +1450,11 @@ app.post("/materials", async (req, res) => {
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   
   const { 
-    title, description, category, quantity, location, location_area, location_landmark, location_directions, delivery_option, 
+    title, description, category, quantity, 
+    location, location_area, location_landmark, location_directions, 
+    // Map location fields
+    latitude, longitude, map_address, is_map_location,
+    delivery_option, 
     available_from, available_until, is_fragile, contact_preferences,
     image_urls, uploader_id 
   } = req.body;
@@ -1234,9 +1466,24 @@ app.post("/materials", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    console.log(`Validated input - Uploader ID: ${uploader_id}`);
+    //Validate location - either structured OR map coordinates
+    const hasStructuredLocation = location_area && location_area.trim() !== '';
+    const hasMapLocation = latitude && longitude;
+    
+    if (!hasStructuredLocation && !hasMapLocation) {
+      console.log('Missing location data');
+      return res.status(400).json({ 
+        error: "Please provide either a structured location or map coordinates" 
+      });
+    }
 
-    // IMPORTANT: Verify the user exists and get their actual name
+    console.log(`Validated input - Uploader ID: ${uploader_id}`);
+    console.log(`Location type: ${hasMapLocation ? 'Map coordinates' : 'Structured form'}`);
+    if (hasMapLocation) {
+      console.log(`Coordinates: ${latitude}, ${longitude}`);
+    }
+
+    // Verify the user exists and get their actual name
     const userCheck = await pool.query(
       'SELECT id, name, email, profile_image_url FROM users WHERE id = $1',
       [uploader_id]
@@ -1248,7 +1495,7 @@ app.post("/materials", async (req, res) => {
     }
 
     const uploaderInfo = userCheck.rows[0];
-    console.log(`✅ User verified: ${uploaderInfo.name} (${uploaderInfo.email})`);
+    console.log(`User verified: ${uploaderInfo.name} (${uploaderInfo.email})`);
 
     // Process images
     let imageUrls = [];
@@ -1272,56 +1519,63 @@ app.post("/materials", async (req, res) => {
 
     console.log('Inserting material into database...');
 
-    // Insert the material
-const result = await pool.query(
-  `INSERT INTO materials 
-   (title, description, category, quantity, location, location_area, location_landmark, location_directions, 
-    delivery_option, 
-    available_from, available_until, is_fragile, contact_preferences, 
-    image_data_base64, uploader_id) 
-   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
-   RETURNING *`,
-  [
-    title, 
-    description, 
-    category, 
-    quantity || 'Not specified', 
-    location, 
-    location_area,
-    location_landmark, 
-    location_directions, 
-    delivery_option || 'Needs Pickup', 
-    available_from || new Date().toISOString(),
-    available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    is_fragile || false, 
-    contactPrefs, 
-    imageUrls, 
-    uploader_id
-  ]
-);
+    //Insert with map location fields
+    const result = await pool.query(
+      `INSERT INTO materials 
+       (title, description, category, quantity, 
+        location, location_area, location_landmark, location_directions, 
+        latitude, longitude, map_address, is_map_location,
+        delivery_option, 
+        available_from, available_until, is_fragile, contact_preferences, 
+        image_data_base64, uploader_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) 
+       RETURNING *`,
+      [
+        title, 
+        description, 
+        category, 
+        quantity || 'Not specified', 
+        location || map_address || '', 
+        location_area || '',
+        location_landmark || '', 
+        location_directions || '', 
+        //Map location fields
+        latitude ? parseFloat(latitude) : null,
+        longitude ? parseFloat(longitude) : null,
+        map_address || null,
+        is_map_location === 'true' || is_map_location === true,
+        delivery_option || 'Needs Pickup', 
+        available_from || new Date().toISOString(),
+        available_until || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        is_fragile || false, 
+        contactPrefs, 
+        imageUrls, 
+        uploader_id
+      ]
+    );
 
     const insertedMaterial = result.rows[0];
     console.log(`Material inserted with ID: ${insertedMaterial.id}`);
 
-    // 📢 Notify all users about new material
-try {
-  const allUsers = await getAllActiveUsersExcept(uploader_id);
-  
-  if (allUsers.length > 0) {
-    const uploaderName = uploaderInfo.name || 'Someone';
-    await createNotifications(
-      allUsers,
-      'new_material',
-      'New Material Available! ♻️',
-      `${uploaderName} just donated ${title}. Check it out and claim it if you need it!`,
-      uploader_id,
-      7
-    );
-    console.log(`📢 Notified ${allUsers.length} users about new material`);
-  }
-} catch (notifErr) {
-  console.log('⚠️ Could not send material notifications:', notifErr.message);
-}
+    // Notify all users about new material
+    try {
+      const allUsers = await getAllActiveUsersExcept(uploader_id);
+      
+      if (allUsers.length > 0) {
+        const uploaderName = uploaderInfo.name || 'Someone';
+        await createNotifications(
+          allUsers,
+          'new_material',
+          'New Material Available! ♻️',
+          `${uploaderName} just donated ${title}. Check it out and claim it if you need it!`,
+          uploader_id,
+          7
+        );
+        console.log(`Notified ${allUsers.length} users about new material`);
+      }
+    } catch (notifErr) {
+      console.log('Could not send material notifications:', notifErr.message);
+    }
 
     // Award gems to uploader
     try {
@@ -1333,9 +1587,9 @@ try {
         "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'earn', $3)",
         [uploader_id, 5, `Earned for donating material: ${title}`]
       );
-      console.log(`💎 Awarded 5 gems to user ${uploader_id}`);
+      console.log(`Awarded 5 gems to user ${uploader_id}`);
     } catch (gemErr) {
-      console.log('⚠️ Could not award gems:', gemErr.message);
+      console.log('Could not award gems:', gemErr.message);
     }
 
     // Send confirmation email (background - don't wait)
@@ -1346,7 +1600,7 @@ try {
       html: getDonationConfirmationEmailHtml(uploaderInfo.name, title, 5)
     }).catch(err => console.error('Failed to send donation confirmation email:', err));
 
-    // CRITICAL FIX: Return the material with the ACTUAL user data from the database
+    // Return the material with map location data
     const formattedMaterial = {
       id: insertedMaterial.id,
       title: insertedMaterial.title,
@@ -1354,6 +1608,14 @@ try {
       category: insertedMaterial.category,
       quantity: insertedMaterial.quantity,
       location: insertedMaterial.location,
+      location_area: insertedMaterial.location_area,
+      location_landmark: insertedMaterial.location_landmark,
+      location_directions: insertedMaterial.location_directions,
+      // Include map location fields
+      latitude: insertedMaterial.latitude,
+      longitude: insertedMaterial.longitude,
+      map_address: insertedMaterial.map_address,
+      is_map_location: insertedMaterial.is_map_location,
       delivery_option: insertedMaterial.delivery_option,
       available_from: insertedMaterial.available_from,
       available_until: insertedMaterial.available_until,
@@ -1361,8 +1623,8 @@ try {
       contact_preferences: insertedMaterial.contact_preferences,
       image_urls: insertedMaterial.image_data_base64 || [],
       uploader_id: uploader_id,
-      uploader: uploaderInfo.name, // ✅ Use ACTUAL user name from database query
-      uploader_name: uploaderInfo.name, // ✅ Also include as uploader_name
+      uploader: uploaderInfo.name,
+      uploader_name: uploaderInfo.name,
       uploader_email: uploaderInfo.email,
       uploader_avatar: uploaderInfo.profile_image_url,
       amount: insertedMaterial.quantity,
@@ -2697,6 +2959,7 @@ app.get("/api/products", async (req, res) => {
       console.log('   ID:', firstProduct.id);
       console.log('   Title:', firstProduct.title);
       console.log('   Has image_data_base64:', firstProduct.image_data_base64 ? 'Yes' : 'No');
+      console.log('   Has map location:', firstProduct.latitude && firstProduct.longitude ? 'Yes' : 'No');
       
       if (firstProduct.image_data_base64) {
         console.log('   image_data_base64 type:', typeof firstProduct.image_data_base64);
@@ -2713,12 +2976,40 @@ app.get("/api/products", async (req, res) => {
       }
     }
     
-    res.json(result.rows);
+    // Map products to include map location fields
+    const products = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      price: row.price,
+      category: row.category,
+      condition: row.condition,
+      materials_used: row.materials_used,
+      dimensions: row.dimensions,
+      location: row.location,
+      location_area: row.location_area,
+      location_landmark: row.location_landmark,
+      location_directions: row.location_directions,
+      // Include map location fields
+      latitude: row.latitude,
+      longitude: row.longitude,
+      map_address: row.map_address,
+      is_map_location: row.is_map_location || false,
+      artisan_id: row.artisan_id,
+      creator_name: row.creator_name,
+      creator_avatar: row.creator_avatar,
+      image_urls: row.image_data_base64,
+      image_data_base64: row.image_data_base64,
+      created_at: row.created_at
+    }));
+    
+    res.json(products);
   } catch (err) {
     console.error("Get products error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 app.post("/api/fix-products-image-column", async (req, res) => {
   try {
@@ -3108,8 +3399,11 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
   
   const { 
     title, description, price, category, condition, 
-    materials_used, dimensions, location, location_area, 
-    location_landmark, location_directions, artisan_id, creator_name 
+    materials_used, dimensions, 
+    location, location_area, location_landmark, location_directions,
+    // Map location fields
+    latitude, longitude, map_address, is_map_location,
+    artisan_id, creator_name 
   } = req.body;
 
   try {
@@ -3119,7 +3413,22 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    // Validate location - either structured OR map coordinates
+    const hasStructuredLocation = location_area && location_area.trim() !== '';
+    const hasMapLocation = latitude && longitude;
+    
+    if (!hasStructuredLocation && !hasMapLocation) {
+      console.log('Missing location data');
+      return res.status(400).json({ 
+        error: "Please provide either a structured location or map coordinates" 
+      });
+    }
+
     console.log(`Validated input - Artisan ID: ${artisan_id}`);
+    console.log(`Location type: ${hasMapLocation ? 'Map coordinates' : 'Structured form'}`);
+    if (hasMapLocation) {
+      console.log(`Coordinates: ${latitude}, ${longitude}`);
+    }
 
     // Verify the user exists
     const userResult = await pool.query(
@@ -3128,65 +3437,61 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
     );
 
     if (userResult.rows.length === 0) {
-      console.log(`❌ User with ID ${artisan_id} not found`);
+      console.log(`User with ID ${artisan_id} not found`);
       return res.status(400).json({ error: "Invalid artisan_id - user not found" });
     }
 
     const actualCreatorName = userResult.rows[0].name;
-    console.log(`✅ User verified: ${actualCreatorName}`);
+    console.log(`User verified: ${actualCreatorName}`);
 
     // Process image URLs from request body
     let imageUrls = [];
     
-    // CRITICAL: Parse image_urls from the request body
     if (req.body.image_urls) {
       try {
-        // If it's a string, parse it as JSON
         if (typeof req.body.image_urls === 'string') {
           imageUrls = JSON.parse(req.body.image_urls);
         } 
-        // If it's already an array, use it directly
         else if (Array.isArray(req.body.image_urls)) {
           imageUrls = req.body.image_urls;
         }
         
-        console.log(`📸 Received ${imageUrls.length} Cloudinary image URLs`);
+        console.log(`Received ${imageUrls.length} Cloudinary image URLs`);
         
-        // Log each URL to verify they're valid
         imageUrls.forEach((url, index) => {
           console.log(`   ${index + 1}. ${url}`);
           
-          // Validate URL format
           if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            console.log(`⚠️ Warning: URL ${index + 1} doesn't start with http/https`);
+            console.log(`Warning: URL ${index + 1} doesn't start with http/https`);
           }
         });
         
       } catch (parseErr) {
-        console.log('❌ Error parsing image_urls:', parseErr);
+        console.log('Error parsing image_urls:', parseErr);
         imageUrls = [];
       }
     } else {
-      console.log('⚠️ No image_urls provided in request');
+      console.log('No image_urls provided in request');
     }
 
     // Ensure we have at least one image
     if (imageUrls.length === 0) {
-      console.log('❌ No valid image URLs found');
+      console.log('No valid image URLs found');
       return res.status(400).json({ 
         error: "At least one product image is required" 
       });
     }
 
-    console.log('💾 Inserting product into database...');
+    console.log('Inserting product into database...');
 
-    // Correct number of placeholders (13 values = $1 to $13)
+    // Insert with map location fields (17 values total)
     const result = await pool.query(
       `INSERT INTO products 
        (title, description, price, category, condition, materials_used, 
-        dimensions, location, location_area, location_landmark, location_directions, 
+        dimensions, location, location_area, location_landmark, location_directions,
+        latitude, longitude, map_address, is_map_location,
         artisan_id, image_data_base64, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW()) 
        RETURNING *`,
       [
         title, 
@@ -3196,40 +3501,45 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
         condition || null, 
         materials_used || null, 
         dimensions || null, 
-        location || null, 
+        location || map_address || null, 
         location_area || null, 
         location_landmark || null, 
-        location_directions || null, 
+        location_directions || null,
+        // Map location fields
+        latitude ? parseFloat(latitude) : null,
+        longitude ? parseFloat(longitude) : null,
+        map_address || null,
+        is_map_location === 'true' || is_map_location === true,
         parseInt(artisan_id),
-        imageUrls  // Store Cloudinary URLs as array
+        imageUrls
       ]
     );
 
     const insertedProduct = result.rows[0];
     console.log(`Product inserted with ID: ${insertedProduct.id}`);
-    console.log(` Stored ${imageUrls.length} image URLs in database`);
+    console.log(`Stored ${imageUrls.length} image URLs in database`);
 
-    // 📢 Notify all users about new product
-try {
-  const allUsers = await getAllActiveUsersExcept(parseInt(artisan_id));
-  
-  if (allUsers.length > 0) {
-    const creatorName = actualCreatorName || 'An artisan';
-    await createNotifications(
-      allUsers,
-      'new_product',
-      'New Upcycled Product! 🎨',
-      `${creatorName} just listed "${title}" for M${parseFloat(price).toFixed(2)}. Check it out!`,
-      parseInt(artisan_id),
-      7
-    );
-    console.log(`📢 Notified ${allUsers.length} users about new product`);
-  }
-} catch (notifErr) {
-  console.log('⚠️ Could not send product notifications:', notifErr.message);
-}
+    // Notify all users about new product
+    try {
+      const allUsers = await getAllActiveUsersExcept(parseInt(artisan_id));
+      
+      if (allUsers.length > 0) {
+        const creatorName = actualCreatorName || 'An artisan';
+        await createNotifications(
+          allUsers,
+          'new_product',
+          'New Upcycled Product! 🎨',
+          `${creatorName} just listed "${title}" for M${parseFloat(price).toFixed(2)}. Check it out!`,
+          parseInt(artisan_id),
+          7
+        );
+        console.log(`Notified ${allUsers.length} users about new product`);
+      }
+    } catch (notifErr) {
+      console.log('Could not send product notifications:', notifErr.message);
+    }
 
-    // Format response
+    // Format response with map location data
     const responseProduct = {
       id: insertedProduct.id,
       title: insertedProduct.title,
@@ -3243,20 +3553,25 @@ try {
       location_area: insertedProduct.location_area,
       location_landmark: insertedProduct.location_landmark,
       location_directions: insertedProduct.location_directions,
+      // Include map location fields
+      latitude: insertedProduct.latitude,
+      longitude: insertedProduct.longitude,
+      map_address: insertedProduct.map_address,
+      is_map_location: insertedProduct.is_map_location,
       artisan_id: insertedProduct.artisan_id,
       creator_name: actualCreatorName,
-      image_urls: insertedProduct.image_data_base64,  // Return the stored URLs
-      image_data_base64: insertedProduct.image_data_base64,  // Also include for compatibility
+      image_urls: insertedProduct.image_data_base64,
+      image_data_base64: insertedProduct.image_data_base64,
       created_at: insertedProduct.created_at
     };
 
-    console.log('✅ Sending response with product data');
+    console.log('Sending response with product data');
     console.log('='.repeat(60));
     
     res.status(201).json(responseProduct);
 
   } catch (err) {
-    console.error("❌ Server error creating product:", err);
+    console.error("Server error creating product:", err);
     console.error("Stack trace:", err.stack);
     res.status(500).json({ 
       error: "Server error: " + err.message,
@@ -3264,6 +3579,291 @@ try {
     });
   }
 });
+
+// Get single product with map location
+app.get("/api/products/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        COALESCE(u.name, p.creator_name, 'Unknown Artisan') as creator_name,
+        u.profile_image_url as creator_avatar,
+        u.email as creator_email
+      FROM products p
+      LEFT JOIN users u ON p.artisan_id = u.id
+      WHERE p.id = $1
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    const product = result.rows[0];
+    
+    // Include map location fields in response
+    const responseProduct = {
+      id: product.id,
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      category: product.category,
+      condition: product.condition,
+      materials_used: product.materials_used,
+      dimensions: product.dimensions,
+      location: product.location,
+      location_area: product.location_area,
+      location_landmark: product.location_landmark,
+      location_directions: product.location_directions,
+      // Include map location fields
+      latitude: product.latitude,
+      longitude: product.longitude,
+      map_address: product.map_address,
+      is_map_location: product.is_map_location || false,
+      artisan_id: product.artisan_id,
+      creator_name: product.creator_name,
+      creator_avatar: product.creator_avatar,
+      creator_email: product.creator_email,
+      image_urls: product.image_data_base64,
+      image_data_base64: product.image_data_base64,
+      created_at: product.created_at
+    };
+    
+    res.json(responseProduct);
+  } catch (err) {
+    console.error("Get product by ID error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Update product with map location support
+app.put("/api/products/:id", upload.array('images', 5), async (req, res) => {
+  console.log('UPDATE PRODUCT REQUEST for ID:', req.params.id);
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  
+  const { id } = req.params;
+  const { 
+    title, description, price, category, condition, 
+    materials_used, dimensions, 
+    location, location_area, location_landmark, location_directions,
+    // Map location fields
+    latitude, longitude, map_address, is_map_location
+  } = req.body;
+
+  try {
+    // Check if product exists
+    const checkProduct = await pool.query(
+      'SELECT * FROM products WHERE id = $1',
+      [id]
+    );
+
+    if (checkProduct.rows.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const existingProduct = checkProduct.rows[0];
+
+    // Process image URLs
+    let imageUrls = existingProduct.image_data_base64 || [];
+    
+    if (req.body.image_urls) {
+      try {
+        if (typeof req.body.image_urls === 'string') {
+          imageUrls = JSON.parse(req.body.image_urls);
+        } 
+        else if (Array.isArray(req.body.image_urls)) {
+          imageUrls = req.body.image_urls;
+        }
+        console.log(`Updating with ${imageUrls.length} image URLs`);
+      } catch (parseErr) {
+        console.log('Error parsing image_urls:', parseErr);
+      }
+    }
+
+    console.log('Updating product in database...');
+
+    // Update with map location fields
+    const result = await pool.query(
+      `UPDATE products 
+       SET title = $1, description = $2, price = $3, category = $4, 
+           condition = $5, materials_used = $6, dimensions = $7,
+           location = $8, location_area = $9, location_landmark = $10, 
+           location_directions = $11,
+           latitude = $12, longitude = $13, map_address = $14, is_map_location = $15,
+           image_data_base64 = $16,
+           updated_at = NOW()
+       WHERE id = $17
+       RETURNING *`,
+      [
+        title || existingProduct.title,
+        description || existingProduct.description,
+        price ? parseFloat(price) : existingProduct.price,
+        category || existingProduct.category,
+        condition || existingProduct.condition,
+        materials_used || existingProduct.materials_used,
+        dimensions || existingProduct.dimensions,
+        location || map_address || existingProduct.location,
+        location_area || existingProduct.location_area,
+        location_landmark || existingProduct.location_landmark,
+        location_directions || existingProduct.location_directions,
+        // Map location fields
+        latitude ? parseFloat(latitude) : existingProduct.latitude,
+        longitude ? parseFloat(longitude) : existingProduct.longitude,
+        map_address || existingProduct.map_address,
+        is_map_location !== undefined ? (is_map_location === 'true' || is_map_location === true) : existingProduct.is_map_location,
+        imageUrls,
+        id
+      ]
+    );
+
+    const updatedProduct = result.rows[0];
+    console.log(`Product updated with ID: ${updatedProduct.id}`);
+
+    // Get creator info
+    const creatorInfo = await pool.query(
+      'SELECT name, profile_image_url FROM users WHERE id = $1',
+      [updatedProduct.artisan_id]
+    );
+
+    const creator = creatorInfo.rows[0] || { name: 'Unknown Artisan' };
+
+    // Return with map location data
+    const responseProduct = {
+      id: updatedProduct.id,
+      title: updatedProduct.title,
+      description: updatedProduct.description,
+      price: updatedProduct.price,
+      category: updatedProduct.category,
+      condition: updatedProduct.condition,
+      materials_used: updatedProduct.materials_used,
+      dimensions: updatedProduct.dimensions,
+      location: updatedProduct.location,
+      location_area: updatedProduct.location_area,
+      location_landmark: updatedProduct.location_landmark,
+      location_directions: updatedProduct.location_directions,
+      // Include map location fields
+      latitude: updatedProduct.latitude,
+      longitude: updatedProduct.longitude,
+      map_address: updatedProduct.map_address,
+      is_map_location: updatedProduct.is_map_location,
+      artisan_id: updatedProduct.artisan_id,
+      creator_name: creator.name,
+      creator_avatar: creator.profile_image_url,
+      image_urls: updatedProduct.image_data_base64,
+      image_data_base64: updatedProduct.image_data_base64,
+      created_at: updatedProduct.created_at,
+      updated_at: updatedProduct.updated_at
+    };
+
+    console.log('Sending update response');
+    res.json(responseProduct);
+  } catch (err) {
+    console.error("Update product error:", err);
+    console.error("Stack trace:", err.stack);
+    res.status(500).json({ 
+      error: "Server error: " + err.message,
+      details: err.stack
+    });
+  }
+});
+
+// Delete product
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'DELETE FROM products WHERE id = $1 RETURNING *',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
+    console.log(`Product ${id} deleted successfully`);
+    res.json({ message: "Product deleted successfully", product: result.rows[0] });
+  } catch (err) {
+    console.error("Delete product error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Get products near coordinates
+app.get("/api/products/nearby", async (req, res) => {
+  try {
+    const { lat, lng, radius = 5000 } = req.query; // radius in meters (default 5km)
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+
+    console.log(`Finding products near: ${userLat}, ${userLng} within ${radius}m`);
+
+    // Using Haversine formula to calculate distance
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        COALESCE(u.name, p.creator_name, 'Unknown Artisan') as creator_name,
+        u.profile_image_url as creator_avatar,
+        (
+          6371000 * acos(
+            cos(radians($1)) * cos(radians(p.latitude)) *
+            cos(radians(p.longitude) - radians($2)) +
+            sin(radians($1)) * sin(radians(p.latitude))
+          )
+        ) AS distance
+      FROM products p
+      LEFT JOIN users u ON p.artisan_id = u.id
+      WHERE p.latitude IS NOT NULL 
+        AND p.longitude IS NOT NULL
+      HAVING distance <= $3
+      ORDER BY distance
+    `, [userLat, userLng, parseFloat(radius)]);
+
+    console.log(`Found ${result.rows.length} nearby products`);
+
+    const products = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      price: row.price,
+      category: row.category,
+      condition: row.condition,
+      materials_used: row.materials_used,
+      dimensions: row.dimensions,
+      location: row.location,
+      location_area: row.location_area,
+      location_landmark: row.location_landmark,
+      location_directions: row.location_directions,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      map_address: row.map_address,
+      is_map_location: row.is_map_location,
+      distance: Math.round(row.distance), // in meters
+      artisan_id: row.artisan_id,
+      creator_name: row.creator_name,
+      creator_avatar: row.creator_avatar,
+      image_urls: row.image_data_base64,
+      image_data_base64: row.image_data_base64,
+      created_at: row.created_at
+    }));
+
+    res.json({
+      count: products.length,
+      products: products
+    });
+
+  } catch (err) {
+    console.error('Error fetching nearby products:', err);
+    res.status(500).json({ error: 'Failed to fetch nearby products' });
+  }
+});
+
 
 app.post("/api/fix-products-image-urls-column", async (req, res) => {
   try {

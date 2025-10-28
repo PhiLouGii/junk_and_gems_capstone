@@ -29,9 +29,41 @@ migrate_working_dir/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
+flutter_*.png
+
+# Android related
+android/local.properties
+android/.gradle/
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/key.properties
+*.jks
+
+# iOS related
+ios/Podfile.lock
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# API Keys and Secrets
+**/.env
+.env
+**/google-services.json
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# IDE 
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
 
 # Symbolication related
 app.*.symbols
