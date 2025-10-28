@@ -2334,7 +2334,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
           );
         }),
         _navItem(Icons.shopping_bag_outlined, true, 'Shop', onTap: () {}),
-        _navItem(Icons.notifications_outlined, false, 'Notifications', onTap: () {
+        _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),

@@ -52,7 +52,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      print('📄 Loading user data for user ID: ${widget.userId}');
+      print('🔄 Loading user data for user ID: ${widget.userId}');
       
       final profileData = await UserService.getOtherUserProfile(widget.userId);
       final donationsData = await UserService.getDonationsByUserId(widget.userId);
@@ -191,6 +191,38 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         ),
       );
     }
+  }
+
+  void _showImageFullScreen(String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(
+                      Icons.error_outline,
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -615,16 +647,25 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? const Color(0xFF3A3A3A) 
-                    : const Color(0xFFE4E5C2),
+            GestureDetector(
+              onTap: () {
+                final imageUrls = donation['image_urls'] ?? donation['image_data_base64'] ?? [];
+                final firstImage = imageUrls is List && imageUrls.isNotEmpty ? imageUrls[0] : null;
+                if (firstImage != null && firstImage.toString().isNotEmpty) {
+                  _showImageFullScreen(firstImage.toString());
+                }
+              },
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF3A3A3A) 
+                      : const Color(0xFFE4E5C2),
+                ),
+                child: _buildDonationImage(donation),
               ),
-              child: _buildDonationImage(donation),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -745,7 +786,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.75,
       ),
       itemCount: products.length,
       itemBuilder: (context, index) {
@@ -755,86 +796,133 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   Widget _buildProductCard(Map<String, dynamic> product) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 100,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? const Color(0xFF3A3A3A) 
-                  : const Color(0xFFE4E5C2),
+    final imageUrl = product['image_url'];
+    final hasImage = imageUrl != null && imageUrl.toString().isNotEmpty;
+
+    return GestureDetector(
+      onTap: () {
+        if (hasImage) {
+          _showImageFullScreen(imageUrl.toString());
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-            child: product['image_url'] != null && product['image_url'].isNotEmpty
-                ? ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      topRight: Radius.circular(12),
-                    ),
-                    child: Image.network(
-                      product['image_url'].toString(),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.shopping_bag,
-                          size: 40,
-                          color: const Color(0xFF88844D),
-                        );
-                      },
-                    ),
-                  )
-                : Icon(
-                    Icons.shopping_bag,
-                    size: 40,
-                    color: const Color(0xFF88844D),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
                   ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product['title']?.toString() ?? 'Untitled Product',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF3A3A3A) 
+                      : const Color(0xFFE4E5C2),
                 ),
-                const SizedBox(height: 4),
-                if (product['price'] != null)
-                  Text(
-                    'R ${product['price']}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF88844D),
-                    ),
-                  ),
-              ],
+                child: hasImage
+                    ? Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              topRight: Radius.circular(12),
+                            ),
+                            child: Image.network(
+                              imageUrl.toString(),
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildProductPlaceholder();
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    color: const Color(0xFF88844D),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.zoom_in,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : _buildProductPlaceholder(),
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['title']?.toString() ?? 'Untitled Product',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  if (product['price'] != null)
+                    Text(
+                      'M ${product['price']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF88844D),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductPlaceholder() {
+    return Center(
+      child: Icon(
+        Icons.shopping_bag,
+        size: 40,
+        color: const Color(0xFF88844D),
       ),
     );
   }
