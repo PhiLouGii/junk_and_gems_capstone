@@ -25,7 +25,7 @@ val flutterVersionName = localProperties.getProperty("flutter.versionName")
 android {
     namespace = "com.yourcompany.junk_and_gems"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
