@@ -7,7 +7,7 @@ class CartService {
 
   static Future<List<dynamic>> getCartItems(String userId) async {
     try {
-      print('🛒 Getting cart items for user: $userId');
+      print('Getting cart items for user: $userId');
       
       final token = await ApiService.getToken();
       if (token == null) {
@@ -22,29 +22,29 @@ class CartService {
         },
       );
 
-      print('📡 Cart response status: ${response.statusCode}');
+      print('Cart response status: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('✅ Cart items loaded: ${data.length} items');
+        print('Cart items loaded: ${data.length} items');
         return data;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('❌ Authentication failed - clearing token');
+        print('Authentication failed - clearing token');
         await ApiService.removeToken();
         throw Exception('Session expired. Please login again.');
       } else {
-        print('❌ Failed to load cart items: ${response.statusCode} - ${response.body}');
+        print('Failed to load cart items: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load cart items: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Get cart items error: $e');
+      print('Get cart items error: $e');
       throw Exception('Failed to load cart items: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 
   static Future<Map<String, dynamic>> addToCart(String userId, String productId, {int quantity = 1}) async {
     try {
-      print('🛒 Adding to cart - User: $userId, Product: $productId, Quantity: $quantity');
+      print('Adding to cart - User: $userId, Product: $productId, Quantity: $quantity');
       
       final token = await ApiService.getToken();
       if (token == null) {
@@ -63,29 +63,29 @@ class CartService {
         }),
       );
 
-      print('📡 Add to cart response: ${response.statusCode}');
+      print('Add to cart response: ${response.statusCode}');
       
       if (response.statusCode == 201) {
         final result = json.decode(response.body);
-        print('✅ Item added to cart successfully');
+        print('Item added to cart successfully');
         return result;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('❌ Authentication failed - clearing token');
+        print('Authentication failed - clearing token');
         await ApiService.removeToken();
         throw Exception('Session expired. Please login again.');
       } else {
-        print('❌ Failed to add to cart: ${response.statusCode} - ${response.body}');
+        print('Failed to add to cart: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to add to cart: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Add to cart error: $e');
+      print('Add to cart error: $e');
       throw Exception('Failed to add to cart: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 
   static Future<Map<String, dynamic>> updateCartItem(String userId, String itemId, int quantity) async {
     try {
-      print('🛒 Updating cart item - User: $userId, Item: $itemId, Qty: $quantity');
+      print('Updating cart item - User: $userId, Item: $itemId, Qty: $quantity');
       
       final token = await ApiService.getToken();
       if (token == null) {
@@ -103,29 +103,29 @@ class CartService {
         }),
       );
 
-      print('📡 Update cart response: ${response.statusCode}');
+      print('Update cart response: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
-        print('✅ Cart item updated successfully');
+        print('Cart item updated successfully');
         return result;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('❌ Authentication failed - clearing token');
+        print('Authentication failed - clearing token');
         await ApiService.removeToken();
         throw Exception('Session expired. Please login again.');
       } else {
-        print('❌ Failed to update cart: ${response.statusCode} - ${response.body}');
+        print('Failed to update cart: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to update cart: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Update cart error: $e');
+      print('Update cart error: $e');
       throw Exception('Failed to update cart: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 
   static Future<Map<String, dynamic>> removeFromCart(String userId, String itemId) async {
     try {
-      print('🛒 Removing from cart - User: $userId, Item: $itemId');
+      print('Removing from cart - User: $userId, Item: $itemId');
       
       final token = await ApiService.getToken();
       if (token == null) {
@@ -140,29 +140,29 @@ class CartService {
         },
       );
 
-      print('📡 Remove from cart response: ${response.statusCode}');
+      print('Remove from cart response: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
-        print('✅ Item removed from cart successfully');
+        print('Item removed from cart successfully');
         return result;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('❌ Authentication failed - clearing token');
+        print('Authentication failed - clearing token');
         await ApiService.removeToken();
         throw Exception('Session expired. Please login again.');
       } else {
-        print('❌ Failed to remove from cart: ${response.statusCode} - ${response.body}');
+        print('Failed to remove from cart: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to remove from cart: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Remove from cart error: $e');
+      print('Remove from cart error: $e');
       throw Exception('Failed to remove from cart: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 
   static Future<int> getUserGems(String userId) async {
     try {
-      print('💎 Getting user gems for: $userId');
+      print('Getting user gems for: $userId');
       
       final token = await ApiService.getToken();
       if (token == null) {
@@ -177,23 +177,23 @@ class CartService {
         },
       );
 
-      print('📡 Get gems response: ${response.statusCode}');
+      print('Get gems response: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final gems = data['available_gems'] ?? 0;
-        print('✅ User gems loaded: $gems');
+        print('User gems loaded: $gems');
         return gems;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('❌ Authentication failed - clearing token');
+        print('Authentication failed - clearing token');
         await ApiService.removeToken();
         throw Exception('Session expired. Please login again.');
       } else {
-        print('❌ Failed to load user gems: ${response.statusCode} - ${response.body}');
+        print('Failed to load user gems: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load user gems: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Get user gems error: $e');
+      print('Get user gems error: $e');
       throw Exception('Failed to load user gems: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
@@ -212,7 +212,7 @@ class CartService {
   // Clear user's entire cart
   static Future<Map<String, dynamic>> clearCart(String userId) async {
     try {
-      print('🛒 Clearing entire cart for user: $userId');
+      print('Clearing entire cart for user: $userId');
       
       final token = await ApiService.getToken();
       if (token == null) {
@@ -227,22 +227,22 @@ class CartService {
         },
       );
 
-      print('📡 Clear cart response: ${response.statusCode}');
+      print('Clear cart response: ${response.statusCode}');
       
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
-        print('✅ Cart cleared successfully');
+        print('Cart cleared successfully');
         return result;
       } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('❌ Authentication failed - clearing token');
+        print('Authentication failed - clearing token');
         await ApiService.removeToken();
         throw Exception('Session expired. Please login again.');
       } else {
-        print('❌ Failed to clear cart: ${response.statusCode} - ${response.body}');
+        print('Failed to clear cart: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to clear cart: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Clear cart error: $e');
+      print('Clear cart error: $e');
       throw Exception('Failed to clear cart: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }

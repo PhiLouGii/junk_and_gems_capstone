@@ -21,41 +21,31 @@ class ShoppingCartScreen extends StatefulWidget {
   State<ShoppingCartScreen> createState() => _ShoppingCartScreenState();
 }
 
-class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBindingObserver, RouteAware {
+class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBindingObserver {
   List<dynamic> _cartItems = [];
   int _availableGems = 0;
   int _appliedGems = 0;
   final TextEditingController _gemsController = TextEditingController();
-  bool _isLoading = true;
+  bool _isLoading = true; // Start as loading
   bool _hasAuthError = false;
   String _token = '';
-  bool _hasLoadedOnce = false;
+  bool _isInitialLoad = true; // Track if this is the first load
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     print('🛒 ShoppingCart initState - Loading data...');
+    // Load immediately, no need for post frame callback
     _checkAuthAndLoadData();
   }
 
   @override
   void didUpdateWidget(ShoppingCartScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reload cart data if userId changed or screen is being reused
+    // Reload cart data if userId changed
     if (oldWidget.userId != widget.userId) {
       print('UserId changed, reloading cart data...');
-      _checkAuthAndLoadData();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Force reload every time the screen is navigated to
-    // This ensures fresh data when coming from marketplace
-    if (_hasLoadedOnce) {
-      print('🔄 ShoppingCart didChangeDependencies - Reloading cart...');
       _checkAuthAndLoadData();
     }
   }
@@ -77,14 +67,24 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
   }
 
   Future<void> _checkAuthAndLoadData() async {
+    // Only prevent duplicate loads if NOT initial load
+    if (_isLoading && !_isInitialLoad) {
+      print('⚠️ Already loading, skipping duplicate load request');
+      return;
+    }
+
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _hasAuthError = false;
+      _isInitialLoad = false; // Mark that initial load is happening
     });
 
     try {
       print('=' * 50);
       print('AUTHENTICATION CHECK STARTED');
+      print('User ID: ${widget.userId}');
       print('=' * 50);
       
       await ApiService.debugAuthData();
@@ -110,10 +110,12 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
       
       if (_token.isEmpty || !isValid) {
         print('Token is missing, invalid, or expired');
-        setState(() {
-          _hasAuthError = true;
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _hasAuthError = true;
+            _isLoading = false;
+          });
+        }
         return;
       }
 
@@ -123,22 +125,23 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
       // Load cart data after authentication is verified
       await _loadCartData();
       
-      // Mark that we've loaded at least once
-      _hasLoadedOnce = true;
-      
     } catch (e) {
       print('Auth check error: $e');
       print('Stack trace: ${StackTrace.current}');
-      setState(() {
-        _hasAuthError = true;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hasAuthError = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _loadCartData() async {
     print('=== LOADING CART DATA ===');
     print('User ID: ${widget.userId}');
+    print('Mounted: $mounted');
+    print('Current _isLoading: $_isLoading');
     
     try {
       int userGems = 0;
@@ -146,11 +149,11 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
 
       // Load user gems
       try {
-        print('Fetching user gems...');
+        print('📦 Fetching user gems...');
         userGems = await CartService.getUserGems(widget.userId);
-        print('User gems loaded: $userGems');
+        print('✅ User gems loaded: $userGems');
       } catch (e) {
-        print('Could not load user gems: $e');
+        print('❌ Could not load user gems: $e');
         userGems = 0;
         
         if (_isAuthError(e)) {
@@ -159,23 +162,23 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
         }
       }
 
-      // Load cart items
+      // Load cart items - THIS IS THE CRITICAL PART
       try {
-        print('Fetching cart items...');
+        print('📦 Fetching cart items from API...');
         cartItems = await CartService.getCartItems(widget.userId);
-        print('Cart items loaded: ${cartItems.length} items');
+        print('✅ API RETURNED: ${cartItems.length} items');
         
         // Debug: Print details of loaded items
         if (cartItems.isNotEmpty) {
-          print('Cart contents:');
+          print('📋 Cart contents from API:');
           for (var item in cartItems) {
             print('  - ${item['title']} (ID: ${item['cart_item_id']}, Qty: ${item['quantity']}, Price: ${item['price']})');
           }
         } else {
-          print('Cart is empty');
+          print('⚠️ API returned empty list (no items in cart)');
         }
       } catch (e) {
-        print('Could not load cart items: $e');
+        print('❌ ERROR loading cart items: $e');
         print('Stack trace: ${StackTrace.current}');
         
         if (_isAuthError(e)) {
@@ -183,25 +186,30 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
           return;
         }
         
-        // Even if loading fails, don't leave the screen in loading state
+        // Even if loading fails, set empty list
         cartItems = [];
       }
 
-      // Update state with loaded data
+      // CRITICAL: Update state with loaded data
       if (mounted) {
+        print('🔄 Calling setState with ${cartItems.length} items...');
         setState(() {
-          _cartItems = cartItems;
+          _cartItems = List.from(cartItems); // Create new list to ensure rebuild
           _availableGems = userGems;
-          _isLoading = false;
+          _isLoading = false; // ONLY set to false after data is set
           _hasAuthError = false;
         });
         
-        print('Cart state updated successfully');
-        print('Final cart items count: ${_cartItems.length}');
+        print('✅ setState completed');
+        print('📊 _cartItems.length is now: ${_cartItems.length}');
+        print('💎 _availableGems is now: $_availableGems');
+        print('⏳ _isLoading is now: $_isLoading');
+      } else {
+        print('⚠️ Widget not mounted, skipping setState');
       }
       
     } catch (e) {
-      print('Unexpected error in _loadCartData: $e');
+      print('❌ CRITICAL ERROR in _loadCartData: $e');
       print('Stack trace: ${StackTrace.current}');
       
       if (mounted) {
@@ -214,6 +222,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
     }
     
     print('=== CART DATA LOADING COMPLETE ===');
+    print('Final state: _cartItems=${_cartItems.length}, _isLoading=$_isLoading');
   }
 
   bool _isAuthError(dynamic error) {
@@ -379,21 +388,14 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // Notify parent to refresh when going back
-        Navigator.pop(context, true); // Return true to indicate refresh needed
-        return false; // Prevent default pop
-      },
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(child: _buildBody()),
-            ],
-          ),
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(child: _buildBody()),
+          ],
         ),
       ),
     );
@@ -416,7 +418,9 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
         children: [
           IconButton(
             icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context, true); // Signal refresh needed
+            },
           ),
           Expanded(
             child: Row(
@@ -464,15 +468,19 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
   }
 
   Widget _buildBody() {
+    // CRITICAL: Show loading state while fetching data
     if (_isLoading) {
       return _buildLoadingState();
     }
 
+    // Show auth error if not authenticated
     if (_hasAuthError) {
       return _buildAuthErrorScreen();
     }
 
-    if (_cartItems.isEmpty) {
+    // ONLY show empty cart if we're NOT loading AND cart is actually empty
+    // This prevents showing empty state while data is being fetched
+    if (!_isLoading && _cartItems.isEmpty) {
       return RefreshIndicator(
         onRefresh: _checkAuthAndLoadData,
         color: const Color(0xFF88844D),
@@ -486,6 +494,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
       );
     }
 
+    // Show cart items
     return RefreshIndicator(
       onRefresh: _checkAuthAndLoadData,
       color: const Color(0xFF88844D),
@@ -696,7 +705,9 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context, true); // Signal refresh
+              },
               icon: const Icon(Icons.shopping_bag_outlined),
               label: const Text('Browse Marketplace'),
               style: ElevatedButton.styleFrom(
@@ -1385,7 +1396,9 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      Navigator.pop(context, true); // Signal refresh
+                    },
                     icon: const Icon(Icons.arrow_back, size: 20),
                     label: const Text('Continue Shopping'),
                     style: OutlinedButton.styleFrom(
