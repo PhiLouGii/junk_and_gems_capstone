@@ -249,113 +249,126 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
   }
 
   Future<void> _loadCartCount() async {
-    try {
+  try {
+    if (widget.userId == null || widget.userId!.isEmpty) {
       setState(() {
         _cartItemCount = 0;
       });
-    } catch (error) {
-      print('Error loading cart count: $error');
-      setState(() {
-        _cartItemCount = 0;
-      });
+      return;
     }
+
+    final cartItems = await CartService.getCartItems(widget.userId!);
+    
+    setState(() {
+      _cartItemCount = cartItems.length;
+    });
+  } catch (error) {
+    print('Error loading cart count: $error');
+    setState(() {
+      _cartItemCount = 0;
+    });
   }
+}
+
+void _refreshCartCount() {
+  _loadCartCount();
+}
 
   void _addToCart(Map<String, dynamic> product) async {
-    try {
-      if (widget.userId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please log in to add items to cart'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final productId = product['id']?.toString() ?? '';
-      final isStaticProduct = int.tryParse(productId) != null && int.parse(productId) < 10;
-
-      if (isStaticProduct) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('This is a sample product. Only products from the "New Products" section can be added to cart.'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-        return;
-      }
-
+  try {
+    if (widget.userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(width: 16),
-              Text('Adding to cart...'),
-            ],
-          ),
-          duration: Duration(seconds: 2),
+          content: Text('Please log in to add items to cart'),
+          backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
 
-      final result = await CartService.addToCart(
-        widget.userId!,
-        product['id']?.toString() ?? '',
-        quantity: 1,
-      );
+    final productId = product['id']?.toString() ?? '';
+    final isStaticProduct = int.tryParse(productId) != null && int.parse(productId) < 10;
 
+    if (isStaticProduct) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${product['title']} added to cart'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-            action: SnackBarAction(
-              label: 'View Cart',
-              textColor: Colors.white,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ShoppingCartScreen(userId: widget.userId!),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-        
-        setState(() {
-          _cartItemCount += 1;
-        });
-      }
-    } catch (e) {
-      print('Add to cart error: $e');
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: Colors.red,
+            content: Text('This is a sample product. Only products from the "New Products" section can be added to cart.'),
+            backgroundColor: Colors.orange,
             duration: const Duration(seconds: 3),
           ),
         );
       }
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 16),
+            Text('Adding to cart...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    final result = await CartService.addToCart(
+      widget.userId!,
+      product['id']?.toString() ?? '',
+      quantity: 1,
+    );
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${product['title']} added to cart'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'View Cart',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ShoppingCartScreen(userId: widget.userId!),
+                ),
+              ).then((_) => _refreshCartCount()); // Refresh when returning
+            },
+          ),
+        ),
+      );
+      
+      // Refresh cart count immediately after adding
+      _refreshCartCount();
+    }
+  } catch (e) {
+    print('Add to cart error: $e');
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
+}
+
 
   void _startAutoScroll() {
     Future.delayed(const Duration(seconds: 2), () {
@@ -1024,62 +1037,62 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> with SingleTicker
             ),
           ),
           Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+  children: [
+    Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFBEC092).withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: IconButton(
+        icon: Icon(
+          Icons.shopping_cart_outlined,
+          color: const Color(0xFF88844D),
+          size: 26,
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ShoppingCartScreen(userId: widget.userId ?? ''),
+            ),
+          ).then((_) => _refreshCartCount()); // Add this refresh
+        },
+      ),
+    ),
+    if (_cartItemCount > 0)
+      Positioned(
+        right: 6,
+        top: 6,
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Opacity(
+              opacity: _animation.value,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
                 ),
-                child: IconButton(
-                  icon: Icon(
-                    Icons.shopping_cart_outlined,
-                    color: const Color(0xFF88844D),
-                    size: 26,
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Text(
+                  _cartItemCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ShoppingCartScreen(userId: widget.userId ?? ''),
-                      ),
-                    );
-                  },
+                  textAlign: TextAlign.center,
                 ),
               ),
-              if (_cartItemCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: AnimatedBuilder(
-                    animation: _animation,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _animation.value,
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 18,
-                            minHeight: 18,
-                          ),
-                          child: Text(
-                            _cartItemCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-            ],
+            );
+          },
+        ),
+      ),
+  ],
           ),
         ],
       ),
