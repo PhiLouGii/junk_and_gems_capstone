@@ -779,9 +779,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan, double maxWidth) {
+   Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan, double maxWidth) {
     final name = user['name'] ?? 'Unknown User';
-    final specialty = user['specialty'] ?? (isArtisan ? 'Artisan' : 'Contributor');
     final profileImage = user['profile_image_url'];
     final userId = user['id']?.toString() ?? '0';
     final isLargeScreen = maxWidth > 600;
@@ -794,136 +793,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     }
 
+    // Get gradient colors based on user type
+    final List<Color> ringColors = isArtisan 
+        ? [const Color(0xFFBEC092), const Color(0xFF88844D), const Color(0xFFBEC092)]
+        : [const Color(0xFF88844D), const Color(0xFFBEC092), const Color(0xFF88844D)];
+
     return GestureDetector(
       onTap: () {
         _showUserProfileModal(context, name, userId);
       },
       child: Container(
-        width: isLargeScreen ? 140 : 125,
-        margin: const EdgeInsets.only(right: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFFBEC092).withOpacity(0.3),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF88844D).withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+        width: isLargeScreen ? 85 : 75,
+        margin: const EdgeInsets.only(right: 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Instagram-style circular avatar with gradient ring
+            Container(
+              width: isLargeScreen ? 75 : 65,
+              height: isLargeScreen ? 75 : 65,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: ringColors,
+                ),
+              ),
+              padding: const EdgeInsets.all(3),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(50),
+                    child: profileImage != null && profileImage.isNotEmpty
+                        ? Image.network(
+                            getImageUrlWithCacheBust(profileImage),
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: const Color(0xFF88844D),
+                                  strokeWidth: 2,
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                      : null,
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildProfilePlaceholder(isLargeScreen);
+                            },
+                          )
+                        : _buildProfilePlaceholder(isLargeScreen),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // First name only
+            Text(
+              _getFirstName(name),
+              style: TextStyle(
+                fontSize: isLargeScreen ? 13 : 12,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(isLargeScreen ? 14.0 : 12.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                children: [
-                  Container(
-                    width: isLargeScreen ? 60 : 55,
-                    height: isLargeScreen ? 60 : 55,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFFBEC092),
-                          const Color(0xFF88844D),
-                        ],
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(3),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(50),
-                        child: profileImage != null && profileImage.isNotEmpty
-                            ? Image.network(
-                                getImageUrlWithCacheBust(profileImage),
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: CircularProgressIndicator(
-                                      color: const Color(0xFF88844D),
-                                      strokeWidth: 2,
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildProfilePlaceholder(isLargeScreen);
-                                },
-                              )
-                            : _buildProfilePlaceholder(isLargeScreen),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF88844D),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: Icon(
-                        isArtisan ? Icons.palette : Icons.volunteer_activism,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              
-              Text(
-                _getDisplayName(name),
-                style: TextStyle(
-                  fontSize: isLargeScreen ? 13 : 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              
-              const SizedBox(height: 4),
-              
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  specialty,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: const Color(0xFF88844D),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1044,6 +993,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final parts = fullName.split(' ');
     if (parts.length > 1) {
       return '${parts[0]} ${parts[1][0]}.';
+    }
+    return fullName;
+  }
+
+  String _getFirstName(String fullName) {
+    final parts = fullName.split(' ');
+    if (parts.isNotEmpty) {
+      return parts[0];
     }
     return fullName;
   }
