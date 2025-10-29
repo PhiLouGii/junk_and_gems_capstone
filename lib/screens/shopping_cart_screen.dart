@@ -28,7 +28,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   final TextEditingController _gemsController = TextEditingController();
   bool _isLoading = true;
   bool _hasAuthError = false;
-  String _token = ''; // <-- ADDED: State to store the authentication token
+  String _token = ''; 
 
   @override
   void initState() {
@@ -37,93 +37,116 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   }
 
   Future<void> _checkAuthAndLoadData() async {
-    try {
-      print('=' * 50);
-      print('🔐 AUTHENTICATION CHECK STARTED');
-      print('=' * 50);
-      
-      await ApiService.debugAuthData();
-      
-      final token = await ApiService.getToken();
-      _token = token ?? ''; // <-- FIXED: Capture the token
-      print('📋 Token exists: ${token != null}');
-      
-      if (_token.isNotEmpty) {
-        print('📋 Token preview: ${_token.substring(0, min(20, _token.length))}...');
-      }
-      
-      final userId = await ApiService.getUserId();
-      print('📋 User ID from storage: $userId');
-      print('📋 User ID from widget: ${widget.userId}');
-      
-      if (userId != null && userId != widget.userId) {
-        print('⚠️ WARNING: User ID mismatch!');
-      }
-      
-      final isValid = await ApiService.verifyToken();
-      print('📋 Token validation: $isValid');
-      
-      if (_token.isEmpty || !isValid) { // Check for both missing token and invalid token
-        print('❌ Token is missing, invalid, or expired');
-        setState(() {
-          _hasAuthError = true;
-          _isLoading = false;
-        });
-        return;
-      }
+  setState(() {
+    _isLoading = true;
+    _hasAuthError = false;
+  });
 
-      print('✅ Authentication verified - Loading cart data...');
-      print('=' * 50);
-      
-      await _loadCartData();
-      
-    } catch (e) {
-      print('❌ Auth check error: $e');
-      print('Stack trace: ${StackTrace.current}');
+  try {
+    print('=' * 50);
+    print('AUTHENTICATION CHECK STARTED');
+    print('=' * 50);
+    
+    await ApiService.debugAuthData();
+    
+    final token = await ApiService.getToken();
+    _token = token ?? '';
+    print('Token exists: ${token != null}');
+    
+    if (_token.isNotEmpty) {
+      print('Token preview: ${_token.substring(0, min(20, _token.length))}...');
+    }
+    
+    final userId = await ApiService.getUserId();
+    print('User ID from storage: $userId');
+    print('User ID from widget: ${widget.userId}');
+    
+    if (userId != null && userId != widget.userId) {
+      print('WARNING: User ID mismatch!');
+    }
+    
+    final isValid = await ApiService.verifyToken();
+    print('Token validation: $isValid');
+    
+    if (_token.isEmpty || !isValid) {
+      print('Token is missing, invalid, or expired');
       setState(() {
         _hasAuthError = true;
         _isLoading = false;
       });
+      return;
     }
+
+    print('Authentication verified - Loading cart data...');
+    print('=' * 50);
+    
+    // Load cart data after authentication is verified
+    await _loadCartData();
+    
+  } catch (e) {
+    print('Auth check error: $e');
+    print('Stack trace: ${StackTrace.current}');
+    setState(() {
+      _hasAuthError = true;
+      _isLoading = false;
+    });
   }
+}
+
 
   Future<void> _loadCartData() async {
+  print('=== LOADING CART DATA ===');
+  print('User ID: ${widget.userId}');
+  
+  try {
+    int userGems = 0;
+    List<dynamic> cartItems = [];
+
+    // Load user gems
     try {
-      print('🛒 Loading cart data for user: ${widget.userId}');
+      print('Fetching user gems...');
+      userGems = await CartService.getUserGems(widget.userId);
+      print('User gems loaded: $userGems');
+    } catch (e) {
+      print('Could not load user gems: $e');
+      userGems = 0;
       
-      int userGems = 0;
-      List<dynamic> cartItems = [];
-
-      try {
-        userGems = await CartService.getUserGems(widget.userId);
-        print('💎 User gems loaded: $userGems');
-      } catch (e) {
-        print('⚠️ Could not load user gems: $e');
-        userGems = 0;
-        
-        if (_isAuthError(e)) {
-          _handleAuthError();
-          return;
-        }
+      if (_isAuthError(e)) {
+        _handleAuthError();
+        return;
       }
+    }
 
-      try {
-        cartItems = await CartService.getCartItems(widget.userId);
-        print('✅ Cart items loaded: ${cartItems.length} items');
-        
-        // Debug: Print image data for first item
-        if (cartItems.isNotEmpty) {
-          print('🖼️ First cart item image_data_base64: ${cartItems[0]['image_data_base64']}');
+    // Load cart items
+    try {
+      print('Fetching cart items...');
+      cartItems = await CartService.getCartItems(widget.userId);
+      print('Cart items loaded: ${cartItems.length} items');
+      
+      // Debug: Print details of loaded items
+      if (cartItems.isNotEmpty) {
+        print('Cart contents:');
+        for (var item in cartItems) {
+          print('  - ${item['title']} (ID: ${item['cart_item_id']}, Qty: ${item['quantity']}, Price: ${item['price']})');
         }
-      } catch (e) {
-        print('❌ Could not load cart items: $e');
-        
-        if (_isAuthError(e)) {
-          _handleAuthError();
-          return;
-        }
+      } else {
+        print('Cart is empty');
       }
+    } catch (e) {
+      print('Could not load cart items: $e');
+      print('Stack trace: ${StackTrace.current}');
+      
+      if (_isAuthError(e)) {
+        _handleAuthError();
+        return;
+      }
+      
+      // Even if loading fails, don't leave the screen in loading state
+      cartItems = [];
+    }
 
+    // Update state with loaded data
+    if (mounted) {
       setState(() {
         _cartItems = cartItems;
         _availableGems = userGems;
@@ -131,13 +154,35 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
         _hasAuthError = false;
       });
       
-    } catch (e) {
-      print('❌ Unexpected error in _loadCartData: $e');
+      print('Cart state updated successfully');
+      print('Final cart items count: ${_cartItems.length}');
+    }
+    
+  } catch (e) {
+    print('Unexpected error in _loadCartData: $e');
+    print('Stack trace: ${StackTrace.current}');
+    
+    if (mounted) {
       setState(() {
+        _cartItems = [];
+        _availableGems = 0;
         _isLoading = false;
       });
     }
   }
+  
+  print('=== CART DATA LOADING COMPLETE ===');
+}
+
+@override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  // Reload cart data whenever the screen becomes visible again
+  if (mounted && !_isLoading) {
+    print('Screen became visible, reloading cart data...');
+    _checkAuthAndLoadData();
+  }
+}
 
   bool _isAuthError(dynamic error) {
     final errorStr = error.toString();
@@ -1224,41 +1269,44 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   }
 
   Widget _buildCheckoutButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CheckoutScreen(
-                cartItems: _cartItems.cast<Map<String, dynamic>>(),
-                subtotal: _subtotal,
-                gemsDiscount: _appliedGems.toDouble(),
-                total: _total,
-                userId: widget.userId, // <-- FIXED: Passing required userId
-                token: _token, // <-- FIXED: Passing required token
-              ),
+  return SizedBox(
+    width: double.infinity,
+    height: 56,
+    child: ElevatedButton.icon(
+      onPressed: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CheckoutScreen(
+              cartItems: _cartItems.cast<Map<String, dynamic>>(),
+              subtotal: _subtotal,
+              gemsDiscount: _appliedGems.toDouble(),
+              total: _total,
+              userId: widget.userId,
+              token: _token,
             ),
-          ).then((_) => _loadCartData());
-        },
-        icon: const Icon(Icons.shopping_bag, size: 22),
-        label: const Text(
-          'Proceed to Checkout',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF88844D),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
           ),
-          elevation: 4,
-        ),
+        );
+        // Reload cart after returning from checkout
+        await _checkAuthAndLoadData();
+      },
+      icon: const Icon(Icons.shopping_bag, size: 22),
+      label: const Text(
+        'Proceed to Checkout',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
-    );
-  }
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF88844D),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 4,
+      ),
+    ),
+  );
+}
+
 
   Widget _buildBottomButtons() {
     return Container(
@@ -1298,8 +1346,8 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => CheckoutScreen(
@@ -1307,11 +1355,13 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                             subtotal: _subtotal,
                             gemsDiscount: _appliedGems.toDouble(),
                             total: _total,
-                            userId: widget.userId, // <-- FIXED: Passing required userId
-                            token: _token, // <-- FIXED: Passing required token
+                            userId: widget.userId,
+                            token: _token,
                           ),
                         ),
-                      ).then((_) => _loadCartData());
+                      );
+                      // Reload cart after returning from checkout
+                      await _checkAuthAndLoadData();
                     },
                     icon: const Icon(Icons.shopping_bag, size: 20),
                     label: const Text('Checkout'),
@@ -1324,7 +1374,7 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
                       ),
                       elevation: 4,
                     ),
-                  ),
+                  ),              
                 ),
               ],
             ),
