@@ -21,19 +21,21 @@ class ShoppingCartScreen extends StatefulWidget {
   State<ShoppingCartScreen> createState() => _ShoppingCartScreenState();
 }
 
-class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBindingObserver {
+class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBindingObserver, RouteAware {
   List<dynamic> _cartItems = [];
   int _availableGems = 0;
   int _appliedGems = 0;
   final TextEditingController _gemsController = TextEditingController();
   bool _isLoading = true;
   bool _hasAuthError = false;
-  String _token = ''; 
+  String _token = '';
+  bool _hasLoadedOnce = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    print('🛒 ShoppingCart initState - Loading data...');
     _checkAuthAndLoadData();
   }
 
@@ -43,6 +45,17 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
     // Reload cart data if userId changed or screen is being reused
     if (oldWidget.userId != widget.userId) {
       print('UserId changed, reloading cart data...');
+      _checkAuthAndLoadData();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Force reload every time the screen is navigated to
+    // This ensures fresh data when coming from marketplace
+    if (_hasLoadedOnce) {
+      print('🔄 ShoppingCart didChangeDependencies - Reloading cart...');
       _checkAuthAndLoadData();
     }
   }
@@ -109,6 +122,9 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
       
       // Load cart data after authentication is verified
       await _loadCartData();
+      
+      // Mark that we've loaded at least once
+      _hasLoadedOnce = true;
       
     } catch (e) {
       print('Auth check error: $e');
@@ -363,14 +379,21 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(child: _buildBody()),
-          ],
+    return WillPopScope(
+      onWillPop: () async {
+        // Notify parent to refresh when going back
+        Navigator.pop(context, true); // Return true to indicate refresh needed
+        return false; // Prevent default pop
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(child: _buildBody()),
+            ],
+          ),
         ),
       ),
     );

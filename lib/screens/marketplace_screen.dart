@@ -331,7 +331,6 @@ void _refreshCartCount() {
     if (context.mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
       
-      // Refresh cart count BEFORE showing success message
       await _loadCartCount();
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1050,13 +1049,19 @@ void _refreshCartCount() {
           color: const Color(0xFF88844D),
           size: 26,
         ),
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          // Wait for result and refresh if needed
+          final shouldRefresh = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => ShoppingCartScreen(userId: widget.userId ?? ''),
             ),
-          ).then((_) => _refreshCartCount()); // Add this refresh
+          );
+          
+          // Refresh cart count when returning
+          if (shouldRefresh == true || shouldRefresh == null) {
+            _refreshCartCount();
+          }
         },
       ),
     ),
@@ -1094,7 +1099,7 @@ void _refreshCartCount() {
         ),
       ),
   ],
-          ),
+),
         ],
       ),
     );
