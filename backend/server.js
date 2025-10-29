@@ -9,9 +9,14 @@ import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import sgMail from '@sendgrid/mail';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3003;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configure SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -5994,7 +5999,7 @@ app.post("/api/debug/fix-conversation-access/:conversationId/:userId", async (re
       [conversationId, userId]
     );
     
-    console.log(`✅ Added user ${userId} (${userCheck.rows[0].name}) to conversation ${conversationId}`);
+    console.log(`Added user ${userId} (${userCheck.rows[0].name}) to conversation ${conversationId}`);
     
     res.json({
       success: true,
@@ -6093,6 +6098,277 @@ app.post("/api/setup-payment-methods", async (req, res) => {
   }
 });
 
+// Endpoint to migrate all assets to Cloudinary
+app.post("/api/migrate-assets-to-cloudinary", async (req, res) => {
+  try {
+    console.log('Starting asset migration to Cloudinary...');
+    console.log('='.repeat(60));
+
+    const results = {
+      materials_updated: 0,
+      products_updated: 0,
+      images_uploaded: 0,
+      errors: [],
+      upload_details: []
+    };
+
+    // STEP 1: Migrate Material Images
+    console.log('\n📦 STEP 1: Migrating Material Images...');
+    const materials = await pool.query(`
+      SELECT id, title, image_data_base64 
+      FROM materials 
+      WHERE image_data_base64::text LIKE '%assets/images%'
+    `);
+
+    console.log(`Found ${materials.rows.length} materials with asset paths`);
+
+    for (const material of materials.rows) {
+      try {
+        const imageArray = material.image_data_base64;
+        const newImageUrls = [];
+
+        for (const imagePath of imageArray) {
+          if (imagePath.startsWith('assets/')) {
+            // Upload to Cloudinary
+            const cloudinaryUrl = await uploadLocalAssetToCloudinary(imagePath, 'materials');
+            
+            if (cloudinaryUrl) {
+              newImageUrls.push(cloudinaryUrl);
+              results.images_uploaded++;
+              results.upload_details.push({
+                type: 'material',
+                id: material.id,
+                title: material.title,
+                original: imagePath,
+                cloudinary_url: cloudinaryUrl
+              });
+              console.log(`Uploaded: ${imagePath} -> ${cloudinaryUrl}`);
+            } else {
+              newImageUrls.push(imagePath); // Keep original if upload fails
+              results.errors.push(`Failed to upload ${imagePath} for material ${material.id}`);
+            }
+          } else {
+            // Keep existing URLs (already in Cloudinary or data URIs)
+            newImageUrls.push(imagePath);
+          }
+        }
+
+        // Update database with new URLs
+        if (newImageUrls.length > 0) {
+          await pool.query(
+            'UPDATE materials SET image_data_base64 = $1 WHERE id = $2',
+            [newImageUrls, material.id]
+          );
+          results.materials_updated++;
+          console.log(`Updated material ${material.id}: ${material.title}`);
+        }
+
+      } catch (err) {
+        console.error(`Error processing material ${material.id}:`, err.message);
+        results.errors.push(`Material ${material.id}: ${err.message}`);
+      }
+    }
+
+    // STEP 2: Migrate Product Images
+    console.log('\n🛍️ STEP 2: Migrating Product Images...');
+    const products = await pool.query(`
+      SELECT id, title, image_data_base64 
+      FROM products 
+      WHERE image_data_base64::text LIKE '%assets/images%'
+    `);
+
+    console.log(`Found ${products.rows.length} products with asset paths`);
+
+    for (const product of products.rows) {
+      try {
+        const imageArray = product.image_data_base64 || [];
+        const newImageUrls = [];
+
+        for (const imagePath of imageArray) {
+          if (imagePath.startsWith('assets/')) {
+            // Upload to Cloudinary
+            const cloudinaryUrl = await uploadLocalAssetToCloudinary(imagePath, 'products');
+            
+            if (cloudinaryUrl) {
+              newImageUrls.push(cloudinaryUrl);
+              results.images_uploaded++;
+              results.upload_details.push({
+                type: 'product',
+                id: product.id,
+                title: product.title,
+                original: imagePath,
+                cloudinary_url: cloudinaryUrl
+              });
+              console.log(`Uploaded: ${imagePath} -> ${cloudinaryUrl}`);
+            } else {
+              newImageUrls.push(imagePath); // Keep original if upload fails
+              results.errors.push(`Failed to upload ${imagePath} for product ${product.id}`);
+            }
+          } else {
+            // Keep existing URLs
+            newImageUrls.push(imagePath);
+          }
+        }
+
+        // Update database with new URLs
+        if (newImageUrls.length > 0) {
+          await pool.query(
+            'UPDATE products SET image_data_base64 = $1 WHERE id = $2',
+            [newImageUrls, product.id]
+          );
+          results.products_updated++;
+          console.log(`Updated product ${product.id}: ${product.title}`);
+        }
+
+      } catch (err) {
+        console.error(`Error processing product ${product.id}:`, err.message);
+        results.errors.push(`Product ${product.id}: ${err.message}`);
+      }
+    }
+
+    console.log('\n' + '='.repeat(60));
+    console.log('MIGRATION COMPLETE!');
+    console.log('='.repeat(60));
+    console.log(`Materials updated: ${results.materials_updated}`);
+    console.log(`Products updated: ${results.products_updated}`);
+    console.log(`Images uploaded: ${results.images_uploaded}`);
+    console.log(`Errors: ${results.errors.length}`);
+    console.log('='.repeat(60));
+
+    res.json({
+      success: true,
+      message: 'Asset migration completed',
+      results: results
+    });
+
+  } catch (err) {
+    console.error('Migration error:', err);
+    res.status(500).json({ 
+      error: 'Migration failed', 
+      message: err.message 
+    });
+  }
+});
+
+// Helper function to upload local asset to Cloudinary
+async function uploadLocalAssetToCloudinary(assetPath, folder) {
+  try {
+    // Convert asset path to local file path
+    // Example: 'assets/images/upcycled1.jpg' -> './assets/images/upcycled1.jpg'
+    const localPath = path.join(__dirname, assetPath);
+
+    console.log(`Uploading ${assetPath}...`);
+    console.log(`   Local path: ${localPath}`);
+
+    // Check if file exists
+    if (!fs.existsSync(localPath)) {
+      console.log(`File not found: ${localPath}`);
+      
+      // Try alternative path (in case assets are in a different location)
+      const altPath = path.join(__dirname, '..', assetPath);
+      if (fs.existsSync(altPath)) {
+        console.log(`Found at alternative path: ${altPath}`);
+        return await uploadFileToCloudinary(altPath, folder);
+      }
+      
+      console.log(`File not found at any location`);
+      return null;
+    }
+
+    return await uploadFileToCloudinary(localPath, folder);
+
+  } catch (err) {
+    console.error(`Error uploading ${assetPath}:`, err.message);
+    return null;
+  }
+}
+
+// Helper to actually upload file to Cloudinary
+async function uploadFileToCloudinary(filePath, folder) {
+  try {
+    // Read file as base64
+    const imageBuffer = fs.readFileSync(filePath);
+    const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(base64Image, {
+      folder: `junk_and_gems/${folder}`,
+      resource_type: 'image',
+      transformation: [
+        { width: 1200, height: 1200, crop: 'limit' },
+        { quality: 'auto:good' }
+      ]
+    });
+
+    console.log(`Uploaded to: ${uploadResult.secure_url}`);
+    return uploadResult.secure_url;
+
+  } catch (err) {
+    console.error(`Cloudinary upload failed:`, err.message);
+    return null;
+  }
+}
+
+// Endpoint to check which assets need migration
+app.get("/api/check-assets-migration", async (req, res) => {
+  try {
+    console.log('Checking assets that need migration...');
+
+    // Check materials
+    const materialsCheck = await pool.query(`
+      SELECT id, title, image_data_base64 
+      FROM materials 
+      WHERE image_data_base64::text LIKE '%assets/images%'
+    `);
+
+    // Check products
+    const productsCheck = await pool.query(`
+      SELECT id, title, image_data_base64 
+      FROM products 
+      WHERE image_data_base64::text LIKE '%assets/images%'
+    `);
+
+    const materialsList = materialsCheck.rows.map(m => ({
+      id: m.id,
+      title: m.title,
+      images: m.image_data_base64.filter(img => img.startsWith('assets/'))
+    }));
+
+    const productsList = productsCheck.rows.map(p => ({
+      id: p.id,
+      title: p.title,
+      images: (p.image_data_base64 || []).filter(img => img.startsWith('assets/'))
+    }));
+
+    // Count total images
+    const totalMaterialImages = materialsList.reduce((sum, m) => sum + m.images.length, 0);
+    const totalProductImages = productsList.reduce((sum, p) => sum + p.images.length, 0);
+
+    res.json({
+      needs_migration: materialsCheck.rows.length > 0 || productsCheck.rows.length > 0,
+      materials: {
+        count: materialsCheck.rows.length,
+        total_images: totalMaterialImages,
+        list: materialsList
+      },
+      products: {
+        count: productsCheck.rows.length,
+        total_images: totalProductImages,
+        list: productsList
+      },
+      total_images_to_migrate: totalMaterialImages + totalProductImages
+    });
+
+  } catch (err) {
+    console.error('Check assets error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+console.log('Asset migration endpoints configured:');
+console.log('   GET  /api/check-assets-migration');
+console.log('   POST /api/migrate-assets-to-cloudinary');
+
 app.get("/api/cloudinary-status", (req, res) => {
   try {
     console.log('🔍 Checking Cloudinary configuration...');
@@ -6145,7 +6421,7 @@ app.post("/api/test-cloudinary-upload", async (req, res) => {
       return res.status(400).json({ error: 'No image data provided' });
     }
     
-    console.log('📊 Received image data:');
+    console.log('Received image data:');
     console.log('   Length:', image_data_base64.length);
     console.log('   Format:', image_data_base64.substring(0, 30) + '...');
     
@@ -6156,7 +6432,7 @@ app.post("/api/test-cloudinary-upload", async (req, res) => {
       });
     }
     
-    console.log('📤 Uploading to Cloudinary...');
+    console.log('Uploading to Cloudinary...');
     
     // Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(image_data_base64, {
@@ -6168,7 +6444,7 @@ app.post("/api/test-cloudinary-upload", async (req, res) => {
       ]
     });
     
-    console.log('✅ Upload successful!');
+    console.log('Upload successful!');
     console.log('   URL:', uploadResult.secure_url);
     console.log('   Public ID:', uploadResult.public_id);
     console.log('   Format:', uploadResult.format);
@@ -6199,7 +6475,7 @@ app.post("/api/test-cloudinary-upload", async (req, res) => {
 // 3. Fixed Upload Image Endpoint (Replace your existing one)
 app.post("/api/upload-image", async (req, res) => {
   console.log('═'.repeat(60));
-  console.log('📤 IMAGE UPLOAD REQUEST');
+  console.log('IMAGE UPLOAD REQUEST');
   console.log('═'.repeat(60));
   
   const { image_data_base64 } = req.body;
@@ -6207,17 +6483,17 @@ app.post("/api/upload-image", async (req, res) => {
   try {
     // Validate input
     if (!image_data_base64) {
-      console.log('❌ No image data provided');
+      console.log('No image data provided');
       return res.status(400).json({ error: "No image data provided" });
     }
 
-    console.log('📊 Image data received:');
+    console.log('Image data received:');
     console.log('   Length:', image_data_base64.length, 'characters');
     console.log('   Format:', image_data_base64.substring(0, 30) + '...');
 
     // Check if it's a valid data URI
     if (!image_data_base64.startsWith('data:image')) {
-      console.log('❌ Invalid image format - must start with data:image');
+      console.log('Invalid image format - must start with data:image');
       return res.status(400).json({ 
         error: "Invalid image format. Must be data:image/..." 
       });
@@ -6225,20 +6501,20 @@ app.post("/api/upload-image", async (req, res) => {
 
     // Check Cloudinary configuration
     const cloudinaryConfig = cloudinary.config();
-    console.log('☁️  Cloudinary configuration:');
+    console.log('Cloudinary configuration:');
     console.log('   Cloud name:', cloudinaryConfig.cloud_name || 'NOT SET');
     console.log('   API key:', cloudinaryConfig.api_key ? 'SET' : 'NOT SET');
     console.log('   API secret:', cloudinaryConfig.api_secret ? 'SET' : 'NOT SET');
 
     if (!cloudinaryConfig.cloud_name || !cloudinaryConfig.api_key || !cloudinaryConfig.api_secret) {
-      console.log('❌ Cloudinary not properly configured');
+      console.log('Cloudinary not properly configured');
       return res.status(500).json({ 
         error: "Cloudinary not configured on server",
         details: "Missing cloud_name, api_key, or api_secret"
       });
     }
 
-    console.log('📤 Uploading to Cloudinary...');
+    console.log('Uploading to Cloudinary...');
     console.log('   Folder: junk_and_gems/products');
 
     // Upload to Cloudinary with better error handling
@@ -6252,7 +6528,7 @@ app.post("/api/upload-image", async (req, res) => {
       timeout: 60000 // 60 second timeout
     });
 
-    console.log('✅ Upload successful!');
+    console.log('Upload successful!');
     console.log('   URL:', uploadResult.secure_url);
     console.log('   Public ID:', uploadResult.public_id);
     console.log('   Format:', uploadResult.format);
@@ -6272,7 +6548,7 @@ app.post("/api/upload-image", async (req, res) => {
 
   } catch (error) {
     console.error('═'.repeat(60));
-    console.error('❌ CLOUDINARY UPLOAD ERROR');
+    console.error('CLOUDINARY UPLOAD ERROR');
     console.error('Error message:', error.message);
     console.error('Error name:', error.name);
     
@@ -6298,7 +6574,7 @@ app.post("/api/upload-image", async (req, res) => {
   }
 });
 
-console.log('✅ Cloudinary endpoints configured:');
+console.log('Cloudinary endpoints configured:');
 console.log('   GET  /api/cloudinary-status');
 console.log('   POST /api/test-cloudinary-upload');
 console.log('   POST /api/upload-image');
@@ -6306,7 +6582,7 @@ console.log('   POST /api/upload-image');
 // Seed static products into database
 app.post("/api/seed-static-products", async (req, res) => {
   try {
-    console.log('🌱 Seeding static products...');
+    console.log('Seeding static products...');
 
     const staticProducts = [
       {
@@ -6406,9 +6682,9 @@ app.post("/api/seed-static-products", async (req, res) => {
            ON CONFLICT (id) DO NOTHING`,
           [product.id, product.title, product.description, product.price, product.category, product.artisan_id]
         );
-        console.log(`✅ Added product: ${product.title}`);
+        console.log(`Added product: ${product.title}`);
       } else {
-        console.log(`⏭️  Skipped existing product: ${product.title}`);
+        console.log(`Skipped existing product: ${product.title}`);
       }
     }
 
@@ -6429,7 +6705,7 @@ app.post("/api/seed-static-products", async (req, res) => {
 // Update gem_transactions table to support purchases
 app.post("/api/setup-gem-purchases", async (req, res) => {
   try {
-    console.log('🔧 Setting up gem purchases support...');
+    console.log('Setting up gem purchases support...');
 
     // Check if gem_transactions table exists
     const tableCheck = await pool.query(`
@@ -6453,7 +6729,7 @@ app.post("/api/setup-gem-purchases", async (req, res) => {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created gem_transactions table');
+      console.log('Created gem_transactions table');
     } else {
       // Add payment columns if they don't exist
       await pool.query(`
@@ -6479,7 +6755,7 @@ app.post("/api/setup-gem-purchases", async (req, res) => {
           END IF;
         END $$;
       `);
-      console.log('✅ Added payment columns to gem_transactions');
+      console.log('Added payment columns to gem_transactions');
     }
 
     res.json({ 
@@ -6487,7 +6763,7 @@ app.post("/api/setup-gem-purchases", async (req, res) => {
       message: "Gem purchases setup completed successfully" 
     });
   } catch (err) {
-    console.error("❌ Setup gem purchases error:", err);
+    console.error("Setup gem purchases error:", err);
     res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
@@ -6498,7 +6774,7 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
   const { package_id, gems_amount, price, payment_method } = req.body;
 
   console.log('='.repeat(60));
-  console.log('💎 GEM PURCHASE REQUEST');
+  console.log('GEM PURCHASE REQUEST');
   console.log('User ID:', userId);
   console.log('Package:', package_id);
   console.log('Gems Amount:', gems_amount);
@@ -6509,12 +6785,12 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
   try {
     // Validate input
     if (!gems_amount || gems_amount <= 0) {
-      console.log('❌ Invalid gems amount');
+      console.log('Invalid gems amount');
       return res.status(400).json({ error: "Invalid gems amount" });
     }
 
     if (!price || price <= 0) {
-      console.log('❌ Invalid price');
+      console.log('Invalid price');
       return res.status(400).json({ error: "Invalid price" });
     }
 
@@ -6525,13 +6801,13 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
     );
 
     if (userCheck.rows.length === 0) {
-      console.log('❌ User not found');
+      console.log('User not found');
       return res.status(404).json({ error: "User not found" });
     }
 
     const user = userCheck.rows[0];
     const currentGems = parseInt(user.available_gems || 0);
-    console.log(`✅ User found: ${user.name} (Current gems: ${currentGems})`);
+    console.log(`User found: ${user.name} (Current gems: ${currentGems})`);
 
     // Start transaction
     await pool.query('BEGIN');
@@ -6545,7 +6821,7 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
       );
 
       const newBalance = parseInt(updateResult.rows[0].available_gems);
-      console.log(`✅ Gems updated: ${currentGems} → ${newBalance}`);
+      console.log(`Gems updated: ${currentGems} → ${newBalance}`);
 
       // Record gem transaction
       console.log('Recording transaction...');
@@ -6561,11 +6837,11 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
           price
         ]
       );
-      console.log('✅ Transaction recorded');
+      console.log('Transaction recorded');
 
       // Commit transaction
       await pool.query('COMMIT');
-      console.log('✅ Transaction committed');
+      console.log('Transaction committed');
 
       // Send confirmation email (don't await - let it run in background)
       sendEmail({
@@ -6576,7 +6852,7 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
       }).catch(err => console.error('Failed to send gem purchase email:', err));
 
       console.log('='.repeat(60));
-      console.log('✅ GEM PURCHASE SUCCESSFUL');
+      console.log('GEM PURCHASE SUCCESSFUL');
       console.log('='.repeat(60));
 
       res.json({
@@ -6589,13 +6865,13 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
 
     } catch (txErr) {
       await pool.query('ROLLBACK');
-      console.error('❌ Transaction failed, rolling back:', txErr);
+      console.error('Transaction failed, rolling back:', txErr);
       throw txErr;
     }
 
   } catch (err) {
     console.error('='.repeat(60));
-    console.error("❌ PURCHASE GEMS ERROR");
+    console.error("PURCHASE GEMS ERROR");
     console.error(err);
     console.error('='.repeat(60));
     res.status(500).json({ 
@@ -6748,7 +7024,7 @@ app.get("/api/users/:userId/gem-purchases", authenticateToken, async (req, res) 
   }
 });
 
-console.log('💎 Gem purchase endpoints configured:');
+console.log('Gem purchase endpoints configured:');
 console.log('   POST /api/setup-gem-purchases');
 console.log('   POST /api/users/:userId/purchase-gems');
 console.log('   GET  /api/users/:userId/gem-purchases');

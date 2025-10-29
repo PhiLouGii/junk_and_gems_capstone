@@ -94,24 +94,48 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
       
       if (value == null) continue;
       
-      // Handle string (single image URL)
+      // Handle string (single image URL or data URI)
       if (value is String && value.isNotEmpty) {
-        print('✅ Found image in field "$field": $value');
-        return value;
+        // Check if it's a valid URL or data URI
+        if (_isValidImageString(value)) {
+          print('✅ Found image in field "$field": ${value.substring(0, 50)}...');
+          return value;
+        }
       }
       
-      // Handle list of URLs
+      // Handle list of URLs/data URIs
       if (value is List && value.isNotEmpty) {
         final firstItem = value[0];
-        if (firstItem is String && firstItem.isNotEmpty) {
-          print('✅ Found image list in field "$field": $firstItem');
+        if (firstItem is String && firstItem.isNotEmpty && _isValidImageString(firstItem)) {
+          print('✅ Found image list in field "$field": ${firstItem.substring(0, 50)}...');
           return firstItem;
         }
       }
     }
     
-    print('⚠️ No image found in item: ${item.keys.toList()}');
+    print('⚠️ No valid image found in item: ${item.keys.toList()}');
     return null;
+  }
+
+  // Helper to validate if string is a valid image URL or data URI
+  bool _isValidImageString(String str) {
+    // Accept HTTP(S) URLs
+    if (str.startsWith('http://') || str.startsWith('https://')) {
+      return true;
+    }
+    
+    // Accept data URIs (base64)
+    if (str.startsWith('data:image/')) {
+      return true;
+    }
+    
+    // Reject local asset paths like 'assets/images/...'
+    if (str.startsWith('assets/')) {
+      print('⚠️ Skipping local asset path: $str');
+      return false;
+    }
+    
+    return false;
   }
 
   Future<void> _startConversationAndNavigate(String initialMessage) async {
