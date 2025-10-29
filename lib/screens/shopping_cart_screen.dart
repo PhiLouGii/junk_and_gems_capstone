@@ -21,7 +21,7 @@ class ShoppingCartScreen extends StatefulWidget {
   State<ShoppingCartScreen> createState() => _ShoppingCartScreenState();
 }
 
-class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
+class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBindingObserver {
   List<dynamic> _cartItems = [];
   int _availableGems = 0;
   int _appliedGems = 0;
@@ -33,156 +33,172 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAuthAndLoadData();
   }
 
-  Future<void> _checkAuthAndLoadData() async {
-  setState(() {
-    _isLoading = true;
-    _hasAuthError = false;
-  });
+  @override
+  void didUpdateWidget(ShoppingCartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reload cart data if userId changed or screen is being reused
+    if (oldWidget.userId != widget.userId) {
+      print('UserId changed, reloading cart data...');
+      _checkAuthAndLoadData();
+    }
+  }
 
-  try {
-    print('=' * 50);
-    print('AUTHENTICATION CHECK STARTED');
-    print('=' * 50);
-    
-    await ApiService.debugAuthData();
-    
-    final token = await ApiService.getToken();
-    _token = token ?? '';
-    print('Token exists: ${token != null}');
-    
-    if (_token.isNotEmpty) {
-      print('Token preview: ${_token.substring(0, min(20, _token.length))}...');
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reload cart when app comes to foreground
+      print('App resumed, refreshing cart...');
+      _checkAuthAndLoadData();
     }
-    
-    final userId = await ApiService.getUserId();
-    print('User ID from storage: $userId');
-    print('User ID from widget: ${widget.userId}');
-    
-    if (userId != null && userId != widget.userId) {
-      print('WARNING: User ID mismatch!');
-    }
-    
-    final isValid = await ApiService.verifyToken();
-    print('Token validation: $isValid');
-    
-    if (_token.isEmpty || !isValid) {
-      print('Token is missing, invalid, or expired');
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _gemsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkAuthAndLoadData() async {
+    setState(() {
+      _isLoading = true;
+      _hasAuthError = false;
+    });
+
+    try {
+      print('=' * 50);
+      print('AUTHENTICATION CHECK STARTED');
+      print('=' * 50);
+      
+      await ApiService.debugAuthData();
+      
+      final token = await ApiService.getToken();
+      _token = token ?? '';
+      print('Token exists: ${token != null}');
+      
+      if (_token.isNotEmpty) {
+        print('Token preview: ${_token.substring(0, min(20, _token.length))}...');
+      }
+      
+      final userId = await ApiService.getUserId();
+      print('User ID from storage: $userId');
+      print('User ID from widget: ${widget.userId}');
+      
+      if (userId != null && userId != widget.userId) {
+        print('WARNING: User ID mismatch!');
+      }
+      
+      final isValid = await ApiService.verifyToken();
+      print('Token validation: $isValid');
+      
+      if (_token.isEmpty || !isValid) {
+        print('Token is missing, invalid, or expired');
+        setState(() {
+          _hasAuthError = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      print('Authentication verified - Loading cart data...');
+      print('=' * 50);
+      
+      // Load cart data after authentication is verified
+      await _loadCartData();
+      
+    } catch (e) {
+      print('Auth check error: $e');
+      print('Stack trace: ${StackTrace.current}');
       setState(() {
         _hasAuthError = true;
         _isLoading = false;
       });
-      return;
     }
-
-    print('Authentication verified - Loading cart data...');
-    print('=' * 50);
-    
-    // Load cart data after authentication is verified
-    await _loadCartData();
-    
-  } catch (e) {
-    print('Auth check error: $e');
-    print('Stack trace: ${StackTrace.current}');
-    setState(() {
-      _hasAuthError = true;
-      _isLoading = false;
-    });
   }
-}
-
 
   Future<void> _loadCartData() async {
-  print('=== LOADING CART DATA ===');
-  print('User ID: ${widget.userId}');
-  
-  try {
-    int userGems = 0;
-    List<dynamic> cartItems = [];
-
-    // Load user gems
+    print('=== LOADING CART DATA ===');
+    print('User ID: ${widget.userId}');
+    
     try {
-      print('Fetching user gems...');
-      userGems = await CartService.getUserGems(widget.userId);
-      print('User gems loaded: $userGems');
-    } catch (e) {
-      print('Could not load user gems: $e');
-      userGems = 0;
-      
-      if (_isAuthError(e)) {
-        _handleAuthError();
-        return;
-      }
-    }
+      int userGems = 0;
+      List<dynamic> cartItems = [];
 
-    // Load cart items
-    try {
-      print('Fetching cart items...');
-      cartItems = await CartService.getCartItems(widget.userId);
-      print('Cart items loaded: ${cartItems.length} items');
-      
-      // Debug: Print details of loaded items
-      if (cartItems.isNotEmpty) {
-        print('Cart contents:');
-        for (var item in cartItems) {
-          print('  - ${item['title']} (ID: ${item['cart_item_id']}, Qty: ${item['quantity']}, Price: ${item['price']})');
+      // Load user gems
+      try {
+        print('Fetching user gems...');
+        userGems = await CartService.getUserGems(widget.userId);
+        print('User gems loaded: $userGems');
+      } catch (e) {
+        print('Could not load user gems: $e');
+        userGems = 0;
+        
+        if (_isAuthError(e)) {
+          _handleAuthError();
+          return;
         }
-      } else {
-        print('Cart is empty');
       }
+
+      // Load cart items
+      try {
+        print('Fetching cart items...');
+        cartItems = await CartService.getCartItems(widget.userId);
+        print('Cart items loaded: ${cartItems.length} items');
+        
+        // Debug: Print details of loaded items
+        if (cartItems.isNotEmpty) {
+          print('Cart contents:');
+          for (var item in cartItems) {
+            print('  - ${item['title']} (ID: ${item['cart_item_id']}, Qty: ${item['quantity']}, Price: ${item['price']})');
+          }
+        } else {
+          print('Cart is empty');
+        }
+      } catch (e) {
+        print('Could not load cart items: $e');
+        print('Stack trace: ${StackTrace.current}');
+        
+        if (_isAuthError(e)) {
+          _handleAuthError();
+          return;
+        }
+        
+        // Even if loading fails, don't leave the screen in loading state
+        cartItems = [];
+      }
+
+      // Update state with loaded data
+      if (mounted) {
+        setState(() {
+          _cartItems = cartItems;
+          _availableGems = userGems;
+          _isLoading = false;
+          _hasAuthError = false;
+        });
+        
+        print('Cart state updated successfully');
+        print('Final cart items count: ${_cartItems.length}');
+      }
+      
     } catch (e) {
-      print('Could not load cart items: $e');
+      print('Unexpected error in _loadCartData: $e');
       print('Stack trace: ${StackTrace.current}');
       
-      if (_isAuthError(e)) {
-        _handleAuthError();
-        return;
+      if (mounted) {
+        setState(() {
+          _cartItems = [];
+          _availableGems = 0;
+          _isLoading = false;
+        });
       }
-      
-      // Even if loading fails, don't leave the screen in loading state
-      cartItems = [];
-    }
-
-    // Update state with loaded data
-    if (mounted) {
-      setState(() {
-        _cartItems = cartItems;
-        _availableGems = userGems;
-        _isLoading = false;
-        _hasAuthError = false;
-      });
-      
-      print('Cart state updated successfully');
-      print('Final cart items count: ${_cartItems.length}');
     }
     
-  } catch (e) {
-    print('Unexpected error in _loadCartData: $e');
-    print('Stack trace: ${StackTrace.current}');
-    
-    if (mounted) {
-      setState(() {
-        _cartItems = [];
-        _availableGems = 0;
-        _isLoading = false;
-      });
-    }
+    print('=== CART DATA LOADING COMPLETE ===');
   }
-  
-  print('=== CART DATA LOADING COMPLETE ===');
-}
-
-@override
-void didChangeDependencies() {
-  super.didChangeDependencies();
-  // Reload cart data whenever the screen becomes visible again
-  if (mounted && !_isLoading) {
-    print('Screen became visible, reloading cart data...');
-    _checkAuthAndLoadData();
-  }
-}
 
   bool _isAuthError(dynamic error) {
     final errorStr = error.toString();
@@ -434,63 +450,80 @@ void didChangeDependencies() {
     }
 
     if (_cartItems.isEmpty) {
-      return _buildEmptyCart();
+      return RefreshIndicator(
+        onRefresh: _checkAuthAndLoadData,
+        color: const Color(0xFF88844D),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height - 200,
+            child: _buildEmptyCart(),
+          ),
+        ),
+      );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        bool isWideScreen = constraints.maxWidth > 600;
-        
-        if (isWideScreen) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 2,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: _buildCartItems(),
-                ),
-              ),
-              SizedBox(
-                width: 400,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildGemsSection(),
-                      const SizedBox(height: 20),
-                      _buildOrderSummary(),
-                      const SizedBox(height: 20),
-                      _buildCheckoutButton(),
-                    ],
+    return RefreshIndicator(
+      onRefresh: _checkAuthAndLoadData,
+      color: const Color(0xFF88844D),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          bool isWideScreen = constraints.maxWidth > 600;
+          
+          if (isWideScreen) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
+                    child: _buildCartItems(),
                   ),
                 ),
-              ),
-            ],
-          );
-        } else {
-          return Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildCartItems(),
-                      const SizedBox(height: 20),
-                      _buildGemsSection(),
-                      const SizedBox(height: 20),
-                      _buildOrderSummary(),
-                    ],
+                SizedBox(
+                  width: 400,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildGemsSection(),
+                        const SizedBox(height: 20),
+                        _buildOrderSummary(),
+                        const SizedBox(height: 20),
+                        _buildCheckoutButton(),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              _buildBottomButtons(),
-            ],
-          );
-        }
-      },
+              ],
+            );
+          } else {
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildCartItems(),
+                        const SizedBox(height: 20),
+                        _buildGemsSection(),
+                        const SizedBox(height: 20),
+                        _buildOrderSummary(),
+                      ],
+                    ),
+                  ),
+                ),
+                _buildBottomButtons(),
+              ],
+            );
+          }
+        },
+      ),
     );
   }
 
@@ -1269,44 +1302,43 @@ void didChangeDependencies() {
   }
 
   Widget _buildCheckoutButton() {
-  return SizedBox(
-    width: double.infinity,
-    height: 56,
-    child: ElevatedButton.icon(
-      onPressed: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CheckoutScreen(
-              cartItems: _cartItems.cast<Map<String, dynamic>>(),
-              subtotal: _subtotal,
-              gemsDiscount: _appliedGems.toDouble(),
-              total: _total,
-              userId: widget.userId,
-              token: _token,
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CheckoutScreen(
+                cartItems: _cartItems.cast<Map<String, dynamic>>(),
+                subtotal: _subtotal,
+                gemsDiscount: _appliedGems.toDouble(),
+                total: _total,
+                userId: widget.userId,
+                token: _token,
+              ),
             ),
-          ),
-        );
-        // Reload cart after returning from checkout
-        await _checkAuthAndLoadData();
-      },
-      icon: const Icon(Icons.shopping_bag, size: 22),
-      label: const Text(
-        'Proceed to Checkout',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF88844D),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          );
+          // Reload cart after returning from checkout
+          await _checkAuthAndLoadData();
+        },
+        icon: const Icon(Icons.shopping_bag, size: 22),
+        label: const Text(
+          'Proceed to Checkout',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        elevation: 4,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF88844D),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 4,
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildBottomButtons() {
     return Container(
@@ -1382,11 +1414,5 @@ void didChangeDependencies() {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _gemsController.dispose();
-    super.dispose();
   }
 }

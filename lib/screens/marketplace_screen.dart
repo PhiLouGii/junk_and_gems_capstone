@@ -302,7 +302,7 @@ void _refreshCartCount() {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
+     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Row(
           children: [
@@ -330,6 +330,10 @@ void _refreshCartCount() {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).clearSnackBars();
+      
+      // Refresh cart count BEFORE showing success message
+      await _loadCartCount();
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${product['title']} added to cart'),
@@ -344,14 +348,11 @@ void _refreshCartCount() {
                 MaterialPageRoute(
                   builder: (context) => ShoppingCartScreen(userId: widget.userId!),
                 ),
-              ).then((_) => _refreshCartCount()); // Refresh when returning
+              ).then((_) => _loadCartCount()); 
             },
           ),
         ),
       );
-      
-      // Refresh cart count immediately after adding
-      _refreshCartCount();
     }
   } catch (e) {
     print('Add to cart error: $e');
