@@ -76,6 +76,44 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     }
   }
 
+  // Helper method to extract the first image URL from various possible field formats
+  String? _extractImageUrl(Map<String, dynamic> item) {
+    // Try different possible field names
+    final possibleFields = [
+      'image_url',
+      'image_urls', 
+      'imageUrl',
+      'imageUrls',
+      'image_data_base64',
+      'images',
+      'product_image_url',
+    ];
+
+    for (var field in possibleFields) {
+      final value = item[field];
+      
+      if (value == null) continue;
+      
+      // Handle string (single image URL)
+      if (value is String && value.isNotEmpty) {
+        print('✅ Found image in field "$field": $value');
+        return value;
+      }
+      
+      // Handle list of URLs
+      if (value is List && value.isNotEmpty) {
+        final firstItem = value[0];
+        if (firstItem is String && firstItem.isNotEmpty) {
+          print('✅ Found image list in field "$field": $firstItem');
+          return firstItem;
+        }
+      }
+    }
+    
+    print('⚠️ No image found in item: ${item.keys.toList()}');
+    return null;
+  }
+
   Future<void> _startConversationAndNavigate(String initialMessage) async {
     if (_currentUserId == null || _token == null) {
       _showErrorSnackbar('Please log in to send messages');
@@ -627,6 +665,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
 
   Widget _buildDonationCard(Map<String, dynamic> donation) {
     print('🎁 Donation data: $donation');
+    final imageUrl = _extractImageUrl(donation);
     
     return Container(
       width: double.infinity,
@@ -649,10 +688,8 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
           children: [
             GestureDetector(
               onTap: () {
-                final imageUrls = donation['image_urls'] ?? donation['image_data_base64'] ?? [];
-                final firstImage = imageUrls is List && imageUrls.isNotEmpty ? imageUrls[0] : null;
-                if (firstImage != null && firstImage.toString().isNotEmpty) {
-                  _showImageFullScreen(firstImage.toString());
+                if (imageUrl != null) {
+                  _showImageFullScreen(imageUrl);
                 }
               },
               child: Container(
@@ -664,7 +701,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                       ? const Color(0xFF3A3A3A) 
                       : const Color(0xFFE4E5C2),
                 ),
-                child: _buildDonationImage(donation),
+                child: _buildDonationImage(imageUrl),
               ),
             ),
             const SizedBox(width: 12),
@@ -717,22 +754,30 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     );
   }
 
-  Widget _buildDonationImage(Map<String, dynamic> donation) {
-    final imageUrls = donation['image_urls'] ?? donation['image_data_base64'] ?? [];
-    final firstImage = imageUrls is List && imageUrls.isNotEmpty ? imageUrls[0] : null;
-    
-    if (firstImage != null && firstImage.toString().isNotEmpty) {
+  Widget _buildDonationImage(String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
-          firstImage.toString(),
+          imageUrl,
           fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
           errorBuilder: (context, error, stackTrace) {
+            print('❌ Error loading donation image: $error');
             return _buildDonationPlaceholder();
           },
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
-            return _buildDonationPlaceholder();
+            return Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+                color: const Color(0xFF88844D),
+                strokeWidth: 2,
+              ),
+            );
           },
         ),
       );
@@ -742,10 +787,12 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   Widget _buildDonationPlaceholder() {
-    return Icon(
-      Icons.recycling,
-      size: 24,
-      color: const Color(0xFF88844D),
+    return Center(
+      child: Icon(
+        Icons.recycling,
+        size: 32,
+        color: const Color(0xFF88844D).withOpacity(0.5),
+      ),
     );
   }
 
@@ -796,13 +843,14 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
   }
 
   Widget _buildProductCard(Map<String, dynamic> product) {
-    final imageUrl = product['image_url'];
-    final hasImage = imageUrl != null && imageUrl.toString().isNotEmpty;
+    print('🛍️ Product data: $product');
+    final imageUrl = _extractImageUrl(product);
+    final hasImage = imageUrl != null && imageUrl.isNotEmpty;
 
     return GestureDetector(
       onTap: () {
         if (hasImage) {
-          _showImageFullScreen(imageUrl.toString());
+          _showImageFullScreen(imageUrl);
         }
       },
       child: Container(
@@ -841,11 +889,12 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                               topRight: Radius.circular(12),
                             ),
                             child: Image.network(
-                              imageUrl.toString(),
+                              imageUrl,
                               width: double.infinity,
                               height: double.infinity,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) {
+                                print('❌ Error loading product image: $error');
                                 return _buildProductPlaceholder();
                               },
                               loadingBuilder: (context, child, loadingProgress) {
@@ -857,6 +906,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
                                             loadingProgress.expectedTotalBytes!
                                         : null,
                                     color: const Color(0xFF88844D),
+                                    strokeWidth: 2,
                                   ),
                                 );
                               },
@@ -922,7 +972,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
       child: Icon(
         Icons.shopping_bag,
         size: 40,
-        color: const Color(0xFF88844D),
+        color: const Color(0xFF88844D).withOpacity(0.5),
       ),
     );
   }
