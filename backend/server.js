@@ -6,6 +6,7 @@ import cors from "cors";
 import { Pool } from "pg";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from 'google-auth-library';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import sgMail from '@sendgrid/mail';
@@ -17,7 +18,6 @@ const app = express();
 const port = process.env.PORT || 3003;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Configure SendGrid
