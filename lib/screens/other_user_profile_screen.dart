@@ -76,67 +76,59 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen> {
     }
   }
 
-  // Helper method to extract the first image URL from various possible field formats
   String? _extractImageUrl(Map<String, dynamic> item) {
-    // Try different possible field names
-    final possibleFields = [
-      'image_url',
-      'image_urls', 
-      'imageUrl',
-      'imageUrls',
-      'image_data_base64',
-      'images',
-      'product_image_url',
-    ];
-
-    for (var field in possibleFields) {
-      final value = item[field];
-      
-      if (value == null) continue;
-      
-      // Handle string (single image URL or data URI)
-      if (value is String && value.isNotEmpty) {
-        // Check if it's a valid URL or data URI
-        if (_isValidImageString(value)) {
-          print('✅ Found image in field "$field": ${value.substring(0, 50)}...');
-          return value;
+  // Priority 1: Check image_urls first (most common for Cloudinary)
+  if (item['image_urls'] != null) {
+    if (item['image_urls'] is List) {
+      final urls = item['image_urls'] as List;
+      if (urls.isNotEmpty) {
+        final firstUrl = urls[0].toString();
+        if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+          return firstUrl;
         }
       }
-      
-      // Handle list of URLs/data URIs
-      if (value is List && value.isNotEmpty) {
-        final firstItem = value[0];
-        if (firstItem is String && firstItem.isNotEmpty && _isValidImageString(firstItem)) {
-          print('✅ Found image list in field "$field": ${firstItem.substring(0, 50)}...');
+    } else if (item['image_urls'] is String) {
+      final url = item['image_urls'] as String;
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+      }
+    }
+  }
+
+  // Priority 2: Check image_data_base64
+  if (item['image_data_base64'] != null) {
+    if (item['image_data_base64'] is List) {
+      final data = item['image_data_base64'] as List;
+      if (data.isNotEmpty) {
+        final firstItem = data[0].toString();
+        if (firstItem.startsWith('http://') || firstItem.startsWith('https://')) {
+          return firstItem;
+        }
+        if (firstItem.startsWith('data:image/')) {
           return firstItem;
         }
       }
+    } else if (item['image_data_base64'] is String) {
+      final data = item['image_data_base64'] as String;
+      if (data.startsWith('http://') || data.startsWith('https://')) {
+        return data;
+      }
+      if (data.startsWith('data:image/')) {
+        return data;
+      }
     }
-    
-    print('⚠️ No valid image found in item: ${item.keys.toList()}');
-    return null;
   }
 
-  // Helper to validate if string is a valid image URL or data URI
-  bool _isValidImageString(String str) {
-    // Accept HTTP(S) URLs
-    if (str.startsWith('http://') || str.startsWith('https://')) {
-      return true;
+  // Priority 3: Check image_url (single)
+  if (item['image_url'] != null && item['image_url'] is String) {
+    final url = item['image_url'] as String;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
     }
-    
-    // Accept data URIs (base64)
-    if (str.startsWith('data:image/')) {
-      return true;
-    }
-    
-    // Reject local asset paths like 'assets/images/...'
-    if (str.startsWith('assets/')) {
-      print('⚠️ Skipping local asset path: $str');
-      return false;
-    }
-    
-    return false;
   }
+
+  return null;
+}
 
   Future<void> _startConversationAndNavigate(String initialMessage) async {
     if (_currentUserId == null || _token == null) {
