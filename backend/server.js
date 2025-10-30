@@ -2337,6 +2337,44 @@ setInterval(async () => {
   }
 }, 3600000); // Run every hour
 
+// Delete materials by ID
+app.post("/api/delete-materials-by-ids", async (req, res) => {
+  const { material_ids } = req.body;
+  
+  try {
+    // Validate input
+    if (!material_ids || !Array.isArray(material_ids) || material_ids.length === 0) {
+      return res.status(400).json({ 
+        error: "material_ids array is required" 
+      });
+    }
+
+    console.log(`Deleting ${material_ids.length} materials: ${material_ids.join(', ')}`);
+
+    const result = await pool.query(`
+      DELETE FROM materials 
+      WHERE id = ANY($1)
+      RETURNING id, title, category
+    `, [material_ids]);
+
+    console.log(`Successfully deleted ${result.rows.length} materials`);
+
+    res.json({
+      success: true,
+      message: `Deleted ${result.rows.length} materials`,
+      deleted_count: result.rows.length,
+      deleted_materials: result.rows
+    });
+
+  } catch (err) {
+    console.error('Delete materials error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
+  }
+});
+
 // Get featured artisans
 app.get("/api/artisans", async (req, res) => {
   try {
