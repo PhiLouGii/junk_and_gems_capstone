@@ -14,6 +14,10 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   
   static bool _isInitialized = false;
+  
+  // Track shown notification IDs to prevent duplicates
+  static Set<int> _shownNotificationIds = {};
+  static const String _shownNotificationsKey = 'shown_notification_ids';
 
   // Motivational tips for daily notifications
   static const List<String> motivationalTips = [
@@ -37,6 +41,9 @@ class NotificationService {
 
     // Initialize timezone
     tz.initializeTimeZones();
+
+    // Load previously shown notification IDs
+    await _loadShownNotificationIds();
 
     // Android settings
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -63,6 +70,56 @@ class NotificationService {
     
     _isInitialized = true;
     print('✅ Local notifications initialized');
+  }
+
+  /// Load shown notification IDs from storage
+  static Future<void> _loadShownNotificationIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getStringList(_shownNotificationsKey) ?? [];
+      _shownNotificationIds = stored.map((e) => int.parse(e)).toSet();
+      print('📋 Loaded ${_shownNotificationIds.length} shown notification IDs');
+    } catch (e) {
+      print('⚠️ Error loading shown notification IDs: $e');
+      _shownNotificationIds = {};
+    }
+  }
+
+  /// Save shown notification IDs to storage
+  static Future<void> _saveShownNotificationIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stringList = _shownNotificationIds.map((e) => e.toString()).toList();
+      await prefs.setStringList(_shownNotificationsKey, stringList);
+    } catch (e) {
+      print('⚠️ Error saving shown notification IDs: $e');
+    }
+  }
+
+  /// Mark a notification as shown
+  static Future<void> _markNotificationAsShown(int id) async {
+    _shownNotificationIds.add(id);
+    
+    // Keep only last 1000 IDs to prevent memory issues
+    if (_shownNotificationIds.length > 1000) {
+      final list = _shownNotificationIds.toList()..sort();
+      _shownNotificationIds = list.skip(list.length - 1000).toSet();
+    }
+    
+    await _saveShownNotificationIds();
+  }
+
+  /// Check if notification was already shown
+  static bool _wasNotificationShown(int id) {
+    return _shownNotificationIds.contains(id);
+  }
+
+  /// Clear shown notification history (call on logout)
+  static Future<void> clearShownNotifications() async {
+    _shownNotificationIds.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_shownNotificationsKey);
+    print('🧹 Cleared shown notification history');
   }
 
   /// Request notification permissions (iOS & Android 13+)
@@ -186,6 +243,12 @@ class NotificationService {
     String channelId = 'instant_notifications',
     String channelName = 'Instant Notifications',
   }) async {
+    // Check if already shown
+    if (_wasNotificationShown(id)) {
+      print('⏭️ Skipping already shown notification: $id');
+      return;
+    }
+
     await _localNotifications.show(
       id,
       title,
@@ -208,6 +271,9 @@ class NotificationService {
       ),
       payload: payload,
     );
+
+    // Mark as shown
+    await _markNotificationAsShown(id);
   }
 
   /// Show notification for new user joining
@@ -253,12 +319,23 @@ class NotificationService {
       
       if (result['success'] == true) {
         final notifications = result['notifications'] as List;
+        int newCount = 0;
         
         for (var notification in notifications) {
-          await _showLocalNotificationFromBackend(notification);
+          final notifId = notification['id'];
+          
+          // Only show if not already shown
+          if (!_wasNotificationShown(notifId)) {
+            await _showLocalNotificationFromBackend(notification);
+            newCount++;
+          }
         }
         
-        print('✅ Synced ${notifications.length} notifications');
+        if (newCount > 0) {
+          print('✅ Showed $newCount new notifications (${notifications.length} total checked)');
+        } else {
+          print('ℹ️ No new notifications to show (${notifications.length} already seen)');
+        }
       }
     } catch (e) {
       print('❌ Error syncing notifications: $e');
@@ -272,7 +349,12 @@ class NotificationService {
     final type = notification['type'] ?? 'general';
     final title = notification['title'] ?? 'Notification';
     final message = notification['message'] ?? '';
-    final id = notification['id'] ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final id = notification['id'];
+
+    // Double check - don't show if already shown
+    if (_wasNotificationShown(id)) {
+      return;
+    }
 
     String emoji = '📢';
     switch (type) {
@@ -308,13 +390,14 @@ class NotificationService {
     Stream.periodic(const Duration(minutes: 5)).listen((_) async {
       await syncAndShowLocalNotifications(userId);
     });
-    print('✅ Started periodic notification sync');
+    print('✅ Started periodic notification sync (every 5 minutes)');
   }
 
   /// Cancel all local notifications
   static Future<void> cancelAllLocalNotifications() async {
     await _localNotifications.cancelAll();
-    print('✅ Cancelled all local notifications');
+    await clearShownNotifications();
+    print('✅ Cancelled all local notifications and cleared history');
   }
 
   /// Cancel specific local notification
