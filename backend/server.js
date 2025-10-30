@@ -3571,7 +3571,7 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
         await createNotifications(
           allUsers,
           'new_product',
-          'New Upcycled Product! 🎨',
+          'New Upcycled Product! ',
           `${creatorName} just listed "${title}" for M${parseFloat(price).toFixed(2)}. Check it out!`,
           parseInt(artisan_id),
           7
@@ -4000,7 +4000,75 @@ app.get("/api/debug/product-images/:productId", async (req, res) => {
   }
 });
 
-// Also add this endpoint to test product creation with a test image
+// Delete products by IDs
+app.post("/api/delete-products-by-ids", async (req, res) => {
+  const { product_ids } = req.body;
+  
+  try {
+    // Validate input
+    if (!product_ids || !Array.isArray(product_ids) || product_ids.length === 0) {
+      return res.status(400).json({ 
+        error: "product_ids array is required" 
+      });
+    }
+
+    console.log(`Deleting ${product_ids.length} products: ${product_ids.join(', ')}`);
+
+    const result = await pool.query(`
+      DELETE FROM products 
+      WHERE id = ANY($1)
+      RETURNING id, title, category
+    `, [product_ids]);
+
+    console.log(`Successfully deleted ${result.rows.length} products`);
+
+    res.json({
+      success: true,
+      message: `Deleted ${result.rows.length} products`,
+      deleted_count: result.rows.length,
+      deleted_products: result.rows
+    });
+
+  } catch (err) {
+    console.error('Delete products error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: err.message 
+    });
+  }
+});
+
+// Check which products have empty images
+app.get("/api/check-empty-products", async (req, res) => {
+  try {
+    console.log('Checking for products with empty images...');
+
+    const result = await pool.query(`
+      SELECT id, title, category, image_urls, image_data_base64
+      FROM products 
+      WHERE (image_urls IS NULL OR array_length(image_urls, 1) IS NULL OR array_length(image_urls, 1) = 0)
+        AND (image_data_base64 IS NULL OR array_length(image_data_base64, 1) IS NULL OR array_length(image_data_base64, 1) = 0)
+    `);
+
+    console.log(`Found ${result.rows.length} products with empty images`);
+
+    res.json({
+      success: true,
+      count: result.rows.length,
+      products: result.rows.map(p => ({
+        id: p.id,
+        title: p.title,
+        category: p.category
+      }))
+    });
+
+  } catch (err) {
+    console.error('Check error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 app.post("/api/debug/test-product-creation", async (req, res) => {
   try {
     console.log('Testing product creation with sample Cloudinary URL...');
