@@ -641,6 +641,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 32),
                           _buildBioSection(),
                           const SizedBox(height: 24),
+                          _buildStatsRow(),
+                          const SizedBox(height: 20),
+                          _buildActionButtons(),
+                          const SizedBox(height: 24),
+                          _buildRecentActivity(),
                           _buildContactInformation(userEmail),
                           const SizedBox(height: 24),
                           _buildMyAccount(),
@@ -964,6 +969,417 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  Widget _buildStatsRow() {
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF88844D).withOpacity(0.1),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildStatItem(
+          value: userData['total_donations']?.toString() ?? '0',
+          label: 'Donated',
+          icon: Icons.recycling,
+          color: Colors.green,
+        ),
+        _buildVerticalDivider(),
+        _buildStatItem(
+          value: userData['total_products']?.toString() ?? '0',
+          label: 'Sold',
+          icon: Icons.sell,
+          color: Colors.blue,
+        ),
+        _buildVerticalDivider(),
+        _buildStatItem(
+          value: userGems.toString(),
+          label: 'Gems',
+          icon: Icons.diamond,
+          color: const Color(0xFF88844D),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildStatItem({
+  required String value,
+  required String label,
+  required IconData icon,
+  required Color color,
+}) {
+  return Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: color, size: 24),
+      ),
+      const SizedBox(height: 12),
+      Text(
+        value,
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildVerticalDivider() {
+  return Container(
+    height: 60,
+    width: 1,
+    color: Theme.of(context).dividerColor.withOpacity(0.2),
+  );
+}
+
+Widget _buildActionButtons() {
+  return Row(
+    children: [
+      Expanded(
+        child: ElevatedButton(
+          onPressed: () {
+            setState(() {
+              isEditingBio = true;
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF88844D),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 0,
+          ),
+          child: const Text(
+            'Edit Profile',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: const Color(0xFFBEC092),
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: IconButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );
+          },
+          icon: const Icon(Icons.settings_outlined),
+          color: const Color(0xFF88844D),
+          iconSize: 24,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: const Color(0xFFBEC092),
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.visibility_outlined),
+          color: const Color(0xFF88844D),
+          iconSize: 24,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildRecentActivity() {
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0xFF88844D).withOpacity(0.1),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent Activity',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 20),
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: _loadRecentActivity(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF88844D),
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+              return _buildEmptyActivity();
+            }
+
+            return Column(
+              children: snapshot.data!.map((activity) {
+                return _buildActivityItem(
+                  title: activity['title'] ?? '',
+                  subtitle: activity['subtitle'] ?? '',
+                  icon: activity['icon'] ?? Icons.circle,
+                  color: activity['color'] ?? Colors.grey,
+                  time: activity['time'] ?? '',
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+Future<List<Map<String, dynamic>>> _loadRecentActivity() async {
+  try {
+    final userId = widget.userId;
+    final activities = <Map<String, dynamic>>[];
+
+    // Fetch user's donations
+    final donationsResponse = await http.get(
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/donations'),
+    );
+
+    if (donationsResponse.statusCode == 200) {
+      final donations = json.decode(donationsResponse.body) as List;
+      for (var donation in donations.take(2)) {
+        activities.add({
+          'title': 'New donation listed',
+          'subtitle': donation['title'] ?? 'Material donation',
+          'icon': Icons.recycling,
+          'color': Colors.green,
+          'time': _formatTimeAgo(donation['created_at']),
+        });
+      }
+    }
+
+    // Fetch user's products
+    final productsResponse = await http.get(
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/products'),
+    );
+
+    if (productsResponse.statusCode == 200) {
+      final products = json.decode(productsResponse.body) as List;
+      for (var product in products.take(2)) {
+        activities.add({
+          'title': 'New product for sale',
+          'subtitle': product['title'] ?? 'Upcycled product',
+          'icon': Icons.shopping_bag,
+          'color': Colors.orange,
+          'time': _formatTimeAgo(product['created_at']),
+        });
+      }
+    }
+
+    // Sort by time (most recent first)
+    activities.sort((a, b) => b['time'].compareTo(a['time']));
+
+    return activities.take(3).toList();
+  } catch (e) {
+    print('❌ Error loading recent activity: $e');
+    return [];
+  }
+}
+
+String _formatTimeAgo(String? dateString) {
+  if (dateString == null) return 'Recently';
+  
+  try {
+    final date = DateTime.parse(dateString);
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inDays > 7) {
+      return '${(difference.inDays / 7).floor()}w ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
+Widget _buildActivityItem({
+  required String title,
+  required String subtitle,
+  required IconData icon,
+  required Color color,
+  required String time,
+}) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: const Color(0xFFBEC092).withOpacity(0.2),
+      ),
+    ),
+    child: Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Row(
+          children: [
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildEmptyActivity() {
+  return Container(
+    padding: const EdgeInsets.all(32),
+    child: Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFBEC092).withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.inbox_outlined,
+            size: 40,
+            color: const Color(0xFF88844D).withOpacity(0.5),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'No recent activity',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Your donations and sales will appear here',
+          style: TextStyle(
+            fontSize: 13,
+            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildContactInformation(String userEmail) {
     return Container(
