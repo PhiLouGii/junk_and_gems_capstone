@@ -53,6 +53,7 @@ dependencies:
   geocoding: ^2.0.5 
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
+  google_sign_in: ^6.1.0
   
 
 
@@ -87,6 +88,7 @@ flutter:
     - assets/images/onboarding_image.png
     - assets/images/background.jpg
     - assets/images/logo.png
+    - assets/images/google_logo.png
     - assets/images/placeholder.jpg
     - assets/images/upcycled1.jpg
     - assets/images/upcycled2.jpg

@@ -8,6 +8,7 @@ import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/services/notification_service.dart';
+import 'package:junk_and_gems/services/google_auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,7 +23,76 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   String? _errorMessage;
+
+  // Google Sign-In Handler
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      print('Starting Google Sign-In...');
+      
+      final result = await GoogleAuthService.signInWithGoogle();
+      
+      if (result == null) {
+        // User cancelled
+        print('User cancelled Google Sign-In');
+        return;
+      }
+
+      final userData = result['user'];
+      
+      // Update AuthProvider
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.initialize();
+      
+      print('Google Sign-In successful!');
+      print('  User ID: ${authProvider.user?.id}');
+      print('  User Name: ${authProvider.user?.name}');
+
+      // Initialize notifications
+      try {
+        await NotificationService.scheduleDailyTip(
+          hour: 10,
+          minute: 0,
+          enabled: true,
+        );
+        NotificationService.startPeriodicSync(userData['id'].toString());
+        await NotificationService.syncAndShowLocalNotifications(
+          userData['id'].toString(),
+        );
+      } catch (notifError) {
+        print('Error setting up notifications: $notifError');
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(
+              userId: userData['id'].toString(),
+              userName: userData['name'],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Google Sign-In failed: $e');
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+        });
+      }
+    }
+  }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -88,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('userName', userData['name']);
         await prefs.setString('userEmail', userData['email']);
         await prefs.setBool('isLoggedIn', true);
+        await prefs.setBool('isGoogleUser', false); // Mark as regular user
         
         print('Stored user data:');
         print('   userId: ${userData['id']}');
@@ -105,7 +176,6 @@ class _LoginScreenState extends State<LoginScreen> {
         // INITIALIZE NOTIFICATIONS AFTER LOGIN
         print('Initializing notifications...');
         try {
-          // Schedule daily tips at 10 AM
           await NotificationService.scheduleDailyTip(
             hour: 10,
             minute: 0,
@@ -113,18 +183,15 @@ class _LoginScreenState extends State<LoginScreen> {
           );
           print('Daily tips scheduled');
 
-          // Start periodic sync with backend
           NotificationService.startPeriodicSync(userData['id'].toString());
           print('Notification sync started');
 
-          // Do an immediate sync
           await NotificationService.syncAndShowLocalNotifications(
             userData['id'].toString(),
           );
           print('Initial notification sync completed');
         } catch (notifError) {
           print('Error setting up notifications: $notifError');
-          // Don't block login if notifications fail
         }
 
         print('Login successful!');
@@ -180,6 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text('userId: ${prefs.getString('userId')}'),
                     Text('userName: ${prefs.getString('userName')}'),
                     Text('isLoggedIn: ${prefs.getBool('isLoggedIn')}'),
+                    Text('isGoogleUser: ${prefs.getBool('isGoogleUser')}'),
                     const SizedBox(height: 16),
                     const Text('AuthProvider:', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
@@ -275,6 +343,64 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
+                          
+                          // Google Sign-In Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: OutlinedButton.icon(
+                              onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: _isGoogleLoading 
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Image.asset(
+                                      'assets/images/google_logo.png', // You'll need to add this
+                                      height: 24,
+                                      width: 24,
+                                    ),
+                              label: Text(
+                                _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Divider
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: Colors.grey.shade300)),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  'OR',
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Expanded(child: Divider(color: Colors.grey.shade300)),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
                           _buildTextField(
                             controller: _emailController,
                             hintText: 'Email',

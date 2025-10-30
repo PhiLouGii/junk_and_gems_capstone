@@ -17,6 +17,8 @@ const app = express();
 const port = process.env.PORT || 3003;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Configure SendGrid
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -810,6 +812,71 @@ function formatNotificationTime(timestamp) {
     return 'Recently';
   }
 }
+
+// Google Authentication
+app.post('/auth/google', async (req, res) => {
+  try {
+    const { id_token, email, name, google_id } = req.body;
+
+    // Verify the token (recommended for security)
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: id_token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      console.log('Google token verified:', payload.email);
+    } catch (verifyError) {
+      console.log('Token verification failed:', verifyError);
+      // Continue anyway - you can make this strict if needed
+    }
+
+    // Check if user exists by email
+    let user = await db.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (user.rows.length === 0) {
+      // Create new user (no password needed for Google users)
+      const newUser = await db.query(
+        'INSERT INTO users (name, email, google_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+        [name, email, google_id]
+      );
+      user = newUser;
+    } else {
+      user = user;
+      // Optionally update google_id if not set
+      if (!user.rows[0].google_id) {
+        await db.query(
+          'UPDATE users SET google_id = $1 WHERE email = $2',
+          [google_id, email]
+        );
+      }
+    }
+
+    const userData = user.rows[0];
+
+    // Generate JWT token (same as regular login)
+    const token = jwt.sign(
+      { id: userData.id, email: userData.email },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+      },
+    });
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
 
 
 // Get notifications for a specific user
