@@ -4088,40 +4088,65 @@ app.get("/api/users/:userId/profile", async (req, res) => {
   }
 });
 
-// Get user's donations
+// Get user's donations/materials
 app.get("/api/users/:userId/donations", async (req, res) => {
   const { userId } = req.params;
 
   try {
+    console.log(`Getting donations for user ${userId}`);
+    
     const result = await pool.query(`
       SELECT 
         m.*,
         u.name as uploader_name,
+        u.email as uploader_email,
         u.profile_image_url as uploader_avatar
       FROM materials m
-      JOIN users u ON m.uploader_id = u.id
+      LEFT JOIN users u ON m.uploader_id = u.id
       WHERE m.uploader_id = $1
       ORDER BY m.created_at DESC
     `, [userId]);
 
-    const donations = result.rows.map(material => ({
-      id: material.id,
-      title: material.title,
-      description: material.description,
-      category: material.category,
-      quantity: material.quantity,
-      location: material.location,
-      image_urls: material.image_data_base64 ? 
-        material.image_data_base64.map(img => `data:image/jpeg;base64,${img}`) : [],
-      created_at: material.created_at,
-      time: formatTimeAgo(material.created_at),
-      is_claimed: material.is_claimed
+    console.log(`Found ${result.rows.length} donations for user ${userId}`);
+
+    // Format response  /materials endpoint
+    const donations = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      quantity: row.quantity,
+      location: row.location,
+      location_area: row.location_area,
+      location_landmark: row.location_landmark,
+      location_directions: row.location_directions,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      map_address: row.map_address,
+      is_map_location: row.is_map_location || false,
+      delivery_option: row.delivery_option,
+      available_from: row.available_from,
+      available_until: row.available_until,
+      is_fragile: row.is_fragile,
+      contact_preferences: row.contact_preferences,
+      image_urls: row.image_data_base64 || [], 
+      image_data_base64: row.image_data_base64 || [],
+      uploader_id: row.uploader_id,
+      uploader: row.uploader_name || 'Unknown User',
+      uploader_name: row.uploader_name || 'Unknown User',
+      uploader_email: row.uploader_email,
+      uploader_avatar: row.uploader_avatar,
+      created_at: row.created_at,
+      claim_status: row.claim_status || 'available',
+      is_claimed: row.claim_status === 'confirmed',
+      claimed_by: row.claimed_by,
+      claimed_at: row.claim_confirmed_at
     }));
 
     res.json(donations);
   } catch (err) {
     console.error("Get user donations error:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
@@ -4130,34 +4155,44 @@ app.get("/api/users/:userId/products", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Check if products table exists and has artisan_id column
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'products'
-      );
-    `);
-
-    if (!tableCheck.rows[0].exists) {
-      return res.json([]);
-    }
-
+    console.log(`Getting products for user ${userId}`);
+    
     const result = await pool.query(`
       SELECT 
         p.*,
         u.name as creator_name,
         u.profile_image_url as creator_avatar
       FROM products p
-      JOIN users u ON p.artisan_id = u.id
+      LEFT JOIN users u ON p.artisan_id = u.id
       WHERE p.artisan_id = $1
       ORDER BY p.created_at DESC
     `, [userId]);
 
-    res.json(result.rows);
+    console.log(`Found ${result.rows.length} products for user ${userId}`);
+
+    // Format response with image fields
+    const products = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      price: row.price,
+      category: row.category,
+      condition: row.condition,
+      materials_used: row.materials_used,
+      dimensions: row.dimensions,
+      location: row.location,
+      image_urls: row.image_data_base64 || [], 
+      image_data_base64: row.image_data_base64 || [],  
+      artisan_id: row.artisan_id,
+      creator_name: row.creator_name,
+      creator_avatar: row.creator_avatar,
+      created_at: row.created_at
+    }));
+
+    res.json(products);
   } catch (err) {
     console.error("Get user products error:", err);
-    // Return empty array if products table doesn't exist or has issues
-    res.json([]);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
