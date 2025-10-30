@@ -818,7 +818,7 @@ app.post('/auth/google', async (req, res) => {
   try {
     const { id_token, email, name, google_id } = req.body;
 
-    // Verify the token (recommended for security)
+    // Verify the token (optional but recommended)
     try {
       const ticket = await client.verifyIdToken({
         idToken: id_token,
@@ -828,27 +828,26 @@ app.post('/auth/google', async (req, res) => {
       console.log('Google token verified:', payload.email);
     } catch (verifyError) {
       console.log('Token verification failed:', verifyError);
-      // Continue anyway - you can make this strict if needed
+      // Continue anyway for now
     }
 
     // Check if user exists by email
-    let user = await db.query(
+    let user = await pool.query( 
       'SELECT * FROM users WHERE email = $1',
       [email]
     );
 
     if (user.rows.length === 0) {
       // Create new user (no password needed for Google users)
-      const newUser = await db.query(
+      const newUser = await pool.query( 
         'INSERT INTO users (name, email, google_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
         [name, email, google_id]
       );
       user = newUser;
     } else {
-      user = user;
       // Optionally update google_id if not set
       if (!user.rows[0].google_id) {
-        await db.query(
+        await pool.query(  
           'UPDATE users SET google_id = $1 WHERE email = $2',
           [google_id, email]
         );
@@ -860,7 +859,7 @@ app.post('/auth/google', async (req, res) => {
     // Generate JWT token (same as regular login)
     const token = jwt.sign(
       { id: userData.id, email: userData.email },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
