@@ -7,6 +7,7 @@ import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/screens/forgot_password_screen.dart';
 import 'package:junk_and_gems/screens/signup_screen.dart';
 import 'package:junk_and_gems/screens/dashboard_screen.dart';
+import 'package:junk_and_gems/services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('🔐 Starting login process...');
+      print('Starting login process...');
 
       final response = await http.post(
         Uri.parse('https://junk-and-gems-api.onrender.com/login'),
@@ -43,34 +44,30 @@ class _LoginScreenState extends State<LoginScreen> {
         }),
       );
 
-      print('📥 Login response status: ${response.statusCode}');
-      print('📥 Login response body: ${response.body}'); // ✅ ADD THIS LINE
+      print('Login response status: ${response.statusCode}');
+      print('Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        // ✅ ADD: Check if response body is empty
         if (response.body.isEmpty) {
           throw Exception('Server returned empty response');
         }
         
-        // ✅ ADD: Try-catch around JSON decode
         late final Map<String, dynamic> result;
         try {
           result = json.decode(response.body);
         } catch (jsonError) {
-          print('❌ JSON parsing error: $jsonError');
+          print('JSON parsing error: $jsonError');
           print('   Response body: "${response.body}"');
           throw Exception('Invalid response from server: $jsonError');
         }
         
-        print(' Login response data:');
+        print('Login response data:');
         print('   User: ${result['user']}');
         print('   Token exists: ${result['token'] != null}');
         
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', result['token']);
-        await prefs.setString('userId', result['user']['id'].toString());
         
-        // Clear ONLY auth-related keys (not everything!)
+        // Clear old auth data
         print('Clearing old auth data...');
         await prefs.remove('auth_token');
         await prefs.remove('token');
@@ -82,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final token = result['token'];
         final userData = result['user'];
         
-        print('💾 Saving new user data...');
+        print('Saving new user data...');
         // Store in BOTH formats
         await prefs.setString('auth_token', token);
         await prefs.setString('token', token);
@@ -90,21 +87,47 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('userId', userData['id'].toString());
         await prefs.setString('userName', userData['name']);
         await prefs.setString('userEmail', userData['email']);
+        await prefs.setBool('isLoggedIn', true);
         
-        print('✅ Stored user data:');
+        print('Stored user data:');
         print('   userId: ${userData['id']}');
         print('   userName: ${userData['name']}');
         
-        // ✅ Update AuthProvider
+        // Update AuthProvider
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.initialize();
         
-        print('✅ AuthProvider initialized:');
+        print('AuthProvider initialized:');
         print('   User ID: ${authProvider.user?.id}');
         print('   User Name: ${authProvider.user?.name}');
         print('   Is Authenticated: ${authProvider.isAuthenticated}');
 
-        print('✅ Login successful!');
+        // INITIALIZE NOTIFICATIONS AFTER LOGIN
+        print('Initializing notifications...');
+        try {
+          // Schedule daily tips at 10 AM
+          await NotificationService.scheduleDailyTip(
+            hour: 10,
+            minute: 0,
+            enabled: true,
+          );
+          print('Daily tips scheduled');
+
+          // Start periodic sync with backend
+          NotificationService.startPeriodicSync(userData['id'].toString());
+          print('Notification sync started');
+
+          // Do an immediate sync
+          await NotificationService.syncAndShowLocalNotifications(
+            userData['id'].toString(),
+          );
+          print('Initial notification sync completed');
+        } catch (notifError) {
+          print('Error setting up notifications: $notifError');
+          // Don't block login if notifications fail
+        }
+
+        print('Login successful!');
 
         if (mounted) {
           Navigator.pushReplacement(
@@ -122,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception(errorData['error'] ?? 'Login failed');
       }
     } catch (e) {
-      print('❌ Login failed: $e');
+      print('Login failed: $e');
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
@@ -145,20 +168,21 @@ class _LoginScreenState extends State<LoginScreen> {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: Text('Auth Debug Info'),
+              title: const Text('Auth Debug Info'),
               content: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('SharedPreferences:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
+                    const Text('SharedPreferences:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
                     Text('user_data: ${prefs.getString('user_data')}'),
                     Text('userId: ${prefs.getString('userId')}'),
                     Text('userName: ${prefs.getString('userName')}'),
-                    SizedBox(height: 16),
-                    Text('AuthProvider:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
+                    Text('isLoggedIn: ${prefs.getBool('isLoggedIn')}'),
+                    const SizedBox(height: 16),
+                    const Text('AuthProvider:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
                     Text('Authenticated: ${authProvider.isAuthenticated}'),
                     Text('User ID: ${authProvider.user?.id}'),
                     Text('User Name: ${authProvider.user?.name}'),
@@ -168,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('OK'),
+                  child: const Text('OK'),
                 ),
               ],
             ),

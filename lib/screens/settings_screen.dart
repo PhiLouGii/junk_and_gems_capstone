@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/screens/payments_earnings_screen.dart';
+import 'package:junk_and_gems/services/notification_service.dart';
+import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:junk_and_gems/providers/language_provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/screens/legal_webview_screen.dart';
 import 'package:junk_and_gems/utils/legal_content.dart';
 import 'package:junk_and_gems/utils/app_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -160,27 +164,138 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showSignOutDialog(BuildContext context) {
-    final loc = context.loc;
-    
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(loc.signOut, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color, fontWeight: FontWeight.bold)),
-        content: Text(loc.signOutConfirm, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: Text(loc.cancel, style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color))
-          ),
-          TextButton(
-            onPressed: () {}, 
-            child: Text(loc.signOut, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
-          ),
-        ],
+  final loc = context.loc;
+  
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: Theme.of(context).cardColor,
+      title: Text(
+        loc.signOut, 
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyLarge?.color, 
+          fontWeight: FontWeight.bold
+        )
       ),
-    );
-  }
+      content: Text(
+        loc.signOutConfirm, 
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyLarge?.color
+        )
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context), 
+          child: Text(
+            loc.cancel, 
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color
+            )
+          )
+        ),
+        TextButton(
+          onPressed: () async {
+            // Close the dialog first
+            Navigator.pop(context);
+            
+            // Show loading indicator
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => Center(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF88844D),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Signing out...',
+                          style: TextStyle(
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+
+            try {
+              print('🔓 Starting logout process...');
+              
+              // Cancel all local notifications
+              await NotificationService.cancelAllLocalNotifications();
+              print('✅ Notifications cancelled');
+
+              // Clear SharedPreferences
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('auth_token');
+              await prefs.remove('token');
+              await prefs.remove('user_data');
+              await prefs.remove('userId');
+              await prefs.remove('userName');
+              await prefs.remove('userEmail');
+              await prefs.setBool('isLoggedIn', false);
+              print('✅ User data cleared');
+
+              // Update AuthProvider
+              final authProvider = Provider.of<AuthProvider>(
+                context, 
+                listen: false
+              );
+              await authProvider.initialize();
+              print('✅ AuthProvider cleared');
+
+              print('✅ Logout successful');
+
+              // Close loading dialog and navigate to login
+              if (context.mounted) {
+                Navigator.of(context).pop(); // Close loading dialog
+                
+                // Navigate to login screen and clear navigation stack
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                  (route) => false, // Remove all previous routes
+                );
+              }
+            } catch (e) {
+              print('❌ Logout error: $e');
+              
+              if (context.mounted) {
+                Navigator.of(context).pop(); // Close loading dialog
+                
+                // Show error message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Logout failed: ${e.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          }, 
+          child: Text(
+            loc.signOut, 
+            style: const TextStyle(
+              color: Colors.red, 
+              fontWeight: FontWeight.bold
+            )
+          )
+        ),
+      ],
+    ),
+  );
+}
 
   void _showDeleteAccountDialog(BuildContext context) {
     final loc = context.loc;
