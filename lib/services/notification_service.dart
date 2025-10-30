@@ -320,9 +320,18 @@ class NotificationService {
       if (result['success'] == true) {
         final notifications = result['notifications'] as List;
         int newCount = 0;
+        int skippedOld = 0;
         
         for (var notification in notifications) {
           final notifId = notification['id'];
+          
+          // Check if notification is recent (within last 10 minutes)
+          if (!_isRecentNotification(notification)) {
+            skippedOld++;
+            // Mark as shown so we don't check it again
+            await _markNotificationAsShown(notifId);
+            continue;
+          }
           
           // Only show if not already shown
           if (!_wasNotificationShown(notifId)) {
@@ -332,13 +341,36 @@ class NotificationService {
         }
         
         if (newCount > 0) {
-          print('✅ Showed $newCount new notifications (${notifications.length} total checked)');
+          print('✅ Showed $newCount new notifications (skipped $skippedOld old ones)');
+        } else if (skippedOld > 0) {
+          print('ℹ️ No new notifications - skipped $skippedOld old notifications');
         } else {
-          print('ℹ️ No new notifications to show (${notifications.length} already seen)');
+          print('ℹ️ No new notifications');
         }
       }
     } catch (e) {
       print('❌ Error syncing notifications: $e');
+    }
+  }
+  
+  /// Check if notification is recent (within last 10 minutes)
+  static bool _isRecentNotification(Map<String, dynamic> notification) {
+    try {
+      final createdAt = notification['createdAt'];
+      if (createdAt == null) return false;
+      
+      // Parse the timestamp
+      final notificationTime = DateTime.parse(createdAt);
+      final now = DateTime.now();
+      final difference = now.difference(notificationTime);
+      
+      // Only show notifications from the last 10 minutes
+      // (This accounts for the 5-minute sync interval + buffer)
+      return difference.inMinutes <= 10;
+    } catch (e) {
+      print('⚠️ Error parsing notification time: $e');
+      // If we can't parse the time, don't show it (safer to skip)
+      return false;
     }
   }
 

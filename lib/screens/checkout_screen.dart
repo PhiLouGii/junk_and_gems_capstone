@@ -10,9 +10,9 @@ class CheckoutScreen extends StatefulWidget {
   final double total;
   final String userId;
   final String token;
-  final String sellerName;
-  final String sellerMpesaNumber;
-  final String sellerEcocashNumber;
+  final String? sellerName;
+  final String? sellerMpesaNumber;
+  final String? sellerEcocashNumber;
 
   const CheckoutScreen({
     super.key,
@@ -22,9 +22,9 @@ class CheckoutScreen extends StatefulWidget {
     required this.total,
     required this.userId,
     required this.token,
-    required this.sellerName,
-    required this.sellerMpesaNumber,
-    required this.sellerEcocashNumber,
+    this.sellerName,
+    this.sellerMpesaNumber,
+    this.sellerEcocashNumber,
   });
 
   @override
@@ -988,9 +988,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void _showMobileMoneyInstructions() {
     String ussdCode = _selectedPaymentMethod == 'mpesa' ? '*111#' : '*100#';
     String providerName = _selectedPaymentMethod == 'mpesa' ? 'M-Pesa' : 'EcoCash';
-    String recipientNumber = _selectedPaymentMethod == 'mpesa' 
-        ? '266 5XXX XXXX'  // Replace with your M-Pesa number
-        : '266 6XXX XXXX'; // Replace with your EcoCash number
+    String? recipientNumber = _selectedPaymentMethod == 'mpesa' 
+        ? widget.sellerMpesaNumber
+        : widget.sellerEcocashNumber;
     Color brandColor = _selectedPaymentMethod == 'mpesa' ? Colors.red : Colors.green;
     
     showDialog(
@@ -1053,6 +1053,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             color: Colors.white,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'To: ${widget.sellerName}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1095,8 +1114,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         
                         _buildPaymentStep(
                           number: '3',
-                          title: 'Send Money',
-                          description: 'Send to: $recipientNumber',
+                          title: 'Send Money to Seller',
+                          description: 'Send to ${widget.sellerName}: $recipientNumber',
                           action: recipientNumber,
                           canCopy: true,
                           brandColor: brandColor,
@@ -1387,7 +1406,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Call backend API
       final response = await http.post(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/orders'),
+        Uri.parse('https://your-render-url.onrender.com/api/orders'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${widget.token}',
