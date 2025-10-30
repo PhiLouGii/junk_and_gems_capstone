@@ -36,9 +36,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isSavingBio = false;
   bool isSavingProfilePicture = false;
   bool isEditingBio = false;
+  bool isEditingContact = false; // Added
+  bool isSavingContact = false; // Added
   int userGems = 0;
+  int totalDonations = 0;
+  int totalProducts = 0;
   
   final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
   File? _profileImage;
 
@@ -51,6 +57,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _bioController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -60,21 +68,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      print('📦 CHECKING SHARED PREFERENCES');
+      print('CHECKING SHARED PREFERENCES');
       print('All keys: ${prefs.getKeys()}');
       
       final currentUserId = widget.userId;
-      print('🎯 Current logged-in user ID: $currentUserId');
+      print('Current logged-in user ID: $currentUserId');
       
       final cachedUserId = prefs.getString('userId') ?? prefs.getString('user_id');
-      print('💾 Cached user ID: $cachedUserId');
+      print('Cached user ID: $cachedUserId');
       
       if (cachedUserId != currentUserId) {
-        print('⚠️ User mismatch! Clearing old cache and fetching fresh data...');
+        print('User mismatch! Clearing old cache and fetching fresh data...');
         await _clearUserCache();
       }
       
-      print('🌐 Fetching fresh profile data from server...');
+      print('Fetching fresh profile data from server...');
       try {
         final response = await http.get(
           Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$currentUserId/profile'),
@@ -82,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         
         if (response.statusCode == 200) {
           final serverData = json.decode(response.body);
-          print('✅ Server data received: ${serverData.toString()}');
+          print('Server data received: ${serverData.toString()}');
           
           await prefs.setString('userId', currentUserId);
           await prefs.setString('user_id', currentUserId);
@@ -106,23 +114,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'profilePicture': serverData['profile_image_url'] ?? '',
               'specialty': serverData['specialty'] ?? '',
               'user_type': serverData['user_type'] ?? 'contributor',
+              'phone': serverData['phone'] ?? '',
             };
             _bioController.text = userData['bio'] ?? '';
+            _emailController.text = userData['email'] ?? '';
+            _phoneController.text = userData['phone'] ?? '';
           });
           
-          print('✅ Profile data loaded from server for user: ${userData['name']}');
+          print('Profile data loaded from server for user: ${userData['name']}');
         } else {
-          print('⚠️ Server returned ${response.statusCode}, using cached/widget data');
+          print('Server returned ${response.statusCode}, using cached/widget data');
           await _loadFromCacheOrWidget(prefs, currentUserId);
         }
       } catch (serverError) {
-        print('⚠️ Server fetch failed: $serverError, using cached/widget data');
+        print('Server fetch failed: $serverError, using cached/widget data');
         await _loadFromCacheOrWidget(prefs, currentUserId);
       }
       
       await _loadUserGems();
+      await _loadUserStats();
     } catch (e) {
-      print('❌ Error loading user data: $e');
+      print('Error loading user data: $e');
     } finally {
       setState(() {
         isLoading = false;
@@ -147,8 +159,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'profilePicture': prefs.getString('profilePicture') ?? 
                          prefs.getString('profile_picture') ?? 
                          '',
+        'phone': prefs.getString('userPhone') ?? 
+                 prefs.getString('user_phone') ?? 
+                 '',
       };
       _bioController.text = userData['bio'] ?? '';
+      _emailController.text = userData['email'] ?? '';
+      _phoneController.text = userData['phone'] ?? '';
     });
   }
 
@@ -159,13 +176,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.remove('profilePicture');
     await prefs.remove('profile_picture');
     await prefs.remove('userGems');
-    print('✅ Old user cache cleared');
+    await prefs.remove('userPhone');
+    await prefs.remove('user_phone');
+    print('Old user cache cleared');
   }
 
   Future<void> _loadUserGems() async {
     try {
       final userId = userData['id'] ?? widget.userId;
-      print('💰 Loading user gems for user: $userId');
+      print('Loading user gems for user: $userId');
       
       final response = await http.get(
         Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
@@ -182,13 +201,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('userGems', userGems);
         
-        print('✅ Loaded gems: $userGems for user $userId');
+        print('Loaded gems: $userGems for user $userId');
       } else {
-        print('❌ Failed to load user gems: ${response.statusCode}');
+        print('Failed to load user gems: ${response.statusCode}');
         _loadCachedGems();
       }
     } catch (e) {
-      print('❌ Error loading user gems: $e');
+      print('Error loading user gems: $e');
       _loadCachedGems();
     }
   }
@@ -201,19 +220,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+   Future<void> _loadUserStats() async {
+    try {
+      final userId = userData['id'] ?? widget.userId;
+      
+      // Load donations count
+      final donationsResponse = await http.get(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/donations'),
+      );
+      
+      if (donationsResponse.statusCode == 200) {
+        final donations = json.decode(donationsResponse.body) as List;
+        setState(() {
+          totalDonations = donations.length;
+        });
+      }
+      
+      // Load products count
+      final productsResponse = await http.get(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/products'),
+      );
+      
+      if (productsResponse.statusCode == 200) {
+        final products = json.decode(productsResponse.body) as List;
+        setState(() {
+          totalProducts = products.length;
+        });
+      }
+      
+      print('Loaded stats - Donations: $totalDonations, Products: $totalProducts');
+    } catch (e) {
+      print('Error loading user stats: $e');
+    }
+  }
+
   Future<String?> _getAuthToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
       
       if (token == null || token.isEmpty) {
-        print('❌ No auth token found');
+        print('No auth token found');
         return null;
       }
       
       return token;
     } catch (e) {
-      print('❌ Error getting auth token: $e');
+      print('Error getting auth token: $e');
       return null;
     }
   }
@@ -237,7 +290,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _uploadProfilePicture();
       }
     } catch (e) {
-      print('❌ Error picking image: $e');
+      print('Error picking image: $e');
       _showSnackBar('Failed to pick image', isError: true);
     }
   }
@@ -266,7 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _showSnackBar('Profile picture updated! ✨');
       }
     } catch (e) {
-      print('❌ Error uploading profile picture: $e');
+      print('Error uploading profile picture: $e');
       _showSnackBar('Failed to upload picture', isError: true);
     } finally {
       setState(() {
@@ -274,6 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     }
   }
+
 
   Widget _buildProfilePicture() {
     final profilePicture = userData['profilePicture'];
@@ -395,6 +449,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ========== CONTACT INFO UPDATE METHODS ==========
+
+  Future<void> _updateContactInfo() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF88844D).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.info_outline, color: Color(0xFF88844D), size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text('Update Contact Info'),
+            ],
+          ),
+          content: const Text('Are you sure you want to update your email and phone number?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF88844D),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Update'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      setState(() {
+        isSavingContact = true;
+      });
+
+      final token = await _getAuthToken();
+      if (token == null) {
+        throw Exception('Authentication required. Please log in again.');
+      }
+
+      final userId = userData['id'];
+      if (userId == null || userId.isEmpty) {
+        throw Exception('User ID not found');
+      }
+
+      final response = await http.put(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'name': userData['name'],
+          'email': _emailController.text,
+          'phone': _phoneController.text,
+          'specialty': userData['specialty'] ?? '',
+          'bio': userData['bio'] ?? '',
+          'user_type': userData['user_type'] ?? 'contributor',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userEmail', _emailController.text);
+        await prefs.setString('user_email', _emailController.text);
+        await prefs.setString('userPhone', _phoneController.text);
+        await prefs.setString('user_phone', _phoneController.text);
+        
+        setState(() {
+          userData['email'] = _emailController.text;
+          userData['phone'] = _phoneController.text;
+          isEditingContact = false;
+        });
+        
+        _showSnackBar('Contact information updated!');
+      } else {
+        throw Exception('Failed to update contact info: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error updating contact info: $e');
+      _showSnackBar('Error updating contact information', isError: true);
+    } finally {
+      setState(() {
+        isSavingContact = false;
+      });
+    }
+  }
+
+
   // ========== BIO METHODS ==========
 
   Future<void> _updateBio() async {
@@ -421,10 +580,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (profileResponse.statusCode == 200) {
           final profileData = json.decode(profileResponse.body);
           userType = profileData['user_type'] ?? 'contributor';
-          print('✅ Current user_type: $userType');
+          print('Current user_type: $userType');
         }
       } catch (e) {
-        print('⚠️ Could not fetch current user_type, using default: $e');
+        print('Could not fetch current user_type, using default: $e');
       }
 
       final response = await http.put(
@@ -450,12 +609,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           isEditingBio = false;
         });
         
-        _showSnackBar('Bio updated successfully! ✨');
+        _showSnackBar('Bio updated successfully!');
       } else {
         throw Exception('Failed to update bio: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error updating bio: $e');
+      print('Error updating bio: $e');
       _showSnackBar('Error updating bio', isError: true);
     } finally {
       setState(() {
@@ -523,7 +682,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         (route) => false,
       );
     } catch (e) {
-      print('❌ Error during logout: $e');
+      print('Error during logout: $e');
     }
   }
 
@@ -623,8 +782,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Column(
                               children: [
                                 _buildContactInformation(userEmail),
-                                const SizedBox(height: 24),
-                                _buildMyAccount(),
+                                const SizedBox(height: 24)
                               ],
                             ),
                           ),
@@ -648,7 +806,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildRecentActivity(),
                           _buildContactInformation(userEmail),
                           const SizedBox(height: 24),
-                          _buildMyAccount(),
                         ],
                       ),
                     );
@@ -1496,123 +1653,6 @@ Widget _buildEmptyActivity() {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMyAccount() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.account_circle_outlined,
-                  color: Color(0xFF88844D),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'My Account',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildAccountItem(
-            icon: Icons.shopping_bag_outlined, 
-            label: 'My Purchases', 
-            onTap: () {}
-          ),
-          const SizedBox(height: 12),
-          _buildAccountItem(
-            icon: Icons.settings_outlined, 
-            label: 'Settings', 
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            }
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAccountItem({
-    required IconData icon, 
-    required String label, 
-    VoidCallback? onTap
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFFBEC092).withOpacity(0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFBEC092).withOpacity(0.3),
-                    const Color(0xFF88844D).withOpacity(0.2),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFF88844D), size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15, 
-                  color: Theme.of(context).textTheme.bodyLarge?.color, 
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-              size: 16,
-            ),
-          ],
-        ),
       ),
     );
   }
