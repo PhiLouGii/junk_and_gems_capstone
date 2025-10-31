@@ -3525,18 +3525,21 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
     // Validate location - either structured OR map coordinates
     const hasStructuredLocation = location_area && location_area.trim() !== '';
     const hasMapLocation = latitude && longitude;
+    const hasBasicLocation = location && location.trim() !== '';
     
-    if (!hasStructuredLocation && !hasMapLocation) {
+    if (!hasStructuredLocation && !hasMapLocation && !hasBasicLocation) {
       console.log('Missing location data');
       return res.status(400).json({ 
-        error: "Please provide either a structured location or map coordinates" 
+        error: "Please provide location information" 
       });
     }
 
     console.log(`Validated input - Artisan ID: ${artisan_id}`);
-    console.log(`Location type: ${hasMapLocation ? 'Map coordinates' : 'Structured form'}`);
+    console.log(`Location type: ${hasMapLocation ? 'Map coordinates' : hasBasicLocation ? 'Basic location' : 'Structured form'}`);
     if (hasMapLocation) {
       console.log(`Coordinates: ${latitude}, ${longitude}`);
+    } else if (hasBasicLocation) {
+      console.log(`Location: ${location}`);
     }
 
     // Verify the user exists
