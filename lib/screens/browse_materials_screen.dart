@@ -1332,20 +1332,7 @@ Widget _buildHeader(BuildContext context) {
     String imageUrl = '';
 
     // Priority 1: image_urls array (Cloudinary URLs)
-    if (material['image_urls'] != null && 
-        material['image_urls'] is List && 
-        (material['image_urls'] as List).isNotEmpty) {
-      final urls = material['image_urls'] as List;
-      final firstUrl = urls[0].toString();
-      if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
-        hasImages = true;
-        imageUrl = firstUrl;
-      }
-    }
-
-    // Priority 2: image_data_base64 array (fallback)
-    if (!hasImages && 
-        material['image_data_base64'] != null && 
+    if (material['image_data_base64'] != null && 
         material['image_data_base64'] is List && 
         (material['image_data_base64'] as List).isNotEmpty) {
       final data = material['image_data_base64'] as List;
@@ -1355,6 +1342,19 @@ Widget _buildHeader(BuildContext context) {
         imageUrl = firstItem;
       }
     }
+
+    // Priority 2: image_data_base64 array (fallback)
+    if (!hasImages && 
+    material['image_urls'] != null && 
+    material['image_urls'] is List && 
+    (material['image_urls'] as List).isNotEmpty) {
+  final urls = material['image_urls'] as List;
+  final firstUrl = urls[0].toString();
+  if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+    hasImages = true;
+    imageUrl = firstUrl;
+  }
+}
 
     final bool isClaimed = material['is_claimed'] == true || 
                           material['claimed_by'] != null || 
