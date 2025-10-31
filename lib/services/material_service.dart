@@ -51,7 +51,7 @@ class MaterialService {
         'available_until': materialData['available_until']?.toString(),
         'is_fragile': materialData['is_fragile'] ?? false,
         'contact_preferences': materialData['contact_preferences'] ?? {},
-        'image_urls': imageUrls,  // Send Cloudinary URLs as array
+        'image_data_base64': imageUrls,  // Send Cloudinary URLs as array
         'uploader_id': materialData['uploader_id'],
         'location_area': materialData['location_area'] ?? '',
       'location_landmark': materialData['location_landmark'] ?? '',
