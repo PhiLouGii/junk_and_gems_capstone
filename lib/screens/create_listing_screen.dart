@@ -1176,6 +1176,10 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         'location_area': _locationData['area'] ?? '',
         'location_landmark': _locationData['landmark'] ?? '',
         'location_directions': _locationData['directions'] ?? '',
+        'latitude': _locationData['latitude'],
+        'longitude': _locationData['longitude'],
+        'map_address': _locationData['map_address'],
+        'is_map_location': _locationData['is_map_location'],
       };
 
       print('Material data prepared: $materialData');

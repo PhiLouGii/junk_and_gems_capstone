@@ -175,12 +175,12 @@ class CloudinaryService {
 
         // Upload with timeout (using same field name as original working code)
         final response = await http.post(
-          Uri.parse('$_baseUrl/upload-image'),  
+          Uri.parse('$_baseUrl/api/upload-image'),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: json.encode({'image': imageData}), 
+          body: json.encode({'image_data_base64': imageData}),
         ).timeout(
           const Duration(seconds: 90), // Longer timeout for mobile networks
           onTimeout: () {
