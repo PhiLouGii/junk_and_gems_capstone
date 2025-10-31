@@ -1327,33 +1327,68 @@ Widget _buildHeader(BuildContext context) {
   }
 
   Widget _buildMaterialCard(BuildContext context, {required dynamic material}) {
-    // ✅ UPDATED: Comprehensive image handling
+    // Comprehensive image handling with better logging
     bool hasImages = false;
     String imageUrl = '';
 
+    print('Building card for material ${material['id']} - ${material['title']}');
+    
     // Priority 1: image_urls array (Cloudinary URLs)
-    if (material['image_urls'] != null && 
-        material['image_urls'] is List && 
-        (material['image_urls'] as List).isNotEmpty) {
-      final urls = material['image_urls'] as List;
-      final firstUrl = urls[0].toString();
-      if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
-        hasImages = true;
-        imageUrl = firstUrl;
+    if (material['image_urls'] != null) {
+      print('   Found image_urls field: ${material['image_urls']}');
+      
+      if (material['image_urls'] is List) {
+        final urls = material['image_urls'] as List;
+        print('   image_urls is List with ${urls.length} items');
+        
+        if (urls.isNotEmpty) {
+          final firstUrl = urls[0].toString();
+          print('   First URL: $firstUrl');
+          
+          if (firstUrl.isNotEmpty && !firstUrl.toLowerCase().contains('null')) {
+            if (firstUrl.startsWith('http://') || firstUrl.startsWith('https://')) {
+              hasImages = true;
+              imageUrl = firstUrl;
+              print('Using Cloudinary URL from image_urls');
+            } else if (firstUrl.startsWith('data:image')) {
+              hasImages = true;
+              imageUrl = firstUrl;
+              print('Using base64 image from image_urls');
+            }
+          }
+        }
       }
     }
 
     // Priority 2: image_data_base64 array (fallback)
-    if (!hasImages && 
-        material['image_data_base64'] != null && 
-        material['image_data_base64'] is List && 
-        (material['image_data_base64'] as List).isNotEmpty) {
-      final data = material['image_data_base64'] as List;
-      final firstItem = data[0].toString();
-      if (firstItem.startsWith('http://') || firstItem.startsWith('https://')) {
-        hasImages = true;
-        imageUrl = firstItem;
+    if (!hasImages && material['image_data_base64'] != null) {
+      print('   Checking image_data_base64 field');
+      
+      if (material['image_data_base64'] is List) {
+        final data = material['image_data_base64'] as List;
+        print('   image_data_base64 is List with ${data.length} items');
+        
+        if (data.isNotEmpty) {
+          final firstItem = data[0].toString();
+          print('   First item: ${firstItem.substring(0, firstItem.length > 50 ? 50 : firstItem.length)}...');
+          
+          if (firstItem.isNotEmpty && !firstItem.toLowerCase().contains('null')) {
+            if (firstItem.startsWith('http://') || firstItem.startsWith('https://')) {
+              hasImages = true;
+              imageUrl = firstItem;
+              print('Using Cloudinary URL from image_data_base64');
+            } else if (firstItem.startsWith('data:image')) {
+              hasImages = true;
+              imageUrl = firstItem;
+              print('Using base64 image from image_data_base64');
+            }
+          }
+        }
       }
+    }
+    
+    if (!hasImages) {
+      print('No valid images found, using placeholder');
     }
 
     final bool isClaimed = material['is_claimed'] == true || 
