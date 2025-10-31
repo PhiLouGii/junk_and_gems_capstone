@@ -1,16 +1,15 @@
-# Junk & Gems 
-![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
-
-A Mobile Marketplace for Transforming Waste into Economic Opportunity in Lesotho
+<h1 align="center"> Junk & Gems </h1>
 
 <p align="center">
-  <img src="designs_screenshots/junk_and_gems_logo.jpg" alt="Junk and Gems Logo" width="150"><br>
-  Junk & Gems Logo
+  <em>A Mobile Marketplace for Transforming Waste into Economic Opportunity in Lesotho</em>
 </p>
 
+<p align="center">
+  <img src="designs_screenshots/junk_and_gems_logo.jpg" alt="Junk and Gems Logo" width="160" style="border-radius: 12px;"/><br>
+  <sub><strong>Junk & Gems Logo</strong></sub>
+</p>
+
+---
 
 
 ## Description
