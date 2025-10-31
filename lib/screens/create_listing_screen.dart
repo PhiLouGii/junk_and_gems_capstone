@@ -711,7 +711,7 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         _buildTextField(
           label: 'Waste Title/Name', 
           controller: _titleController, 
-          hintText: 'e.g., slabs of wood'
+          hintText: 'e.g., Slabs of wood'
         ),
         const SizedBox(height: 20),
         _buildTextField(

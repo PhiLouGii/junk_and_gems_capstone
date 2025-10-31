@@ -1523,7 +1523,6 @@ app.post("/materials", async (req, res) => {
   const { 
     title, description, category, quantity, 
     location, location_area, location_landmark, location_directions, 
-    // Map location fields
     latitude, longitude, map_address, is_map_location,
     delivery_option, 
     available_from, available_until, is_fragile, contact_preferences,
@@ -1572,6 +1571,9 @@ app.post("/materials", async (req, res) => {
     let imageUrls = [];
     if (image_urls && Array.isArray(image_urls)) {
       imageUrls = image_urls;
+      console.log(`Received ${imageUrls.length} image URLs:`, imageUrls);
+    } else {
+      console.log('No image_urls received or not an array');
     }
 
     // Process contact preferences
@@ -1589,6 +1591,7 @@ app.post("/materials", async (req, res) => {
     }
 
     console.log('Inserting material into database...');
+    console.log(`Image URLs to store: ${imageUrls.length}`);
 
     //Insert with map location fields
     const result = await pool.query(
@@ -1627,6 +1630,7 @@ app.post("/materials", async (req, res) => {
 
     const insertedMaterial = result.rows[0];
     console.log(`Material inserted with ID: ${insertedMaterial.id}`);
+    console.log(`Stored ${insertedMaterial.image_data_base64 ? insertedMaterial.image_data_base64.length : 0} image URLs`);
 
     // Notify all users about new material
     try {
@@ -1707,6 +1711,7 @@ app.post("/materials", async (req, res) => {
     };
 
     console.log('Sending response with uploader:', uploaderInfo.name);
+    console.log(`Response includes ${formattedMaterial.image_urls.length} image URLs`);
     console.log('Full response:', JSON.stringify(formattedMaterial, null, 2));
 
     res.status(201).json(formattedMaterial);

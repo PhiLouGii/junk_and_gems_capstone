@@ -18,20 +18,20 @@ class MaterialService {
       List<String> imageUrls = [];
       
       if (images.isNotEmpty) {
-        print('📸 Uploading ${images.length} images to Cloudinary...');
+        print('Uploading ${images.length} images to Cloudinary...');
         imageUrls = await CloudinaryService.uploadMultipleImages(images);
         
         if (imageUrls.isEmpty) {
-          print('⚠️ No images uploaded, but continuing without images');
+          print('No images uploaded, but continuing without images');
         } else {
-          print('✅ Successfully uploaded ${imageUrls.length} images');
+          print('Successfully uploaded ${imageUrls.length} images');
           print('Image URLs:');
           for (int i = 0; i < imageUrls.length; i++) {
             print('   ${i + 1}. ${imageUrls[i]}');
             
             // Verify URL format
             if (!imageUrls[i].startsWith('http')) {
-              print('⚠️ Warning: URL ${i + 1} is not a valid HTTP URL');
+              print('Warning: URL ${i + 1} is not a valid HTTP URL');
             }
           }
         }
@@ -51,7 +51,7 @@ class MaterialService {
         'available_until': materialData['available_until']?.toString(),
         'is_fragile': materialData['is_fragile'] ?? false,
         'contact_preferences': materialData['contact_preferences'] ?? {},
-        'image_data_base64': imageUrls,  // Send Cloudinary URLs as array
+        'image_urls': imageUrls,   // Send Cloudinary URLs as array
         'uploader_id': materialData['uploader_id'],
         'location_area': materialData['location_area'] ?? '',
       'location_landmark': materialData['location_landmark'] ?? '',
@@ -73,31 +73,35 @@ class MaterialService {
         body: json.encode(requestData),
       ).timeout(const Duration(seconds: 30));
 
-      print('📡 Server response: ${response.statusCode}');
+      print('Server response: ${response.statusCode}');
       
       if (response.statusCode == 201) {
-        print('✅ Material created successfully!');
-        
-        // Parse response to verify images were stored
-        final responseData = json.decode(response.body);
-        print('Response data:');
-        print('   - Material ID: ${responseData['id']}');
-        print('   - Title: ${responseData['title']}');
-        
-        if (responseData['image_urls'] != null) {
-          final storedUrls = responseData['image_urls'] as List;
-          print('   - ✅ Stored ${storedUrls.length} image URLs');
-        } else if (responseData['image_data_base64'] != null) {
-          final storedUrls = responseData['image_data_base64'] as List;
-          print('   - ✅ Stored ${storedUrls.length} images in image_data_base64');
-        } else {
-          print('   - ⚠️ Warning: No image data in response');
-        }
-        
-        print('=' * 60);
-        return true;
+  print('Material created successfully!');
+  
+  // Parse response to verify images were stored
+  final responseData = json.decode(response.body);
+  print('Response data:');
+  print('   - Material ID: ${responseData['id']}');
+  print('   - Title: ${responseData['title']}');
+  
+  // Check the correct field name
+  if (responseData['image_urls'] != null) {
+    final storedUrls = responseData['image_urls'] as List;
+    print('   - Stored ${storedUrls.length} image URLs');
+    for (int i = 0; i < storedUrls.length; i++) {
+      print('      ${i + 1}. ${storedUrls[i]}');
+    }
+  } else {
+    print('   - Warning: No image_urls field in response');
+    
+    // Debug: log all response keys to see what's available
+    print('   - Available keys in response: ${responseData.keys.toList()}');
+  }
+  
+  print('=' * 60);
+  return true;
       } else {
-        print('❌ Server returned error status: ${response.statusCode}');
+        print('Server returned error status: ${response.statusCode}');
         print('Response body: ${response.body}');
         
         try {
@@ -108,7 +112,7 @@ class MaterialService {
         }
       }
     } catch (e) {
-      print('❌ Create material error: $e');
+      print('Create material error: $e');
       print('=' * 60);
       rethrow;
     }
@@ -117,7 +121,7 @@ class MaterialService {
   // Get all materials
   static Future<List<dynamic>> getMaterials() async {
     try {
-      print('📥 Fetching materials from server...');
+      print('Fetching materials from server...');
       
       final response = await http.get(
         Uri.parse('$_baseUrl/materials')
@@ -125,12 +129,12 @@ class MaterialService {
 
       if (response.statusCode == 200) {
         final List<dynamic> materials = json.decode(response.body);
-        print('✅ Fetched ${materials.length} materials');
+        print('Fetched ${materials.length} materials');
         
         // Log first material to see structure
         if (materials.isNotEmpty) {
           final firstMaterial = materials[0];
-          print('📦 Sample material:');
+          print('Sample material:');
           print('   - ID: ${firstMaterial['id']}');
           print('   - Title: ${firstMaterial['title']}');
           
@@ -141,7 +145,7 @@ class MaterialService {
               print('   - image_data_base64: ${imageData.length} images');
               final firstUrl = imageData[0].toString();
               if (firstUrl.startsWith('http')) {
-                print('   - ✅ First image is Cloudinary URL');
+                print('   - First image is Cloudinary URL');
               } else {
                 print('   - Format: ${firstUrl.substring(0, 50)}...');
               }
@@ -158,11 +162,11 @@ class MaterialService {
         
         return materials;
       } else {
-        print('❌ Failed to load materials: ${response.statusCode}');
+        print('Failed to load materials: ${response.statusCode}');
         throw Exception('Failed to load materials');
       }
     } catch (e) {
-      print('❌ Error loading materials: $e');
+      print('Error loading materials: $e');
       throw Exception('Failed to load materials: $e');
     }
   }
@@ -170,7 +174,7 @@ class MaterialService {
   // Claim a material
   static Future<bool> claimMaterial(String materialId, int userId) async {
     try {
-      print('🎯 Claiming material $materialId for user $userId');
+      print('Claiming material $materialId for user $userId');
       
       final response = await http.put(
         Uri.parse('$_baseUrl/materials/$materialId/claim'),
@@ -179,10 +183,10 @@ class MaterialService {
       );
 
       if (response.statusCode == 200) {
-        print('✅ Material claimed successfully');
+        print('Material claimed successfully');
         return true;
       } else {
-        print('❌ Failed to claim material: ${response.statusCode}');
+        print('Failed to claim material: ${response.statusCode}');
         throw Exception('Failed to claim material');
       }
     } catch (e) {
