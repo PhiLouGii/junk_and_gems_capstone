@@ -1377,7 +1377,7 @@ class ImageUploadWidget extends StatelessWidget {
     print('✓ Selected ${pickedFiles.length} images');
 
     List<XFile> copiedImages = [];
-    final Directory appDir = await getTemporaryDirectory();
+    final Directory appDir = await getApplicationDocumentsDirectory();
     final String targetDir = '${appDir.path}/material_images';
     
     // Ensure directory exists
@@ -1510,7 +1510,7 @@ Future<void> _takePhoto(BuildContext context) async {
 
     print('✅ Photo captured: ${photo.path}');
 
-    final Directory appDir = await getTemporaryDirectory();
+    final Directory appDir = await getApplicationDocumentsDirectory();
     final String targetDir = '${appDir.path}/material_images';
     await Directory(targetDir).create(recursive: true);
 
