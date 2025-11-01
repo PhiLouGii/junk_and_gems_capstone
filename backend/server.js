@@ -261,6 +261,37 @@ const pool = new Pool({
   } : false
 });
 
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'Server is running',
+    message: 'Junk and Gems API',
+    version: '1.0.0',
+    endpoints: {
+      auth: [
+        'POST /signup',
+        'POST /login',
+        'POST /auth/google'
+      ],
+      cart: [
+        'GET /api/users/:userId/cart',
+        'POST /api/users/:userId/cart',
+        'PUT /api/users/:userId/cart/:itemId',
+        'DELETE /api/users/:userId/cart/:itemId',
+        'DELETE /api/users/:userId/cart'
+      ],
+      products: [
+        'GET /api/products',
+        'POST /api/products',
+        'GET /api/products/:id'
+      ],
+      materials: [
+        'GET /materials',
+        'POST /materials'
+      ]
+    }
+  });
+});
+
 // Test the connection
 pool.connect((err, client, release) => {
   if (err) {
@@ -4835,9 +4866,7 @@ app.get("/api/orders/:userId", authenticateToken, async (req, res) => {
 app.get("/api/users/:userId/cart", async (req, res) => {
   const { userId } = req.params;
   
-  // Manual token verification instead of middleware
   const authHeader = req.headers.authorization;
-  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: "No token provided" });
   }
@@ -4845,17 +4874,13 @@ app.get("/api/users/:userId/cart", async (req, res) => {
   const token = authHeader.substring(7);
   
   try {
-    // Verify token manually
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
-    
-    // Verify user matches
     if (parseInt(userId) !== decoded.id) {
       return res.status(403).json({ error: "Unauthorized access" });
     }
     
-    console.log(` Getting cart for user ${userId}`);
+    console.log(`🛒 Getting cart for user ${userId}`);
     
-    // Simplified query - no dynamic column checking
     const query = `
       SELECT 
         ci.id as cart_item_id,
@@ -4881,9 +4906,8 @@ app.get("/api/users/:userId/cart", async (req, res) => {
     `;
 
     const result = await pool.query(query, [userId]);
-    console.log(` Found ${result.rows.length} cart items for user ${userId}`);
+    console.log(`🛒 Found ${result.rows.length} cart items`);
 
-    // Process results
     const cartItems = result.rows.map(item => ({
       cart_item_id: item.cart_item_id,
       product_id: item.product_id,
@@ -4902,47 +4926,50 @@ app.get("/api/users/:userId/cart", async (req, res) => {
       quantity: item.quantity || 1
     }));
 
-    console.log(` Successfully processed ${cartItems.length} cart items`);
     res.json(cartItems);
     
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
-    console.error(" Get cart error:", err);
-    res.status(500).json({ 
-      error: "Server error: " + err.message
-    });
+    console.error("❌ Get cart error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
 // Add item to cart
-app.post("/api/users/:userId/cart", authenticateToken, async (req, res) => {
+app.post("/api/users/:userId/cart", async (req, res) => {
   const { userId } = req.params;
   const { product_id, quantity = 1 } = req.body;
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+  
+  const token = authHeader.substring(7);
 
   try {
-    console.log(`🛒 Add to cart - User: ${userId}, Product: ${product_id}, Quantity: ${quantity}`);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+    if (parseInt(userId) !== decoded.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    console.log(`🛒 Add to cart - User: ${userId}, Product: ${product_id}`);
     
-    // Validate input
     if (!product_id) {
       return res.status(400).json({ error: "Product ID is required" });
     }
 
-    // Check if product exists
     const productCheck = await pool.query(
       "SELECT id, title FROM products WHERE id = $1",
       [product_id]
     );
 
     if (productCheck.rows.length === 0) {
-      console.log(`❌ Product ${product_id} not found`);
       return res.status(404).json({ error: "Product not found" });
     }
 
-    console.log(`✅ Product found: ${productCheck.rows[0].title}`);
-
-    // Check if item already in cart
     const existingItem = await pool.query(
       "SELECT id, quantity FROM cart_items WHERE user_id = $1 AND product_id = $2",
       [userId, product_id]
@@ -4950,22 +4977,16 @@ app.post("/api/users/:userId/cart", authenticateToken, async (req, res) => {
 
     let result;
     if (existingItem.rows.length > 0) {
-      // Update quantity if item exists
-      console.log(`🔄 Updating existing cart item quantity`);
       result = await pool.query(
         "UPDATE cart_items SET quantity = quantity + $1, updated_at = NOW() WHERE user_id = $2 AND product_id = $3 RETURNING *",
         [quantity, userId, product_id]
       );
     } else {
-      // Add new item to cart
-      console.log(`🆕 Adding new item to cart`);
       result = await pool.query(
         "INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3) RETURNING *",
         [userId, product_id, quantity]
       );
     }
-
-    console.log(`✅ Cart operation successful, item ID: ${result.rows[0].id}`);
     
     res.status(201).json({
       success: true,
@@ -4974,29 +4995,35 @@ app.post("/api/users/:userId/cart", authenticateToken, async (req, res) => {
     });
     
   } catch (err) {
-    console.error("❌ Add to cart error:", err);
-    
-    // Check if it's a foreign key violation
-    if (err.code === '23503') {
-      return res.status(400).json({ 
-        error: "Invalid product or user",
-        details: "The product or user does not exist"
-      });
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Invalid or expired token" });
     }
-    
-    res.status(500).json({ 
-      error: "Server error: " + err.message,
-      details: "Check server logs for more information"
-    });
+    if (err.code === '23503') {
+      return res.status(400).json({ error: "Invalid product or user" });
+    }
+    console.error("❌ Add to cart error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
 // Update cart item quantity
-app.put("/api/users/:userId/cart/:itemId", authenticateToken, async (req, res) => {
+app.put("/api/users/:userId/cart/:itemId", async (req, res) => {
   const { userId, itemId } = req.params;
   const { quantity } = req.body;
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+  
+  const token = authHeader.substring(7);
 
   try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+    if (parseInt(userId) !== decoded.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
     if (quantity < 1) {
       return res.status(400).json({ error: "Quantity must be at least 1" });
     }
@@ -5016,16 +5043,31 @@ app.put("/api/users/:userId/cart/:itemId", authenticateToken, async (req, res) =
       cart_item: result.rows[0]
     });
   } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
     console.error("Update cart error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
-// Remove item from cart
-app.delete("/api/users/:userId/cart/:itemId", authenticateToken, async (req, res) => {
+// Remove item from cart (specific item)
+app.delete("/api/users/:userId/cart/:itemId", async (req, res) => {
   const { userId, itemId } = req.params;
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+  
+  const token = authHeader.substring(7);
 
   try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+    if (parseInt(userId) !== decoded.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
     const result = await pool.query(
       "DELETE FROM cart_items WHERE id = $1 AND user_id = $2 RETURNING *",
       [itemId, userId]
@@ -5040,26 +5082,42 @@ app.delete("/api/users/:userId/cart/:itemId", authenticateToken, async (req, res
       message: "Item removed from cart"
     });
   } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
     console.error("Remove from cart error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
-// Clear user's cart
-app.delete("/api/users/:userId/cart", authenticateToken, async (req, res) => {
+
+// Clear user's entire cart
+app.delete("/api/users/:userId/cart", async (req, res) => {
   const { userId } = req.params;
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+  
+  const token = authHeader.substring(7);
 
   try {
-    await pool.query(
-      "DELETE FROM cart_items WHERE user_id = $1",
-      [userId]
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+    if (parseInt(userId) !== decoded.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    await pool.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
 
     res.json({
       success: true,
       message: "Cart cleared"
     });
   } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
     console.error("Clear cart error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
@@ -5069,9 +5127,7 @@ app.delete("/api/users/:userId/cart", authenticateToken, async (req, res) => {
 app.get("/api/users/:userId/gems", async (req, res) => {
   const { userId } = req.params;
   
-  // Manual token verification
   const authHeader = req.headers.authorization;
-  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: "No token provided" });
   }
@@ -5079,10 +5135,7 @@ app.get("/api/users/:userId/gems", async (req, res) => {
   const token = authHeader.substring(7);
   
   try {
-    // Verify token manually
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
-    
-    // Verify user matches
     if (parseInt(userId) !== decoded.id) {
       return res.status(403).json({ error: "Unauthorized access" });
     }

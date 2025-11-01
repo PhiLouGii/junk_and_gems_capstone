@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:junk_and_gems/services/api_service.dart';
@@ -6,41 +7,55 @@ class CartService {
   static const String baseUrl = 'https://junk-and-gems-api.onrender.com';
 
   static Future<List<dynamic>> getCartItems(String userId) async {
-    try {
-      print('Getting cart items for user: $userId');
-      
-      final token = await ApiService.getToken();
-      if (token == null) {
-        throw Exception('Please login to view your cart');
-      }
+  try {
+    print('Getting cart items for user: $userId');
+    
+    final token = await ApiService.getToken();
+    if (token == null) {
+      throw Exception('Please login to view your cart');
+    }
 
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/users/$userId/cart'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/users/$userId/cart'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    ).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        throw TimeoutException('Request timeout');
+      },
+    );
 
-      print('Cart response status: ${response.statusCode}');
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+    print('Cart response status: ${response.statusCode}');
+    print('Cart response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data is List) {
         print('Cart items loaded: ${data.length} items');
         return data;
-      } else if (response.statusCode == 401 || response.statusCode == 403) {
-        print('Authentication failed - clearing token');
-        await ApiService.removeToken();
-        throw Exception('Session expired. Please login again.');
-      } else {
-        print('Failed to load cart items: ${response.statusCode} - ${response.body}');
-        throw Exception('Failed to load cart items: ${response.statusCode}');
       }
-    } catch (e) {
-      print('Get cart items error: $e');
-      throw Exception('Failed to load cart items: ${e.toString().replaceAll('Exception: ', '')}');
+      return [];
+    } else if (response.statusCode == 401 || response.statusCode == 403) {
+      print('Authentication failed - clearing token');
+      await ApiService.removeToken();
+      throw Exception('Session expired. Please login again.');
+    } else if (response.statusCode == 404) {
+      print('404 Error - Full response: ${response.body}');
+      throw Exception('Cart endpoint not found - check server URL');
+    } else {
+      print('Failed to load cart items: ${response.statusCode} - ${response.body}');
+      throw Exception('Failed to load cart items: ${response.statusCode}');
     }
+  } on TimeoutException {
+    throw Exception('Connection timeout');
+  } catch (e) {
+    print('Get cart items error: $e');
+    throw Exception('Failed to load cart items: ${e.toString().replaceAll('Exception: ', '')}');
   }
+}
 
   static Future<Map<String, dynamic>> addToCart(String userId, String productId, {int quantity = 1}) async {
     try {
