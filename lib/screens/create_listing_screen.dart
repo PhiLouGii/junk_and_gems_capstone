@@ -887,12 +887,15 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   Widget _buildImageUpload() {
+  print('Building image upload widget with ${_images.length} images');
   return ImageUploadWidget(
     images: _images,
     onImagesChanged: (images) {
+      print('Images changed callback: ${images.length} images');
       setState(() {
         _images = images;
       });
+      print('State updated with ${_images.length} images');
     },
   );
 }
@@ -1198,6 +1201,16 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
         );
       } else {
         // Already working
+        print('About to submit:');
+        print('   Total images: ${_images.length}');
+        for (int i = 0; i < _images.length; i++) {
+          final file = File(_images[i].path);
+          final exists = await file.exists();
+          final size = exists ? await file.length() : 0;
+          print('   Image $i: ${_images[i].path}');
+          print('      Exists: $exists');
+          print('      Size: ${(size / 1024).toStringAsFixed(2)} KB');
+        }
         success = await MaterialService.createMaterial(materialData, _images);
       }
 
