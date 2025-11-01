@@ -465,202 +465,190 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
   final ImagePicker _picker = ImagePicker();
 
   Future<void> _pickImages() async {
-    try {
-      print('Opening image picker...');
-      
-      // Pick multiple images from gallery
-      final List<XFile> pickedFiles = await _picker.pickMultiImage(
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      );
-      
-      if (pickedFiles.isEmpty) {
-        print('No images selected');
-        return;
-      }
+  try {
+    print('Opening image picker...');
+    
+    final List<XFile> pickedFiles = await _picker.pickMultiImage(
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    
+    if (pickedFiles.isEmpty) {
+      print('No images selected');
+      return;
+    }
 
-      print('Selected ${pickedFiles.length} images');
+    print('Selected ${pickedFiles.length} images');
 
-      // Copy images to app's cache directory to ensure they persist
-      List<XFile> copiedImages = [];
-      final Directory appDir = await getTemporaryDirectory();
-      final String targetDir = '${appDir.path}/product_images';
-      
-      // Create directory if it doesn't exist
-      await Directory(targetDir).create(recursive: true);
+    List<XFile> copiedImages = [];
+    final Directory appDir = await getApplicationDocumentsDirectory(); // ✅ FIXED
+    final String targetDir = '${appDir.path}/product_images';
+    
+    await Directory(targetDir).create(recursive: true);
 
-      for (int i = 0; i < pickedFiles.length; i++) {
-        try {
-          final XFile pickedFile = pickedFiles[i];
-          print('Processing image ${i + 1}/${pickedFiles.length}...');
-          
-          // Check if source file exists
-          final File sourceFile = File(pickedFile.path);
-          if (!await sourceFile.exists()) {
-            print('⚠️ Source file does not exist: ${pickedFile.path}');
-            continue;
-          }
-
-          // Read file and verify it's not empty
-          final fileBytes = await sourceFile.readAsBytes();
-          if (fileBytes.isEmpty) {
-            print('⚠️ File is empty: ${pickedFile.path}');
-            continue;
-          }
-
-          print('   File size: ${fileBytes.length} bytes');
-
-          // Generate unique filename
-          final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-          final String extension = path.extension(pickedFile.path);
-          final String fileName = 'product_${timestamp}_$i$extension';
-          final String targetPath = '$targetDir/$fileName';
-
-          // Copy to app directory
-          final File targetFile = File(targetPath);
-          await targetFile.writeAsBytes(fileBytes);
-          
-          print('   ✅ Saved to: $targetPath');
-
-          // Create XFile from new path
-          copiedImages.add(XFile(targetPath));
-
-        } catch (e) {
-          print('❌ Error processing image ${i + 1}: $e');
+    for (int i = 0; i < pickedFiles.length; i++) {
+      try {
+        final XFile pickedFile = pickedFiles[i];
+        print('Processing image ${i + 1}/${pickedFiles.length}...');
+        
+        // Read bytes directly from XFile
+        final fileBytes = await pickedFile.readAsBytes();
+        
+        if (fileBytes.isEmpty) {
+          print('⚠️ File is empty, skipping');
+          continue;
         }
-      }
 
-      if (copiedImages.isEmpty) {
-        if (mounted) {
+        print('   File size: ${(fileBytes.length / 1024).toStringAsFixed(2)} KB');
+
+        final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        final String extension = path.extension(pickedFile.path).isEmpty 
+            ? '.jpg' 
+            : path.extension(pickedFile.path);
+        final String fileName = 'product_${timestamp}_$i$extension';
+        final String targetPath = '$targetDir/$fileName';
+
+        final File targetFile = File(targetPath);
+        await targetFile.writeAsBytes(fileBytes, flush: true);
+        
+        if (await targetFile.exists()) {
+          print('   ✅ Saved to: $targetPath');
+          copiedImages.add(XFile(targetPath));
+        }
+
+      } catch (e) {
+        print('❌ Error processing image ${i + 1}: $e');
+      }
+    }
+
+    if (copiedImages.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to process selected images'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      if (_images.length + copiedImages.length > 5) {
+        int availableSlots = 5 - _images.length;
+        _images.addAll(copiedImages.take(availableSlots));
+        
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to process selected images'),
-              backgroundColor: Colors.red,
+            SnackBar(
+              content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+              backgroundColor: Colors.orange,
             ),
           );
         }
-        return;
-      }
-
-      setState(() {
-        // Check if we're at limit
-        if (_images.length + copiedImages.length > 5) {
-          int availableSlots = 5 - _images.length;
-          _images.addAll(copiedImages.take(availableSlots));
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        } else {
-          _images.addAll(copiedImages);
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Added ${copiedImages.length} image(s)'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+      } else {
+        _images.addAll(copiedImages);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added ${copiedImages.length} image(s)'),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
-      });
-      
-      print('📊 Total images now: ${_images.length}');
-      widget.onImagesChanged(_images);
-
-    } catch (e) {
-      print('❌ Image picker error: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error selecting images: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
       }
+    });
+    
+    print('📊 Total images now: ${_images.length}');
+    widget.onImagesChanged(_images);
+
+  } catch (e) {
+    print('❌ Image picker error: $e');
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error selecting images: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
+}
 
   Future<void> _takePhoto() async {
-    try {
-      print('📷 Opening camera...');
-      
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      );
+  try {
+    print('📷 Opening camera...');
+    
+    final XFile? photo = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
 
-      if (photo == null) {
-        print('❌ No photo taken');
-        return;
-      }
+    if (photo == null) {
+      print('❌ No photo taken');
+      return;
+    }
 
-      print('✅ Photo captured: ${photo.path}');
+    print('✅ Photo captured: ${photo.path}');
 
-      // Copy to app directory
-      final Directory appDir = await getTemporaryDirectory();
-      final String targetDir = '${appDir.path}/product_images';
-      await Directory(targetDir).create(recursive: true);
+    final Directory appDir = await getApplicationDocumentsDirectory(); // ✅ FIXED
+    final String targetDir = '${appDir.path}/product_images';
+    await Directory(targetDir).create(recursive: true);
 
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String extension = path.extension(photo.path);
-      final String fileName = 'product_camera_$timestamp$extension';
-      final String targetPath = '$targetDir/$fileName';
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String extension = path.extension(photo.path);
+    final String fileName = 'product_camera_$timestamp$extension';
+    final String targetPath = '$targetDir/$fileName';
 
-      final File sourceFile = File(photo.path);
-      final fileBytes = await sourceFile.readAsBytes();
-      await File(targetPath).writeAsBytes(fileBytes);
+    final fileBytes = await photo.readAsBytes();
+    await File(targetPath).writeAsBytes(fileBytes);
 
-      print('   ✅ Saved to: $targetPath');
+    print('   ✅ Saved to: $targetPath');
 
-      setState(() {
-        if (_images.length >= 5) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Maximum 5 images allowed'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        } else {
-          _images.add(XFile(targetPath));
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Photo added'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
+    setState(() {
+      if (_images.length >= 5) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Maximum 5 images allowed'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
-      });
-
-      widget.onImagesChanged(_images);
-
-    } catch (e) {
-      print('❌ Camera error: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error taking photo: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      } else {
+        _images.add(XFile(targetPath));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo added'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
+    });
+
+    widget.onImagesChanged(_images);
+
+  } catch (e) {
+    print('❌ Camera error: $e');
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error taking photo: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
+}
 
   void _showImageSourceOptions() {
     showModalBottomSheet(
