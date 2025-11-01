@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:junk_and_gems/components/daily_reward_popup.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/screens/marketplace_screen.dart';
 import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
@@ -30,7 +31,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> artisans = [];
   List<dynamic> contributors = [];
-  Map<String, dynamic> userImpact = {};
   bool isLoading = true;
   bool showDailyReward = false;
   Map<String, dynamic>? dailyRewardData;
@@ -43,13 +43,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _checkDailyReward() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Wait for auth to be ready
+    if (!authProvider.isInitialized) {
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    
+    if (!authProvider.isAuthenticated) return;
+    
     try {
       final prefs = await SharedPreferences.getInstance();
-      final lastRewardCheck = prefs.getString('lastRewardCheck_${widget.userId}');
+      final userId = authProvider.user!.id.toString();
+      final lastRewardCheck = prefs.getString('lastRewardCheck_$userId');
       final today = DateTime.now().toIso8601String().split('T')[0];
       
       if (lastRewardCheck != today) {
-        final rewardResponse = await UserService.claimDailyReward(widget.userId);
+        final rewardResponse = await UserService.claimDailyReward(userId);
         
         if (rewardResponse['success'] == true) {
           setState(() {
@@ -57,48 +67,158 @@ class _DashboardScreenState extends State<DashboardScreen> {
             showDailyReward = true;
           });
           
-          await prefs.setString('lastRewardCheck_${widget.userId}', today);
+          // Update gems in AuthProvider
+          final newGems = rewardResponse['available_gems'] ?? authProvider.user!.availableGems;
+          authProvider.updateGems(newGems);
+          
+          await prefs.setString('lastRewardCheck_$userId', today);
         }
       }
     } catch (e) {
-      print('❌ Daily reward check error: $e');
+      print('Daily reward check error: $e');
     }
   }
 
   Future<void> _loadData() async {
     try {
-      print('🚀 Starting to load dashboard data...');
+      print('Loading dashboard data...');
       
-      await _loadCachedData();
-      
-      final List<Future<dynamic>> futures = [
+      // Load artisans and contributors (these don't need auth)
+      final futures = await Future.wait([
         UserService.getArtisans(),
         UserService.getContributors(),
-        UserService.getUserImpact(widget.userId),
-      ];
-
-      final results = await Future.wait(futures);
-
-      final artisansData = results[0] as List<dynamic>;
-      final contributorsData = results[1] as List<dynamic>;
-      final impactData = results[2] as Map<String, dynamic>;
+      ]);
 
       setState(() {
-        artisans = artisansData;
-        contributors = contributorsData;
-        userImpact = impactData;
+        artisans = futures[0] as List<dynamic>;
+        contributors = futures[1] as List<dynamic>;
         isLoading = false;
       });
       
-      await _saveDataToCache(artisansData, contributorsData, impactData);
-      
     } catch (e) {
-      print('❌ Error loading dashboard data: $e');
+      print('Error loading dashboard data: $e');
       setState(() {
         isLoading = false;
       });
     }
   }
+  
+  @override
+  Widget build(BuildContext context) {
+    // IMPORTANT: Use Consumer to react to auth changes
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        // Show loading while auth initializes
+        if (!authProvider.isInitialized || authProvider.isLoading) {
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFBEC092).withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const CircularProgressIndicator(
+                      color: Color(0xFF88844D),
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Loading your dashboard...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // If not authenticated, shouldn't happen but handle it
+        if (!authProvider.isAuthenticated || authProvider.user == null) {
+          return Scaffold(
+            body: Center(
+              child: Text('Please log in'),
+            ),
+          );
+        }
+
+        final user = authProvider.user!;
+        
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: () async {
+                    await authProvider.refresh();
+                    await _loadData();
+                  },
+                  color: const Color(0xFF88844D),
+                  child: OrientationBuilder(
+                    builder: (context, orientation) {
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isLandscape = orientation == Orientation.landscape;
+                          final maxWidth = constraints.maxWidth;
+                          
+                          return SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: maxWidth > 600 ? 24.0 : 16.0,
+                                vertical: 16.0,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildHeader(maxWidth),
+                                  const SizedBox(height: 16),
+                                  
+                                  if (isLandscape)
+ _buildLandscapeLayout(maxWidth, user)
+                                  else
+ _buildPortraitLayout(maxWidth, user),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                
+                if (showDailyReward && dailyRewardData != null)
+                  DailyRewardPopup(
+                    gemsEarned: dailyRewardData!['gems_earned'] ?? 5,
+                    currentStreak: dailyRewardData!['streak'] ?? 1,
+                    streakBonus: dailyRewardData!['streak_bonus'] ?? 0,
+                    onClose: () async {
+                      setState(() {
+                        showDailyReward = false;
+                      });
+                      await authProvider.refresh();
+                    },
+                  ),
+              ],
+            ),
+          ),
+          bottomNavigationBar: _buildBottomNavBar(context),
+        );
+      },
+    );
+  }
+
 
   Future<void> _loadCachedData() async {
     try {
@@ -112,11 +232,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           artisans = List<dynamic>.from(json.decode(cachedArtisans));
           contributors = List<dynamic>.from(json.decode(cachedContributors));
-          userImpact = Map<String, dynamic>.from(json.decode(cachedImpact));
         });
       }
     } catch (e) {
-      print('❌ Error loading cached data: $e');
+      print('Error loading cached data: $e');
     }
   }
 
@@ -132,8 +251,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -161,11 +279,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               _buildHeader(maxWidth),
                               const SizedBox(height: 16),
-                              
-                              if (isLandscape)
-                                _buildLandscapeLayout(maxWidth)
-                              else
-                                _buildPortraitLayout(maxWidth),
                             ],
                           ),
                         ),
@@ -243,11 +356,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildPortraitLayout(double maxWidth) {
+  Widget _buildPortraitLayout(double maxWidth, User user) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildWelcomeCard(maxWidth),
+        _buildWelcomeCard(maxWidth, user),
         const SizedBox(height: 24),
         _buildActionButtons(maxWidth),
         const SizedBox(height: 24),
@@ -261,7 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildLandscapeLayout(double maxWidth) {
+  Widget _buildLandscapeLayout(double maxWidth, User user) {
     return Column(
       children: [
         Row(
@@ -271,7 +384,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               flex: 1,
               child: Column(
                 children: [
-                  _buildWelcomeCard(maxWidth),
+                  _buildWelcomeCard(maxWidth, user),
                   const SizedBox(height: 16),
                   _buildActionButtons(maxWidth),
                 ],
@@ -293,8 +406,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildWelcomeCard(double maxWidth) {
-    final gemsEarned = userImpact['gems_earned']?.toString() ?? '0';
+   Widget _buildWelcomeCard(double maxWidth, User user) {
+    final gemsEarned = user.availableGems.toString();
     final isLargeScreen = maxWidth > 600;
     
     return Container(
@@ -341,7 +454,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.userName,
+                        user.name,
                         style: TextStyle(
                           fontSize: isLargeScreen ? 20 : 18,
                           fontWeight: FontWeight.w600,

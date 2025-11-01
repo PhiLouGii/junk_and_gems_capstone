@@ -6,15 +6,15 @@ import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/providers/cart_provider.dart';
 import 'package:junk_and_gems/screens/onboarding_screen.dart';
+import 'package:junk_and_gems/screens/dashboard_screen.dart';
 import 'package:junk_and_gems/services/notification_service.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize local notifications
   await NotificationService.initializeLocalNotifications();
-  print('✅ Local notifications initialized');
+  print('Local notifications initialized');
 
   // Check if user is logged in and start notifications
   await _initializeNotifications();
@@ -24,42 +24,39 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (context) => AuthProvider()),
-        ChangeNotifierProvider(create: (context) => CartProvider()),
+        // AuthProvider is created but NOT initialized here
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: const MyApp(),
     ),
   );
 }
 
-/// Initialize notifications for logged-in users
 Future<void> _initializeNotifications() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('userId');
-    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    final token = prefs.getString('token');
 
-    if (isLoggedIn && userId != null) {
-      // Schedule daily motivational tips at 10 AM
+    if (token != null && userId != null) {
       await NotificationService.scheduleDailyTip(
         hour: 10,
         minute: 0,
         enabled: true,
       );
-      print('✅ Daily tips scheduled for 10:00 AM');
+      print('Daily tips scheduled for 10:00 AM');
 
-      // Start periodic sync with backend (every 5 minutes)
       NotificationService.startPeriodicSync(userId);
-      print('✅ Notification sync started for user: $userId');
+      print('Notification sync started for user: $userId');
 
-      // Do an immediate sync to check for any pending notifications
       await NotificationService.syncAndShowLocalNotifications(userId);
-      print('✅ Initial notification sync completed');
+      print('Initial notification sync completed');
     } else {
       print('ℹ️ User not logged in, notifications will start after login');
     }
   } catch (e) {
-    print('❌ Error initializing notifications: $e');
+    print('Error initializing notifications: $e');
   }
 }
 
@@ -76,9 +73,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Check for pending notification actions after app loads
+    // Initialize AuthProvider AFTER widget tree is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPendingNotificationActions();
+      _initializeApp();
     });
   }
 
@@ -92,56 +89,58 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
-    // When app comes to foreground, sync notifications
     if (state == AppLifecycleState.resumed) {
       _syncNotificationsOnResume();
     }
   }
 
-  /// Check if user tapped a notification and handle navigation
+  /// Initialize AuthProvider and check for pending notifications
+  Future<void> _initializeApp() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    print('Initializing app...');
+    
+    // Initialize auth (loads from storage + refreshes from server)
+    await authProvider.initialize();
+    
+    // Check for pending notification actions
+    await _checkPendingNotificationActions();
+    
+    print('App initialization complete');
+  }
+
   Future<void> _checkPendingNotificationActions() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final payload = prefs.getString('pending_notification_action');
 
       if (payload != null && mounted) {
-        // Clear the stored action
         await prefs.remove('pending_notification_action');
 
-        // Parse payload (format: "type:id")
         final parts = payload.split(':');
         final type = parts[0];
         final id = parts.length > 1 ? parts[1] : null;
 
-        print('📱 Handling notification tap: $type, id: $id');
+        print('Handling notification tap: $type, id: $id');
 
-        // Add a small delay to ensure navigation is ready
         await Future.delayed(const Duration(milliseconds: 500));
 
-        // Handle navigation based on type
         if (!mounted) return;
         
         switch (type) {
           case 'new_user':
-            // Navigate to user profile
-            // Navigator.pushNamed(context, '/profile', arguments: id);
             print('Navigate to user profile: $id');
             break;
           
           case 'new_material':
-            // Navigate to material details
-            // Navigator.pushNamed(context, '/material', arguments: id);
             print('Navigate to material: $id');
             break;
           
           case 'new_product':
-            // Navigate to product details
-            // Navigator.pushNamed(context, '/product', arguments: id);
             print('Navigate to product: $id');
             break;
           
           case 'daily_tip':
-            // Maybe navigate to tips screen or just open app
             print('Daily tip notification opened');
             break;
           
@@ -150,11 +149,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      print('❌ Error checking pending notifications: $e');
+      print('Error checking pending notifications: $e');
     }
   }
 
-  /// Sync notifications when app resumes
   Future<void> _syncNotificationsOnResume() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -162,10 +160,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       
       if (userId != null) {
         await NotificationService.syncAndShowLocalNotifications(userId);
-        print('✅ Notifications synced on app resume');
+        print('Notifications synced on app resume');
       }
     } catch (e) {
-      print('❌ Error syncing on resume: $e');
+      print('Error syncing on resume: $e');
     }
   }
 
@@ -178,9 +176,56 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           theme: AppThemes.lightTheme,
           darkTheme: AppThemes.darkTheme,
           themeMode: themeProvider.themeMode,
-          home: const OnboardingScreen(),
           debugShowCheckedModeBanner: false,
           locale: Locale(languageProvider.isSesotho ? 'st' : 'en'),
+          // Use home with custom builder to check auth state
+          home: Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              // Show loading while initializing
+              if (!authProvider.isInitialized) {
+                return Scaffold(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  body: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBEC092).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const CircularProgressIndicator(
+                            color: Color(0xFF88844D),
+                            strokeWidth: 3,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Loading...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // If authenticated, go to dashboard
+              if (authProvider.isAuthenticated && authProvider.user != null) {
+                return DashboardScreen(
+                  userName: authProvider.user!.name,
+                  userId: authProvider.user!.id.toString(),
+                );
+              }
+
+              // Otherwise show onboarding/login
+              return const OnboardingScreen();
+            },
+          ),
         );
       },
     );

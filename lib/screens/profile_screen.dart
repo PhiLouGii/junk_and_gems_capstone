@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/screens/buy_gems_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -13,8 +13,6 @@ import 'package:junk_and_gems/screens/settings_screen.dart';
 import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:junk_and_gems/services/user_service.dart';
 import 'package:provider/provider.dart';
-import 'package:junk_and_gems/providers/theme_provider.dart';
-import 'package:junk_and_gems/utils/app_localizations.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userName;
@@ -31,16 +29,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  Map<String, dynamic> userData = {}; 
   bool isLoading = true;
   bool isSavingBio = false;
   bool isSavingProfilePicture = false;
   bool isEditingBio = false;
-  bool isEditingContact = false; // Added
-  bool isSavingContact = false; // Added
-  int userGems = 0;
-  int totalDonations = 0;
-  int totalProducts = 0;
+  bool isEditingContact = false;
+  bool isSavingContact = false;
   
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -51,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _initializeProfile();
   }
 
   @override
@@ -62,213 +56,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  // ========== DATA LOADING METHODS ==========
+  Future<void> _initializeProfile() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    // Wait for auth to initialize
+    if (!authProvider.isInitialized) {
+      print('⏳ Waiting for auth to initialize...');
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
 
-  Future<void> _loadUserData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      print('CHECKING SHARED PREFERENCES');
-      print('All keys: ${prefs.getKeys()}');
-      
-      final currentUserId = widget.userId;
-      print('Current logged-in user ID: $currentUserId');
-      
-      final cachedUserId = prefs.getString('userId') ?? prefs.getString('user_id');
-      print('Cached user ID: $cachedUserId');
-      
-      if (cachedUserId != currentUserId) {
-        print('User mismatch! Clearing old cache and fetching fresh data...');
-        await _clearUserCache();
-      }
-      
-      print('Fetching fresh profile data from server...');
-      try {
-        final response = await http.get(
-          Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$currentUserId/profile'),
-        );
-        
-        if (response.statusCode == 200) {
-          final serverData = json.decode(response.body);
-          print('Server data received: ${serverData.toString()}');
-          
-          await prefs.setString('userId', currentUserId);
-          await prefs.setString('user_id', currentUserId);
-          await prefs.setString('userName', serverData['name'] ?? widget.userName);
-          await prefs.setString('user_name', serverData['name'] ?? widget.userName);
-          await prefs.setString('userEmail', serverData['email'] ?? '');
-          await prefs.setString('user_email', serverData['email'] ?? '');
-          await prefs.setString('username', serverData['username'] ?? '');
-          await prefs.setString('userBio', serverData['bio'] ?? '');
-          await prefs.setString('user_bio', serverData['bio'] ?? '');
-          await prefs.setString('profilePicture', serverData['profile_image_url'] ?? '');
-          await prefs.setString('profile_picture', serverData['profile_image_url'] ?? '');
-          
-          setState(() {
-            userData = {
-              'id': currentUserId,
-              'name': serverData['name'] ?? widget.userName,
-              'email': serverData['email'] ?? '',
-              'username': serverData['username'] ?? '',
-              'bio': serverData['bio'] ?? '',
-              'profilePicture': serverData['profile_image_url'] ?? '',
-              'specialty': serverData['specialty'] ?? '',
-              'user_type': serverData['user_type'] ?? 'contributor',
-              'phone': serverData['phone'] ?? '',
-            };
-            _bioController.text = userData['bio'] ?? '';
-            _emailController.text = userData['email'] ?? '';
-            _phoneController.text = userData['phone'] ?? '';
-          });
-          
-          print('Profile data loaded from server for user: ${userData['name']}');
-        } else {
-          print('Server returned ${response.statusCode}, using cached/widget data');
-          await _loadFromCacheOrWidget(prefs, currentUserId);
-        }
-      } catch (serverError) {
-        print('Server fetch failed: $serverError, using cached/widget data');
-        await _loadFromCacheOrWidget(prefs, currentUserId);
-      }
-      
-      await _loadUserGems();
-      await _loadUserStats();
-    } catch (e) {
-      print('Error loading user data: $e');
-    } finally {
+    // If still not ready, wait a bit more
+    int attempts = 0;
+    while (!authProvider.isInitialized && attempts < 10) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      attempts++;
+    }
+
+    if (!authProvider.isAuthenticated || authProvider.user == null) {
+      print('❌ Not authenticated');
       setState(() {
         isLoading = false;
       });
+      return;
     }
-  }
 
-  Future<void> _loadFromCacheOrWidget(SharedPreferences prefs, String currentUserId) async {
+    final user = authProvider.user!;
+    
+    // Set text fields from AuthProvider
+    _bioController.text = user.bio ?? '';
+    _emailController.text = user.email;
+    _phoneController.text = user.phone ?? '';
+
     setState(() {
-      userData = {
-        'id': currentUserId,
-        'name': prefs.getString('userName') ?? 
-                prefs.getString('user_name') ?? 
-                widget.userName,
-        'email': prefs.getString('userEmail') ?? 
-                 prefs.getString('user_email') ?? 
-                 '',
-        'username': prefs.getString('username') ?? '',
-        'bio': prefs.getString('userBio') ?? 
-               prefs.getString('user_bio') ?? 
-               '',
-        'profilePicture': prefs.getString('profilePicture') ?? 
-                         prefs.getString('profile_picture') ?? 
-                         '',
-        'phone': prefs.getString('userPhone') ?? 
-                 prefs.getString('user_phone') ?? 
-                 '',
-      };
-      _bioController.text = userData['bio'] ?? '';
-      _emailController.text = userData['email'] ?? '';
-      _phoneController.text = userData['phone'] ?? '';
+      isLoading = false;
     });
-  }
 
-  Future<void> _clearUserCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('userBio');
-    await prefs.remove('user_bio');
-    await prefs.remove('profilePicture');
-    await prefs.remove('profile_picture');
-    await prefs.remove('userGems');
-    await prefs.remove('userPhone');
-    await prefs.remove('user_phone');
-    print('Old user cache cleared');
-  }
-
-  Future<void> _loadUserGems() async {
-    try {
-      final userId = userData['id'] ?? widget.userId;
-      print('Loading user gems for user: $userId');
-      
-      final response = await http.get(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
-      );
-      
-      if (response.statusCode == 200) {
-        final userProfile = json.decode(response.body);
-        final gems = userProfile['available_gems'] ?? 0;
-        
-        setState(() {
-          userGems = gems is int ? gems : int.tryParse(gems.toString()) ?? 0;
-        });
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('userGems', userGems);
-        
-        print('Loaded gems: $userGems for user $userId');
-      } else {
-        print('Failed to load user gems: ${response.statusCode}');
-        _loadCachedGems();
-      }
-    } catch (e) {
-      print('Error loading user gems: $e');
-      _loadCachedGems();
-    }
-  }
-
-  Future<void> _loadCachedGems() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cachedGems = prefs.getInt('userGems') ?? 0;
-    setState(() {
-      userGems = cachedGems;
-    });
-  }
-
-   Future<void> _loadUserStats() async {
-    try {
-      final userId = userData['id'] ?? widget.userId;
-      
-      // Load donations count
-      final donationsResponse = await http.get(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/donations'),
-      );
-      
-      if (donationsResponse.statusCode == 200) {
-        final donations = json.decode(donationsResponse.body) as List;
-        setState(() {
-          totalDonations = donations.length;
-        });
-      }
-      
-      // Load products count
-      final productsResponse = await http.get(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/products'),
-      );
-      
-      if (productsResponse.statusCode == 200) {
-        final products = json.decode(productsResponse.body) as List;
-        setState(() {
-          totalProducts = products.length;
-        });
-      }
-      
-      print('Loaded stats - Donations: $totalDonations, Products: $totalProducts');
-    } catch (e) {
-      print('Error loading user stats: $e');
-    }
-  }
-
-  Future<String?> _getAuthToken() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
-      
-      if (token == null || token.isEmpty) {
-        print('No auth token found');
-        return null;
-      }
-      
-      return token;
-    } catch (e) {
-      print('Error getting auth token: $e');
-      return null;
-    }
+    print('✅ Profile initialized: ${user.name} (${user.availableGems} gems)');
   }
 
   // ========== PROFILE PICTURE METHODS ==========
@@ -298,28 +121,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _uploadProfilePicture() async {
     if (_profileImage == null) return;
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.user?.id == null) return;
+
     try {
       setState(() {
         isSavingProfilePicture = true;
       });
 
       final String? imageUrl = await UserService.uploadProfilePicture(
-        int.parse(widget.userId),
+        authProvider.user!.id!,
         _profileImage!
       );
 
       if (imageUrl != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('profilePicture', imageUrl);
+        // Update in AuthProvider
+        await authProvider.updateProfile(profileImageUrl: imageUrl);
         
-        setState(() {
-          userData['profilePicture'] = imageUrl;
-        });
-
         _showSnackBar('Profile picture updated! ✨');
       }
     } catch (e) {
-      print('Error uploading profile picture: $e');
+      print('❌ Error uploading profile picture: $e');
       _showSnackBar('Failed to upload picture', isError: true);
     } finally {
       setState(() {
@@ -328,10 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-
-  Widget _buildProfilePicture() {
-    final profilePicture = userData['profilePicture'];
-    
+  Widget _buildProfilePicture(String? profilePicture) {
     return GestureDetector(
       onTap: isSavingProfilePicture ? null : _pickProfileImage,
       child: Stack(
@@ -449,7 +268,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ========== CONTACT INFO UPDATE METHODS ==========
+  // ========== UPDATE METHODS ==========
+
+  Future<void> _updateBio() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.user?.id == null) return;
+
+    try {
+      setState(() {
+        isSavingBio = true;
+      });
+
+      final token = authProvider.token;
+      if (token == null) {
+        throw Exception('No authentication token');
+      }
+
+      final userId = authProvider.user!.id.toString();
+      final user = authProvider.user!;
+
+      final response = await http.put(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'name': user.name,
+          'specialty': user.specialty ?? '',
+          'bio': _bioController.text,
+          'user_type': user.userType ?? 'contributor',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Update in AuthProvider
+        await authProvider.updateProfile(bio: _bioController.text);
+        
+        setState(() {
+          isEditingBio = false;
+        });
+        
+        _showSnackBar('Bio updated successfully!');
+      } else {
+        throw Exception('Failed to update bio: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error updating bio: $e');
+      _showSnackBar('Error updating bio', isError: true);
+    } finally {
+      setState(() {
+        isSavingBio = false;
+      });
+    }
+  }
 
   Future<void> _updateContactInfo() async {
     final confirmed = await showDialog<bool>(
@@ -495,20 +367,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirmed != true) return;
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.user?.id == null) return;
+
     try {
       setState(() {
         isSavingContact = true;
       });
 
-      final token = await _getAuthToken();
+      final token = authProvider.token;
       if (token == null) {
-        throw Exception('Authentication required. Please log in again.');
+        throw Exception('No authentication token');
       }
 
-      final userId = userData['id'];
-      if (userId == null || userId.isEmpty) {
-        throw Exception('User ID not found');
-      }
+      final userId = authProvider.user!.id.toString();
+      final user = authProvider.user!;
 
       final response = await http.put(
         Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
@@ -517,34 +390,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'Authorization': 'Bearer $token',
         },
         body: json.encode({
-          'name': userData['name'],
+          'name': user.name,
           'email': _emailController.text,
           'phone': _phoneController.text,
-          'specialty': userData['specialty'] ?? '',
-          'bio': userData['bio'] ?? '',
-          'user_type': userData['user_type'] ?? 'contributor',
+          'specialty': user.specialty ?? '',
+          'bio': user.bio ?? '',
+          'user_type': user.userType ?? 'contributor',
         }),
       );
 
       if (response.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userEmail', _emailController.text);
-        await prefs.setString('user_email', _emailController.text);
-        await prefs.setString('userPhone', _phoneController.text);
-        await prefs.setString('user_phone', _phoneController.text);
+        // Update in AuthProvider
+        await authProvider.updateProfile(
+          email: _emailController.text,
+          phone: _phoneController.text,
+        );
         
         setState(() {
-          userData['email'] = _emailController.text;
-          userData['phone'] = _phoneController.text;
           isEditingContact = false;
         });
         
         _showSnackBar('Contact information updated!');
       } else {
-        throw Exception('Failed to update contact info: ${response.statusCode}');
+        throw Exception('Failed to update: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error updating contact info: $e');
+      print('❌ Error updating contact: $e');
       _showSnackBar('Error updating contact information', isError: true);
     } finally {
       setState(() {
@@ -553,79 +424,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-
-  // ========== BIO METHODS ==========
-
-  Future<void> _updateBio() async {
-    try {
-      setState(() {
-        isSavingBio = true;
-      });
-
-      final token = await _getAuthToken();
-      if (token == null) {
-        throw Exception('Authentication required. Please log in again.');
-      }
-
-      final userId = userData['id'];
-      if (userId == null || userId.isEmpty) {
-        throw Exception('User ID not found');
-      }
-
-      String userType = 'contributor';
-      try {
-        final profileResponse = await http.get(
-          Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
-        );
-        if (profileResponse.statusCode == 200) {
-          final profileData = json.decode(profileResponse.body);
-          userType = profileData['user_type'] ?? 'contributor';
-          print('Current user_type: $userType');
-        }
-      } catch (e) {
-        print('Could not fetch current user_type, using default: $e');
-      }
-
-      final response = await http.put(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/profile'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
-          'name': userData['name'],
-          'specialty': userData['specialty'] ?? '',
-          'bio': _bioController.text,
-          'user_type': userType,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('userBio', _bioController.text);
-        
-        setState(() {
-          userData['bio'] = _bioController.text;
-          isEditingBio = false;
-        });
-        
-        _showSnackBar('Bio updated successfully!');
-      } else {
-        throw Exception('Failed to update bio: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error updating bio: $e');
-      _showSnackBar('Error updating bio', isError: true);
-    } finally {
-      setState(() {
-        isSavingBio = false;
-      });
-    }
-  }
-
   // ========== LOGOUT METHODS ==========
 
-  void _handleLogout() {
+  void _handleLogout(AuthProvider authProvider) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -652,9 +453,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                _performLogout();
+                await authProvider.logout();
+                if (mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -669,21 +477,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
-  }
-
-  Future<void> _performLogout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      print('Error during logout: $e');
-    }
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -711,116 +504,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEC092).withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const CircularProgressIndicator(
-                  color: Color(0xFF88844D),
-                  strokeWidth: 3,
-                ),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        // Show loading
+        if (isLoading || !authProvider.isInitialized) {
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFBEC092).withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const CircularProgressIndicator(
+                      color: Color(0xFF88844D),
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Loading profile...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              Text(
-                'Loading profile...',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
+            ),
+          );
+        }
+
+        // Check authentication
+        if (!authProvider.isAuthenticated || authProvider.user == null) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Not authenticated'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      );
+                    },
+                    child: const Text('Go to Login'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      );
-    }
+            ),
+          );
+        }
 
-    final userName = userData['name'] ?? 'User';
-    final userEmail = userData['email'] ?? '';
-    final username = userData['username']?.isNotEmpty == true 
-        ? userData['username']!
-        : (userEmail.split('@').first);
+        final user = authProvider.user!;
+        final userName = user.name;
+        final userEmail = user.email;
+        final username = user.username?.isNotEmpty == true 
+            ? user.username!
+            : userEmail.split('@').first;
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  bool isWideScreen = constraints.maxWidth > 700;
-                  
-                  if (isWideScreen) {
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 400,
-                            child: Column(
-                              children: [
-                                _buildProfileHeader(userName, username),
-                                const SizedBox(height: 32),
-                                _buildBioSection(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                _buildContactInformation(userEmail),
-                                const SizedBox(height: 24)
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  } else {
-                    return SingleChildScrollView(
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(authProvider),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () => authProvider.refresh(),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _buildProfileHeader(userName, username),
+                          _buildProfileHeader(user, username),
                           const SizedBox(height: 32),
-                          _buildBioSection(),
+                          _buildBioSection(user),
                           const SizedBox(height: 24),
-                          _buildStatsRow(),
+                          _buildStatsRow(user),
                           const SizedBox(height: 20),
                           _buildActionButtons(),
                           const SizedBox(height: 24),
-                          _buildRecentActivity(),
-                          _buildContactInformation(userEmail),
+                          _buildRecentActivity(user),
+                          _buildContactInformation(user),
                           const SizedBox(height: 24),
                         ],
                       ),
-                    );
-                  }
-                },
-              ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavBar(context, userName),
+          ),
+          bottomNavigationBar: _buildBottomNavBar(context, userName),
+        );
+      },
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AuthProvider authProvider) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       decoration: BoxDecoration(
@@ -858,20 +649,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           IconButton(
             icon: Icon(Icons.logout, color: Theme.of(context).iconTheme.color),
-            onPressed: _handleLogout,
+            onPressed: () => _handleLogout(authProvider),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildProfileHeader(String userName, String username) {
+  Widget _buildProfileHeader(User user, String username) {
     return Column(
       children: [
-        _buildProfilePicture(),
+        _buildProfilePicture(user.profileImageUrl),
         const SizedBox(height: 24),
         Text(
-          userName,
+          user.name,
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -891,78 +682,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Text(
             '@$username',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 15,
-              color: const Color(0xFF88844D),
+              color: Color(0xFF88844D),
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
         const SizedBox(height: 20),
-        _buildGemsCounter(),
+        _buildGemsCounter(user),
       ],
     );
   }
 
-  Widget _buildGemsCounter() {
-  return GestureDetector(
-    onTap: () async {
-      // Navigate to Buy Gems screen
-      final newBalance = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BuyGemsScreen(
-            userId: widget.userId,
-            currentGems: userGems,
-          ),
-        ),
-      );
-      
-      // Update gems if purchase was made
-      if (newBalance != null) {
-        setState(() {
-          userGems = newBalance;
-        });
-        await _loadUserGems(); // Refresh from server
-      }
-    },
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF88844D), Color(0xFFBEC092)],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.diamond, color: Colors.white, size: 24),
-          const SizedBox(width: 10),
-          Text(
-            "$userGems Gems", 
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+  Widget _buildGemsCounter(User user) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    return GestureDetector(
+      onTap: () async {
+        final newBalance = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BuyGemsScreen(
+              userId: user.id.toString(),
+              currentGems: user.availableGems,
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
-        ],
+        );
+        
+        if (newBalance != null) {
+          await authProvider.updateGems(newBalance);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+          ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF88844D).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.diamond, color: Colors.white, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              "${user.availableGems} Gems", 
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  Widget _buildBioSection() {
+  Widget _buildBioSection(User user) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1082,7 +870,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextButton(
                       onPressed: () {
                         setState(() {
-                          _bioController.text = userData['bio'] ?? '';
+                          _bioController.text = user.bio ?? '';
                           isEditingBio = false;
                         });
                       },
@@ -1127,418 +915,418 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatsRow() {
-  return Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFF88844D).withOpacity(0.1),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        _buildStatItem(
-          value: userData['total_donations']?.toString() ?? '0',
-          label: 'Donated',
-          icon: Icons.recycling,
-          color: Colors.green,
-        ),
-        _buildVerticalDivider(),
-        _buildStatItem(
-          value: userData['total_products']?.toString() ?? '0',
-          label: 'Sold',
-          icon: Icons.sell,
-          color: Colors.blue,
-        ),
-        _buildVerticalDivider(),
-        _buildStatItem(
-          value: userGems.toString(),
-          label: 'Gems',
-          icon: Icons.diamond,
-          color: const Color(0xFF88844D),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildStatItem({
-  required String value,
-  required String label,
-  required IconData icon,
-  required Color color,
-}) {
-  return Column(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: color, size: 24),
-      ),
-      const SizedBox(height: 12),
-      Text(
-        value,
-        style: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).textTheme.bodyLarge?.color,
-        ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _buildVerticalDivider() {
-  return Container(
-    height: 60,
-    width: 1,
-    color: Theme.of(context).dividerColor.withOpacity(0.2),
-  );
-}
-
-Widget _buildActionButtons() {
-  return Row(
-    children: [
-      Expanded(
-        child: ElevatedButton(
-          onPressed: () {
-            setState(() {
-              isEditingBio = true;
-            });
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF88844D),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            elevation: 0,
+  Widget _buildStatsRow(User user) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          child: const Text(
-            'Edit Profile',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+        ],
       ),
-      const SizedBox(width: 12),
-      Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: const Color(0xFFBEC092),
-            width: 2,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem(
+            value: user.totalDonations.toString(),
+            label: 'Donated',
+            icon: Icons.recycling,
+            color: Colors.green,
           ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: IconButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SettingsScreen()),
-            );
-          },
-          icon: const Icon(Icons.settings_outlined),
-          color: const Color(0xFF88844D),
-          iconSize: 24,
-        ),
+          _buildVerticalDivider(),
+          _buildStatItem(
+            value: user.totalProducts.toString(),
+            label: 'Sold',
+            icon: Icons.sell,
+            color: Colors.blue,
+          ),
+          _buildVerticalDivider(),
+          _buildStatItem(
+            value: user.availableGems.toString(),
+            label: 'Gems',
+            icon: Icons.diamond,
+            color: const Color(0xFF88844D),
+          ),
+        ],
       ),
-      const SizedBox(width: 12),
-      Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: const Color(0xFFBEC092),
-            width: 2,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.visibility_outlined),
-          color: const Color(0xFF88844D),
-          iconSize: 24,
-        ),
-      ),
-    ],
-  );
-}
-
-Widget _buildRecentActivity() {
-  return Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: Theme.of(context).cardColor,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: const Color(0xFF88844D).withOpacity(0.1),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recent Activity',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        const SizedBox(height: 20),
-        FutureBuilder<List<Map<String, dynamic>>>(
-          future: _loadRecentActivity(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF88844D),
-                  ),
-                ),
-              );
-            }
-
-            if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-              return _buildEmptyActivity();
-            }
-
-            return Column(
-              children: snapshot.data!.map((activity) {
-                return _buildActivityItem(
-                  title: activity['title'] ?? '',
-                  subtitle: activity['subtitle'] ?? '',
-                  icon: activity['icon'] ?? Icons.circle,
-                  color: activity['color'] ?? Colors.grey,
-                  time: activity['time'] ?? '',
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-Future<List<Map<String, dynamic>>> _loadRecentActivity() async {
-  try {
-    final userId = widget.userId;
-    final activities = <Map<String, dynamic>>[];
-
-    // Fetch user's donations
-    final donationsResponse = await http.get(
-      Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/donations'),
     );
-
-    if (donationsResponse.statusCode == 200) {
-      final donations = json.decode(donationsResponse.body) as List;
-      for (var donation in donations.take(2)) {
-        activities.add({
-          'title': 'New donation listed',
-          'subtitle': donation['title'] ?? 'Material donation',
-          'icon': Icons.recycling,
-          'color': Colors.green,
-          'time': _formatTimeAgo(donation['created_at']),
-        });
-      }
-    }
-
-    // Fetch user's products
-    final productsResponse = await http.get(
-      Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/products'),
-    );
-
-    if (productsResponse.statusCode == 200) {
-      final products = json.decode(productsResponse.body) as List;
-      for (var product in products.take(2)) {
-        activities.add({
-          'title': 'New product for sale',
-          'subtitle': product['title'] ?? 'Upcycled product',
-          'icon': Icons.shopping_bag,
-          'color': Colors.orange,
-          'time': _formatTimeAgo(product['created_at']),
-        });
-      }
-    }
-
-    // Sort by time (most recent first)
-    activities.sort((a, b) => b['time'].compareTo(a['time']));
-
-    return activities.take(3).toList();
-  } catch (e) {
-    print('❌ Error loading recent activity: $e');
-    return [];
   }
-}
 
-String _formatTimeAgo(String? dateString) {
-  if (dateString == null) return 'Recently';
-  
-  try {
-    final date = DateTime.parse(dateString);
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays > 7) {
-      return '${(difference.inDays / 7).floor()}w ago';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
-  } catch (e) {
-    return 'Recently';
-  }
-}
-
-Widget _buildActivityItem({
-  required String title,
-  required String subtitle,
-  required IconData icon,
-  required Color color,
-  required String time,
-}) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: const Color(0xFFBEC092).withOpacity(0.2),
-      ),
-    ),
-    child: Row(
+  Widget _buildStatItem({
+    required String value,
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Row(
-          children: [
-            Text(
-              time,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildEmptyActivity() {
-  return Container(
-    padding: const EdgeInsets.all(32),
-    child: Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: const Color(0xFFBEC092).withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            Icons.inbox_outlined,
-            size: 40,
-            color: const Color(0xFF88844D).withOpacity(0.5),
-          ),
+          child: Icon(icon, color: color, size: 24),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Text(
-          'No recent activity',
+          value,
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text(
-          'Your donations and sales will appear here',
+          label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            fontWeight: FontWeight.w500,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
-    ),
-  );
-}
+    );
+  }
 
-  Widget _buildContactInformation(String userEmail) {
+  Widget _buildVerticalDivider() {
+    return Container(
+      height: 60,
+      width: 1,
+      color: Theme.of(context).dividerColor.withOpacity(0.2),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              setState(() {
+                isEditingBio = true;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF88844D),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Edit Profile',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: const Color(0xFFBEC092),
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+            icon: const Icon(Icons.settings_outlined),
+            color: const Color(0xFF88844D),
+            iconSize: 24,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: const Color(0xFFBEC092),
+              width: 2,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.visibility_outlined),
+            color: const Color(0xFF88844D),
+            iconSize: 24,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentActivity(User user) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recent Activity',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 20),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _loadRecentActivity(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF88844D),
+                    ),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                return _buildEmptyActivity();
+              }
+
+              return Column(
+                children: snapshot.data!.map((activity) {
+                  return _buildActivityItem(
+                    title: activity['title'] ?? '',
+                    subtitle: activity['subtitle'] ?? '',
+                    icon: activity['icon'] ?? Icons.circle,
+                    color: activity['color'] ?? Colors.grey,
+                    time: activity['time'] ?? '',
+                  );
+                }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadRecentActivity() async {
+    try {
+      final userId = widget.userId;
+      final activities = <Map<String, dynamic>>[];
+
+      // Fetch user's donations
+      final donationsResponse = await http.get(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/donations'),
+      );
+
+      if (donationsResponse.statusCode == 200) {
+        final donations = json.decode(donationsResponse.body) as List;
+        for (var donation in donations.take(2)) {
+          activities.add({
+            'title': 'New donation listed',
+            'subtitle': donation['title'] ?? 'Material donation',
+            'icon': Icons.recycling,
+            'color': Colors.green,
+            'time': _formatTimeAgo(donation['created_at']),
+          });
+        }
+      }
+
+      // Fetch user's products
+      final productsResponse = await http.get(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/users/$userId/products'),
+      );
+
+      if (productsResponse.statusCode == 200) {
+        final products = json.decode(productsResponse.body) as List;
+        for (var product in products.take(2)) {
+          activities.add({
+            'title': 'New product for sale',
+            'subtitle': product['title'] ?? 'Upcycled product',
+            'icon': Icons.shopping_bag,
+            'color': Colors.orange,
+            'time': _formatTimeAgo(product['created_at']),
+          });
+        }
+      }
+
+      // Sort by time (most recent first)
+      activities.sort((a, b) => b['time'].compareTo(a['time']));
+
+      return activities.take(3).toList();
+    } catch (e) {
+      print('❌ Error loading recent activity: $e');
+      return [];
+    }
+  }
+
+  String _formatTimeAgo(String? dateString) {
+    if (dateString == null) return 'Recently';
+    
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays > 7) {
+        return '${(difference.inDays / 7).floor()}w ago';
+      } else if (difference.inDays > 0) {
+        return '${difference.inDays}d ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}m ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      return 'Recently';
+    }
+  }
+
+  Widget _buildActivityItem({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required String time,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFBEC092).withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Row(
+            children: [
+              Text(
+                time,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyActivity() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.inbox_outlined,
+              size: 40,
+              color: const Color(0xFF88844D).withOpacity(0.5),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No recent activity',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your donations and sales will appear here',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactInformation(User user) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1584,13 +1372,13 @@ Widget _buildEmptyActivity() {
           _buildContactItem(
             icon: Icons.email_outlined,
             label: 'Email',
-            value: userEmail,
+            value: user.email,
           ),
           const SizedBox(height: 12),
           _buildContactItem(
             icon: Icons.phone_outlined,
             label: 'Phone',
-            value: '+266 xxxx xxxx',
+            value: user.phone ?? 'Not set',
           ),
         ],
       ),
@@ -1600,7 +1388,7 @@ Widget _buildEmptyActivity() {
   Widget _buildContactItem({
     required IconData icon, 
     required String label, 
-    required String value
+    required String value,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1680,7 +1468,7 @@ Widget _buildEmptyActivity() {
               MaterialPageRoute(
                 builder: (context) => DashboardScreen(
                   userName: userName, 
-                  userId: widget.userId
+                  userId: widget.userId,
                 ),
               ),
               (route) => false,
@@ -1698,7 +1486,7 @@ Widget _buildEmptyActivity() {
               MaterialPageRoute(
                 builder: (context) => MarketplaceScreen(
                   userName: userName, 
-                  userId: widget.userId
+                  userId: widget.userId,
                 ),
               ),
             );
