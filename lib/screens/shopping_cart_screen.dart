@@ -32,23 +32,31 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
   bool _isInitialLoad = true; // Track if this is the first load
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    print('🛒 ShoppingCart initState - Loading data...');
-    // Load immediately, no need for post frame callback
+void initState() {
+  super.initState();
+  WidgetsBinding.instance.addObserver(this);
+  print(' ShoppingCart initState - Loading data...');
+  // Load data immediately
+  WidgetsBinding.instance.addPostFrameCallback((_) {
     _checkAuthAndLoadData();
-  }
+  });
+}
 
   @override
   void didUpdateWidget(ShoppingCartScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Reload cart data if userId changed
-    if (oldWidget.userId != widget.userId) {
-      print('UserId changed, reloading cart data...');
-      _checkAuthAndLoadData();
-    }
+  super.didUpdateWidget(oldWidget);
+  // Reload cart data if userId changed
+  if (oldWidget.userId != widget.userId) {
+    print('UserId changed, reloading cart data...');
+    // Clear existing data first
+    setState(() {
+      _cartItems = [];
+      _availableGems = 0;
+      _appliedGems = 0;
+    });
+    _checkAuthAndLoadData();
   }
+}
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -67,57 +75,57 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
   }
 
   Future<void> _checkAuthAndLoadData() async {
-    // Only prevent duplicate loads if NOT initial load
-    if (_isLoading && !_isInitialLoad) {
-      print('⚠️ Already loading, skipping duplicate load request');
-      return;
-    }
+  // Prevent concurrent loads
+  if (_isLoading) {
+    print(' Already loading, skipping duplicate load request');
+    return;
+  }
 
-    if (!mounted) return;
+  if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-      _hasAuthError = false;
-      _isInitialLoad = false; // Mark that initial load is happening
-    });
+  setState(() {
+    _isLoading = true;
+    _hasAuthError = false;
+  });
 
     try {
-      print('=' * 50);
-      print('AUTHENTICATION CHECK STARTED');
-      print('User ID: ${widget.userId}');
-      print('=' * 50);
-      
-      await ApiService.debugAuthData();
+    print('=' * 50);
+    print('AUTHENTICATION CHECK STARTED');
+    print('User ID: ${widget.userId}');
+    print('=' * 50);
+    
+    await ApiService.debugAuthData();
       
       final token = await ApiService.getToken();
-      _token = token ?? '';
-      print('Token exists: ${token != null}');
+    _token = token ?? '';
+    print('Token exists: ${token != null}');
       
       if (_token.isNotEmpty) {
-        print('Token preview: ${_token.substring(0, min(20, _token.length))}...');
-      }
+      print('Token preview: ${_token.substring(0, min(20, _token.length))}...');
+    }
       
       final userId = await ApiService.getUserId();
       print('User ID from storage: $userId');
       print('User ID from widget: ${widget.userId}');
       
       if (userId != null && userId != widget.userId) {
-        print('WARNING: User ID mismatch!');
-      }
+      print('WARNING: User ID mismatch!');
+    }
       
       final isValid = await ApiService.verifyToken();
-      print('Token validation: $isValid');
+    print('Token validation: $isValid');
+
       
       if (_token.isEmpty || !isValid) {
-        print('Token is missing, invalid, or expired');
-        if (mounted) {
-          setState(() {
-            _hasAuthError = true;
-            _isLoading = false;
-          });
-        }
-        return;
+      print('Token is missing, invalid, or expired');
+      if (mounted) {
+        setState(() {
+          _hasAuthError = true;
+          _isLoading = false;
+        });
       }
+      return;
+    }
 
       print('Authentication verified - Loading cart data...');
       print('=' * 50);
@@ -126,16 +134,16 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
       await _loadCartData();
       
     } catch (e) {
-      print('Auth check error: $e');
-      print('Stack trace: ${StackTrace.current}');
-      if (mounted) {
-        setState(() {
-          _hasAuthError = true;
-          _isLoading = false;
-        });
-      }
+    print('Auth check error: $e');
+    print('Stack trace: ${StackTrace.current}');
+    if (mounted) {
+      setState(() {
+        _hasAuthError = true;
+        _isLoading = false;
+      });
     }
   }
+}
 
   Future<void> _loadCartData() async {
     print('=== LOADING CART DATA ===');
