@@ -1432,12 +1432,14 @@ class ImageUploadWidget extends StatelessWidget {
     }
 
     if (copiedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to process selected images'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to process selected images'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
@@ -1449,21 +1451,25 @@ class ImageUploadWidget extends StatelessWidget {
       int availableSlots = 5 - newImages.length;
       newImages.addAll(copiedImages.take(availableSlots));
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     } else {
       newImages.addAll(copiedImages);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added ${copiedImages.length} image(s)'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added ${copiedImages.length} image(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     }
     
     print('📊 Total images now: ${newImages.length}');
@@ -1473,62 +1479,67 @@ class ImageUploadWidget extends StatelessWidget {
     print('❌ Image picker error: $e');
     print('Stack: ${StackTrace.current}');
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Error selecting images: ${e.toString()}'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error selecting images: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 }
 
-  Future<void> _takePhoto(BuildContext context) async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      print('📷 Opening camera...');
-      
-      final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      );
+Future<void> _takePhoto(BuildContext context) async {
+  try {
+    final ImagePicker picker = ImagePicker();
+    print('📷 Opening camera...');
+    
+    final XFile? photo = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
 
-      if (photo == null) {
-        print('❌ No photo taken');
-        return;
-      }
+    if (photo == null) {
+      print('❌ No photo taken');
+      return;
+    }
 
-      print('✅ Photo captured: ${photo.path}');
+    print('✅ Photo captured: ${photo.path}');
 
-      final Directory appDir = await getTemporaryDirectory();
-      final String targetDir = '${appDir.path}/material_images';
-      await Directory(targetDir).create(recursive: true);
+    final Directory appDir = await getTemporaryDirectory();
+    final String targetDir = '${appDir.path}/material_images';
+    await Directory(targetDir).create(recursive: true);
 
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String extension = path.extension(photo.path);
-      final String fileName = 'material_camera_$timestamp$extension';
-      final String targetPath = '$targetDir/$fileName';
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final String extension = path.extension(photo.path);
+    final String fileName = 'material_camera_$timestamp$extension';
+    final String targetPath = '$targetDir/$fileName';
 
-      final File sourceFile = File(photo.path);
-      final fileBytes = await sourceFile.readAsBytes();
-      await File(targetPath).writeAsBytes(fileBytes);
+    final File sourceFile = File(photo.path);
+    final fileBytes = await sourceFile.readAsBytes();
+    await File(targetPath).writeAsBytes(fileBytes);
 
-      print('   ✅ Saved to: $targetPath');
+    print('   ✅ Saved to: $targetPath');
 
-      if (images.length >= 5) {
+    if (images.length >= 5) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Maximum 5 images allowed'),
             backgroundColor: Colors.orange,
           ),
         );
-      } else {
-        List<XFile> newImages = List.from(images);
-        newImages.add(XFile(targetPath));
-        onImagesChanged(newImages);
-        
+      }
+    } else {
+      List<XFile> newImages = List.from(images);
+      newImages.add(XFile(targetPath));
+      onImagesChanged(newImages);
+      
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Photo added'),
@@ -1536,10 +1547,12 @@ class ImageUploadWidget extends StatelessWidget {
           ),
         );
       }
+    }
 
-    } catch (e) {
-      print('❌ Camera error: $e');
-      
+  } catch (e) {
+    print('❌ Camera error: $e');
+    
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error taking photo: ${e.toString()}'),
@@ -1548,6 +1561,7 @@ class ImageUploadWidget extends StatelessWidget {
       );
     }
   }
+}
 
   void _showImageSourceOptions(BuildContext context) {
     showModalBottomSheet(
