@@ -886,12 +886,20 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   }
 
   Widget _buildImageUpload() {
-    return ImageUploadWidget(
-      onImagesChanged: (images) {
-        setState(() => _images = images);
-      },
-    );
-  }
+  return ImageUploadWidget(
+    onImagesChanged: (images) {
+      print('Parent received ${images.length} images');
+      setState(() {
+        _images = images;
+      });
+      print('Parent _images now has ${_images.length} items');
+      print('Image paths:');
+      for (int i = 0; i < _images.length; i++) {
+        print('   ${i + 1}. ${_images[i].path}');
+      }
+    },
+  );
+}
 
   Widget _buildDropdown({required String label, required String hintText, required String? value, required List<String> items, required Function(String?) onChanged}) {
     return Column(
@@ -1197,8 +1205,20 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
   );
   success = response.statusCode == 200;
 } else {
-  // Create new material
-  success = await MaterialService.createMaterial(materialData, _images);
+  print(' PRE-SUBMISSION IMAGE CHECK:');
+  print('   _images list length: ${_images.length}');
+  for (int i = 0; i < _images.length; i++) {
+    print('   Image $i: ${_images[i].path}');
+    final file = File(_images[i].path);
+    final exists = await file.exists();
+    print('   File exists: $exists');
+  if (exists) {
+    final size = await file.length();
+    print('   File size: $size bytes');
+  }
+}
+
+success = await MaterialService.createMaterial(materialData, _images);
 }
 
       if (success) {
