@@ -879,8 +879,9 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
   String? _selectedCondition;
   double _price = 0.0;
   List<XFile> _images = [];
-  Map<String, String> _locationData = {}; // ✅ NEW: Location data storage
+  Map<String, String> _locationData = {}; 
   bool _isSubmitting = false;
+  bool _setupRequired = false;
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -966,9 +967,11 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
           'Condition *',
           'Select condition',
           _selectedCondition,
-          const ['New', 'Like New', 'Excellent', 'Good', 'Fair'],
+          const ['New', 'Fair', 'Good', 'Excellent', 'Refurbished'],
           (value) => setState(() => _selectedCondition = value),
         ),
+        const SizedBox(height: 20),
+        _buildSetupRequiredToggle(),
         const SizedBox(height: 20),
         _buildPriceField(),
         const SizedBox(height: 20),
@@ -1067,6 +1070,53 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
       ],
     );
   }
+
+  Widget _buildSetupRequiredToggle() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Setup & Installation',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).textTheme.bodyLarge?.color,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFBEC092), width: 1),
+        ),
+        child: CheckboxListTile(
+          title: Text(
+            'Requires Setup or Installation',
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+              fontSize: 14,
+            ),
+          ),
+          subtitle: Text(
+            'Check this if the product needs assembly, installation, or setup',
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            ),
+          ),
+          value: _setupRequired,
+          activeColor: const Color(0xFF88844D),
+          onChanged: (bool? value) {
+            setState(() {
+              _setupRequired = value ?? false;
+            });
+          },
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _buildPriceField() {
     return Column(
@@ -1247,6 +1297,11 @@ class _CreateProductListingScreenState extends State<CreateProductListingScreen>
         'location_area': _locationData['area'] ?? '',
         'location_landmark': _locationData['landmark'] ?? '',
         'location_directions': _locationData['directions'] ?? '',
+        'latitude': _locationData['latitude'] ?? '',
+        'longitude': _locationData['longitude'] ?? '',
+        'map_address': _locationData['map_address'] ?? '',
+        'is_map_location': _locationData['is_map_location'] ?? 'false',
+        'setup_required': _setupRequired.toString(),
         'artisan_id': userId,
         'creator_name': userName,
       };

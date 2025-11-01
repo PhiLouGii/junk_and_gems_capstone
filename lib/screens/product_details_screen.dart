@@ -452,6 +452,190 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   );
 }
 
+Widget _buildLocationSection(bool isDarkMode) {
+  final location = widget.product['location'] ?? '';
+  final locationArea = widget.product['location_area'] ?? '';
+  final locationLandmark = widget.product['location_landmark'] ?? '';
+  final locationDirections = widget.product['location_directions'] ?? '';
+  final mapAddress = widget.product['map_address'] ?? '';
+  final isMapLocation = widget.product['is_map_location'] == 'true';
+  final latitude = widget.product['latitude'];
+  final longitude = widget.product['longitude'];
+
+  // Build location display string
+  String displayLocation = '';
+  if (isMapLocation && mapAddress.isNotEmpty) {
+    displayLocation = mapAddress;
+  } else {
+    List<String> parts = [];
+    if (locationArea.isNotEmpty) parts.add(locationArea);
+    if (locationLandmark.isNotEmpty) parts.add(locationLandmark);
+    if (locationDirections.isNotEmpty) parts.add(locationDirections);
+    displayLocation = parts.join(' • ');
+    
+    if (displayLocation.isEmpty && location.isNotEmpty) {
+      displayLocation = location;
+    }
+  }
+
+  if (displayLocation.isEmpty) {
+    return const SizedBox.shrink();
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(
+            isMapLocation ? Icons.location_on : Icons.place,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Location',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDarkMode ? const Color(0xFF3D3D3D) : const Color(0xFFBEC092),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isMapLocation) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF88844D),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.map, size: 12, color: Colors.white),
+                        SizedBox(width: 4),
+                        Text(
+                          'Map Location',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              displayLocation,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                height: 1.5,
+              ),
+            ),
+            if (latitude != null && longitude != null && 
+                latitude.isNotEmpty && longitude.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Coordinates: ${latitude}, ${longitude}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDarkMode ? Colors.white60 : Colors.black54,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 8),
+      Divider(
+        color: Theme.of(context).colorScheme.secondary,
+        thickness: 1,
+      ),
+    ],
+  );
+}
+
+Widget _buildSetupRequiredBadge(bool isDarkMode) {
+  final setupRequired = widget.product['setup_required'] == 'true';
+  
+  if (!setupRequired) {
+    return const SizedBox.shrink();
+  }
+
+  return Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: isDarkMode 
+          ? const Color(0xFF2D2D2D) 
+          : const Color(0xFFFFE5B4).withOpacity(0.3),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.orange.shade300,
+        width: 1,
+      ),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          Icons.build,
+          color: isDarkMode ? Colors.orange.shade300 : Colors.orange.shade700,
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Setup Required',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.orange.shade300 : Colors.orange.shade700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'This product needs assembly or installation',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDarkMode ? Colors.white70 : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -612,12 +796,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+                  _buildSetupRequiredBadge(isDarkMode),
+
                   _buildSection(
                     title: 'About the Product',
                     content: widget.product['description'] ?? 'A beautifully crafted upcycled product made with care and creativity.',
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 20),
+
+                  _buildLocationSection(isDarkMode),
+                  const SizedBox(height: 20), 
+
                   _buildSection(
                     title: 'Pickup & Delivery',
                     content: 'Contact the artisan to arrange pickup or delivery within your area.',

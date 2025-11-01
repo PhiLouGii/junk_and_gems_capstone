@@ -3049,7 +3049,7 @@ app.get("/api/products", async (req, res) => {
       ORDER BY p.created_at DESC
     `);
     
-    console.log(`Returning ${result.rows.length} products`);
+    console.log(`✅ Returning ${result.rows.length} products`);
     
     // Log first product for debugging
     if (result.rows.length > 0) {
@@ -3089,11 +3089,11 @@ app.get("/api/products", async (req, res) => {
       location_area: row.location_area,
       location_landmark: row.location_landmark,
       location_directions: row.location_directions,
-      // Include map location fields
       latitude: row.latitude,
       longitude: row.longitude,
       map_address: row.map_address,
       is_map_location: row.is_map_location || false,
+      setup_required: row.setup_required || false,
       artisan_id: row.artisan_id,
       creator_name: row.creator_name,
       creator_avatar: row.creator_avatar,
@@ -3493,15 +3493,15 @@ console.log('   GET  /api/products/category/:category');
 
 // Create new product listing
 app.post("/api/products", upload.array('images', 5), async (req, res) => {
-  console.log('CREATE PRODUCT REQUEST');
+  console.log('📦 CREATE PRODUCT REQUEST');
   console.log('Body:', JSON.stringify(req.body, null, 2));
   
   const { 
     title, description, price, category, condition, 
     materials_used, dimensions, 
     location, location_area, location_landmark, location_directions,
-    // Map location fields
     latitude, longitude, map_address, is_map_location,
+    setup_required,
     artisan_id, creator_name 
   } = req.body;
 
@@ -3592,8 +3592,8 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
        (title, description, price, category, condition, materials_used, 
         dimensions, location, location_area, location_landmark, location_directions,
         latitude, longitude, map_address, is_map_location,
-        artisan_id, image_data_base64, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW()) 
+        setup_required, artisan_id, image_data_base64, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW()) 
        RETURNING *`,
       [
         title, 
@@ -3607,11 +3607,11 @@ app.post("/api/products", upload.array('images', 5), async (req, res) => {
         location_area || null, 
         location_landmark || null, 
         location_directions || null,
-        // Map location fields
         latitude ? parseFloat(latitude) : null,
         longitude ? parseFloat(longitude) : null,
         map_address || null,
         is_map_location === 'true' || is_map_location === true,
+        setup_required === 'true' || setup_required === true,
         parseInt(artisan_id),
         imageUrls
       ]
@@ -3718,11 +3718,11 @@ app.get("/api/products/:id", async (req, res) => {
       location_area: product.location_area,
       location_landmark: product.location_landmark,
       location_directions: product.location_directions,
-      // Include map location fields
       latitude: product.latitude,
       longitude: product.longitude,
       map_address: product.map_address,
       is_map_location: product.is_map_location || false,
+      setup_required: product.setup_required || false,
       artisan_id: product.artisan_id,
       creator_name: product.creator_name,
       creator_avatar: product.creator_avatar,
@@ -4597,6 +4597,39 @@ app.post("/api/fix-products-table", async (req, res) => {
   } catch (err) {
     console.error("Fix products table error:", err);
     res.status(500).json({ error: "Fix failed: " + err.message });
+  }
+});
+
+// Required Setup (if products need installation or setup)
+app.post("/api/add-setup-required-column", async (req, res) => {
+  try {
+    console.log('Adding setup_required column to products table...');
+
+    // Check if column exists
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'products' AND column_name = 'setup_required'
+    `);
+
+    if (columnCheck.rows.length === 0) {
+      // Add the column
+      await pool.query(`
+        ALTER TABLE products 
+        ADD COLUMN setup_required BOOLEAN DEFAULT FALSE
+      `);
+      console.log('Added setup_required column');
+    } else {
+      console.log('setup_required column already exists');
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Setup required column added successfully" 
+    });
+  } catch (err) {
+    console.error("Add setup required column error:", err);
+    res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
 
