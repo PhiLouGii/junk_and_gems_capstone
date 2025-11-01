@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
 import 'package:junk_and_gems/services/material_service.dart';
@@ -1189,32 +1190,16 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
       bool success;
       if (widget.isEditing && widget.existingMaterial != null) {
-        // Update existing material
-        final response = await http.put(
-          Uri.parse('https://junk-and-gems-api.onrender.com/materials/${widget.existingMaterial!['id']}'),
-    headers: {
-      'Content-Type': 'application/json',
-      if (prefs.getString('token') != null) 'Authorization': 'Bearer ${prefs.getString('token')}',
-    },
-    body: json.encode(materialData),
-  );
-  success = response.statusCode == 200;
-} else {
-  print(' PRE-SUBMISSION IMAGE CHECK:');
-  print('   _images list length: ${_images.length}');
-  for (int i = 0; i < _images.length; i++) {
-    print('   Image $i: ${_images[i].path}');
-    final file = File(_images[i].path);
-    final exists = await file.exists();
-    print('   File exists: $exists');
-  if (exists) {
-    final size = await file.length();
-    print('   File size: $size bytes');
-  }
-}
-
-success = await MaterialService.createMaterial(materialData, _images);
-}
+        // Use MaterialService to handle images properly
+        success = await MaterialService.updateMaterial(
+          widget.existingMaterial!['id'].toString(),
+          materialData,
+          _images, 
+        );
+      } else {
+        // Already working
+        success = await MaterialService.createMaterial(materialData, _images);
+      }
 
       if (success) {
         if (mounted) {
@@ -1361,114 +1346,129 @@ class ImageUploadWidget extends StatelessWidget {
   });
 
   Future<void> _pickImages(BuildContext context) async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      print('📸 Opening image picker...');
-      
-      final List<XFile> pickedFiles = await picker.pickMultiImage(
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1920,
-      );
-      
-      if (pickedFiles.isEmpty) {
-        print('No images selected');
-        return;
-      }
+  try {
+    final ImagePicker picker = ImagePicker();
+    print('📸 Opening image picker...');
+    
+    final List<XFile> pickedFiles = await picker.pickMultiImage(
+      imageQuality: 85,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    
+    if (pickedFiles.isEmpty) {
+      print('❌ No images selected');
+      return;
+    }
 
-      print('Selected ${pickedFiles.length} images');
+    print('✓ Selected ${pickedFiles.length} images');
 
-      List<XFile> copiedImages = [];
-      final Directory appDir = await getTemporaryDirectory();
-      final String targetDir = '${appDir.path}/material_images';
-      
-      await Directory(targetDir).create(recursive: true);
+    List<XFile> copiedImages = [];
+    final Directory appDir = await getTemporaryDirectory();
+    final String targetDir = '${appDir.path}/material_images';
+    
+    // Ensure directory exists
+    final Directory dir = Directory(targetDir);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
 
-      for (int i = 0; i < pickedFiles.length; i++) {
-        try {
-          final XFile pickedFile = pickedFiles[i];
-          print('Processing image ${i + 1}/${pickedFiles.length}...');
-          
-          final File sourceFile = File(pickedFile.path);
-          if (!await sourceFile.exists()) {
-            print('⚠️ Source file does not exist: ${pickedFile.path}');
-            continue;
-          }
-
-          final fileBytes = await sourceFile.readAsBytes();
-          if (fileBytes.isEmpty) {
-            print('⚠️ File is empty: ${pickedFile.path}');
-            continue;
-          }
-
-          print('   File size: ${fileBytes.length} bytes');
-
-          final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-          final String extension = path.extension(pickedFile.path);
-          final String fileName = 'material_${timestamp}_$i$extension';
-          final String targetPath = '$targetDir/$fileName';
-
-          final File targetFile = File(targetPath);
-          await targetFile.writeAsBytes(fileBytes);
-          
-          print('   ✅ Saved to: $targetPath');
-
-          copiedImages.add(XFile(targetPath));
-
-        } catch (e) {
-          print('❌ Error processing image ${i + 1}: $e');
+    for (int i = 0; i < pickedFiles.length; i++) {
+      try {
+        final XFile pickedFile = pickedFiles[i];
+        print('📁 Processing image ${i + 1}/${pickedFiles.length}...');
+        print('   Original path: ${pickedFile.path}');
+        
+        // ✅ FIX: Read bytes directly from XFile (works for both gallery and camera)
+        final Uint8List fileBytes = await pickedFile.readAsBytes();
+        
+        if (fileBytes.isEmpty) {
+          print('   ⚠️ File is empty, skipping');
+          continue;
         }
-      }
 
-      if (copiedImages.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to process selected images'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+        print('   ✓ Read ${fileBytes.length} bytes (${(fileBytes.length / 1024).toStringAsFixed(2)} KB)');
 
-      List<XFile> newImages = List.from(images);
-      
-      if (newImages.length + copiedImages.length > 5) {
-        int availableSlots = 5 - newImages.length;
-        newImages.addAll(copiedImages.take(availableSlots));
+        // Generate unique filename
+        final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+        final String extension = path.extension(pickedFile.path).isEmpty 
+            ? '.jpg' 
+            : path.extension(pickedFile.path);
+        final String fileName = 'material_${timestamp}_$i$extension';
+        final String targetPath = '$targetDir/$fileName';
+
+        // Write to our controlled location
+        final File targetFile = File(targetPath);
+        await targetFile.writeAsBytes(fileBytes, flush: true);
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      } else {
-        newImages.addAll(copiedImages);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Added ${copiedImages.length} image(s)'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-      
-      print('📊 Total images now: ${newImages.length}');
-      onImagesChanged(newImages);
+        // Verify the file was written
+        if (await targetFile.exists()) {
+          final verifySize = await targetFile.length();
+          print('   ✅ Saved to: $targetPath');
+          print('   ✅ Verified size: ${(verifySize / 1024).toStringAsFixed(2)} KB');
+          
+          copiedImages.add(XFile(targetPath));
+        } else {
+          print('   ❌ Failed to verify saved file');
+        }
 
-    } catch (e) {
-      print('❌ Image picker error: $e');
+      } catch (e) {
+        print('❌ Error processing image ${i + 1}: $e');
+        print('   Stack: ${StackTrace.current}');
+      }
+    }
+
+    if (copiedImages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to process selected images'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    print('📊 Successfully processed ${copiedImages.length}/${pickedFiles.length} images');
+
+    List<XFile> newImages = List.from(images);
+    
+    if (newImages.length + copiedImages.length > 5) {
+      int availableSlots = 5 - newImages.length;
+      newImages.addAll(copiedImages.take(availableSlots));
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error selecting images: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
+          content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } else {
+      newImages.addAll(copiedImages);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${copiedImages.length} image(s)'),
+          backgroundColor: Colors.green,
         ),
       );
     }
-  }
+    
+    print('📊 Total images now: ${newImages.length}');
+    onImagesChanged(newImages);
 
+  } catch (e) {
+    print('❌ Image picker error: $e');
+    print('Stack: ${StackTrace.current}');
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error selecting images: ${e.toString()}'),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+}
 
   Future<void> _takePhoto(BuildContext context) async {
     try {

@@ -1144,43 +1144,22 @@ console.log(' Notification system initialized');
 // Get all materials with real data
 app.get("/materials", async (req, res) => {
   try {
-    const { status } = req.query;
-    
-    let whereClause = '';
-    if (status) {
-      whereClause = `WHERE m.claim_status = '${status}'`;
-    } else {
-      whereClause = `WHERE m.claim_status IN ('available', 'pending')`;
-    }
-    
     const result = await pool.query(`
-      SELECT 
-        m.*,
-        COALESCE(u.name, 'Unknown User') as uploader_name,
-        u.email as uploader_email,
-        u.profile_image_url as uploader_avatar,
-        m.uploader_id as uploader_id,
-        claimer.name as claimer_name
+      SELECT m.*, 
+             COALESCE(u.name, 'Unknown User') as uploader_name,
+             u.email as uploader_email,
+             u.profile_image_url as uploader_avatar,
+             claimer.name as claimer_name
       FROM materials m
       LEFT JOIN users u ON m.uploader_id = u.id
       LEFT JOIN users claimer ON m.claimed_by = claimer.id
-      ${whereClause}
+      WHERE m.claim_status IN ('available', 'pending')
       ORDER BY m.created_at DESC
     `);
 
-    console.log(`Found ${result.rows.length} materials`);
-
     const materials = result.rows.map(row => {
-      console.log(`Material ${row.id}:`);
-      console.log(`   Uploader ID (from materials table): ${row.uploader_id} (type: ${typeof row.uploader_id})`);
-      console.log(`   Uploader Name (from JOIN): ${row.uploader_name}`);
-      
-      if (!row.uploader_name || row.uploader_name === 'Unknown User') {
-        console.log(`WARNING: Could not find user with ID ${row.uploader_id} in users table!`);
-      }
-
       const imageUrls = row.image_data_base64 || [];
-
+      
       return {
         id: row.id,
         title: row.title,
@@ -1191,7 +1170,6 @@ app.get("/materials", async (req, res) => {
         location_area: row.location_area,
         location_landmark: row.location_landmark,
         location_directions: row.location_directions,
-        // Include map location fields
         latitude: row.latitude,
         longitude: row.longitude,
         map_address: row.map_address,
@@ -1201,7 +1179,8 @@ app.get("/materials", async (req, res) => {
         available_until: row.available_until,
         is_fragile: row.is_fragile,
         contact_preferences: row.contact_preferences,
-        image_urls: imageUrls,
+        image_urls: imageUrls,             
+        image_data_base64: imageUrls,       
         uploader: row.uploader_name || 'Unknown User',
         uploader_name: row.uploader_name || 'Unknown User',  
         uploader_id: row.uploader_id,
@@ -1213,59 +1192,47 @@ app.get("/materials", async (req, res) => {
         claim_status: row.claim_status || 'available',
         claimed_by: row.claimed_by,
         claimer_name: row.claimer_name,
-        claim_requested_at: row.claim_requested_at,
-        claim_confirmed_at: row.claim_confirmed_at,
-        conversation_id: row.conversation_id,
         is_claimed: row.claim_status === 'confirmed',
-        claimed_at: row.claim_confirmed_at
       };
     });
 
     res.json(materials);
   } catch (err) {
     console.error("Get materials error:", err);
-    console.error("Stack trace:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 
-// ============================================
-// PUT /materials/:id - Update material with map location support
-// ============================================
+// PUT - Update Material
 app.put("/materials/:id", async (req, res) => {
-  console.log('Received material update request for ID:', req.params.id);
+  console.log(`Received material update request for ID: ${req.params.id}`);
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   
-  const { id } = req.params;
   const { 
     title, description, category, quantity, 
-    location, location_area, location_landmark, location_directions,
-    // ✅ NEW: Map location fields
+    location, location_area, location_landmark, location_directions, 
     latitude, longitude, map_address, is_map_location,
     delivery_option, 
     available_from, available_until, is_fragile, contact_preferences,
-    image_urls
+    image_urls, 
+    uploader_id 
   } = req.body;
- 
+
   try {
-    // Check if material exists
-    const checkMaterial = await pool.query(
+    const materialId = req.params.id;
+
+    // Get existing material
+    const existingMaterial = await pool.query(
       'SELECT * FROM materials WHERE id = $1',
-      [id]
+      [materialId]
     );
 
-    if (checkMaterial.rows.length === 0) {
+    if (existingMaterial.rows.length === 0) {
       return res.status(404).json({ error: "Material not found" });
     }
 
-    // Process images
-    let imageUrls = checkMaterial.rows[0].image_data_base64 || [];
-    if (image_urls && Array.isArray(image_urls)) {
-      imageUrls = image_urls;
-    }
-
     // Process contact preferences
-    let contactPrefs = checkMaterial.rows[0].contact_preferences || {};
+    let contactPrefs = {};
     if (contact_preferences) {
       if (typeof contact_preferences === 'string') {
         try {
@@ -1278,56 +1245,48 @@ app.put("/materials/:id", async (req, res) => {
       }
     }
 
-    console.log('Updating material in database...');
+    //Handle images - keep existing if no new images
+    let imageUrls = existingMaterial.rows[0].image_data_base64 || [];
+    if (image_urls && Array.isArray(image_urls) && image_urls.length > 0) {
+      imageUrls = image_urls;
+      console.log(`Updating with ${imageUrls.length} new image URLs`);
+    } else {
+      console.log(`Keeping ${imageUrls.length} existing images`);
+    }
 
-    // ✅ UPDATED: Update with map location fields
     const result = await pool.query(
       `UPDATE materials 
-       SET title = $1, description = $2, category = $3, quantity = $4,
-           location = $5, location_area = $6, location_landmark = $7, location_directions = $8,
-           latitude = $9, longitude = $10, map_address = $11, is_map_location = $12,
-           delivery_option = $13,
-           available_from = $14, available_until = $15, is_fragile = $16,
-           contact_preferences = $17, image_data_base64 = $18,
-           updated_at = NOW()
+       SET title = $1, description = $2, category = $3, quantity = $4, 
+           location = $5, location_area = $6, location_landmark = $7, 
+           location_directions = $8, latitude = $9, longitude = $10,
+           map_address = $11, is_map_location = $12, delivery_option = $13, 
+           available_from = $14, available_until = $15, is_fragile = $16, 
+           contact_preferences = $17, image_data_base64 = $18, updated_at = NOW()
        WHERE id = $19
        RETURNING *`,
       [
-        title || checkMaterial.rows[0].title,
-        description || checkMaterial.rows[0].description,
-        category || checkMaterial.rows[0].category,
-        quantity || checkMaterial.rows[0].quantity,
-        location || map_address || checkMaterial.rows[0].location,
-        location_area || checkMaterial.rows[0].location_area,
-        location_landmark || checkMaterial.rows[0].location_landmark,
-        location_directions || checkMaterial.rows[0].location_directions,
-        // ✅ NEW: Map location fields
-        latitude ? parseFloat(latitude) : checkMaterial.rows[0].latitude,
-        longitude ? parseFloat(longitude) : checkMaterial.rows[0].longitude,
-        map_address || checkMaterial.rows[0].map_address,
-        is_map_location !== undefined ? (is_map_location === 'true' || is_map_location === true) : checkMaterial.rows[0].is_map_location,
-        delivery_option || checkMaterial.rows[0].delivery_option,
-        available_from || checkMaterial.rows[0].available_from,
-        available_until || checkMaterial.rows[0].available_until,
-        is_fragile !== undefined ? is_fragile : checkMaterial.rows[0].is_fragile,
-        contactPrefs,
-        imageUrls,
-        id
+        title, description, category, quantity || 'Not specified',
+        location || map_address || '', location_area || '',
+        location_landmark || '', location_directions || '',
+        latitude ? parseFloat(latitude) : null,
+        longitude ? parseFloat(longitude) : null,
+        map_address || null,
+        is_map_location === 'true' || is_map_location === true,
+        delivery_option || 'Needs Pickup', available_from, available_until,
+        is_fragile || false, contactPrefs, imageUrls, materialId
       ]
     );
 
     const updatedMaterial = result.rows[0];
-    console.log(`Material updated with ID: ${updatedMaterial.id}`);
-
+    
     // Get uploader info
-    const uploaderInfo = await pool.query(
+    const userResult = await pool.query(
       'SELECT name, email, profile_image_url FROM users WHERE id = $1',
-      [updatedMaterial.uploader_id]
+      [uploader_id]
     );
+    const uploaderInfo = userResult.rows[0] || { name: 'Unknown User' };
 
-    const uploader = uploaderInfo.rows[0] || { name: 'Unknown User' };
-
-    // ✅ UPDATED: Return with map location data
+    // Format response
     const formattedMaterial = {
       id: updatedMaterial.id,
       title: updatedMaterial.title,
@@ -1338,7 +1297,6 @@ app.put("/materials/:id", async (req, res) => {
       location_area: updatedMaterial.location_area,
       location_landmark: updatedMaterial.location_landmark,
       location_directions: updatedMaterial.location_directions,
-      // ✅ NEW: Include map location fields
       latitude: updatedMaterial.latitude,
       longitude: updatedMaterial.longitude,
       map_address: updatedMaterial.map_address,
@@ -1349,29 +1307,25 @@ app.put("/materials/:id", async (req, res) => {
       is_fragile: updatedMaterial.is_fragile,
       contact_preferences: updatedMaterial.contact_preferences,
       image_urls: updatedMaterial.image_data_base64 || [],
-      uploader_id: updatedMaterial.uploader_id,
-      uploader: uploader.name,
-      uploader_name: uploader.name,
-      uploader_email: uploader.email,
-      uploader_avatar: uploader.profile_image_url,
+      image_data_base64: updatedMaterial.image_data_base64 || [],
+      uploader_id: uploader_id,
+      uploader: uploaderInfo.name,
+      uploader_name: uploaderInfo.name,
+      uploader_email: uploaderInfo.email,
+      uploader_avatar: uploaderInfo.profile_image_url,
       amount: updatedMaterial.quantity,
-      time: formatTimeAgo(updatedMaterial.updated_at || updatedMaterial.created_at),
+      time: formatTimeAgo(updatedMaterial.updated_at),
       created_at: updatedMaterial.created_at,
       updated_at: updatedMaterial.updated_at,
-      claim_status: updatedMaterial.claim_status,
-      is_claimed: updatedMaterial.claim_status === 'confirmed',
-      claimed_by: updatedMaterial.claimed_by,
-      claimed_at: updatedMaterial.claim_confirmed_at
     };
 
-    console.log('Sending update response');
-    res.json(formattedMaterial);
+    res.status(200).json(formattedMaterial);
   } catch (err) {
     console.error("Update material error:", err);
-    console.error("Stack trace:", err.stack);
     res.status(500).json({ error: "Server error: " + err.message });
   }
 });
+
 
 app.get("/materials/nearby", async (req, res) => {
   try {
