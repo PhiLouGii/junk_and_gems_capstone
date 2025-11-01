@@ -49,6 +49,19 @@ class _LoginScreenState extends State<LoginScreen> {
       // Update AuthProvider
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       await authProvider.initialize();
+
+      // Then navigate
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(
+              userName: userData['name'],
+              userId: userData['id'].toString(),
+            ),
+          ),
+        );
+      }
       
       print('Google Sign-In successful!');
       print('  User ID: ${authProvider.user?.id}');
