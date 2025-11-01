@@ -887,16 +887,11 @@ class _CreateListingScreenState extends State<CreateListingScreen> {
 
   Widget _buildImageUpload() {
   return ImageUploadWidget(
+    images: _images,
     onImagesChanged: (images) {
-      print('Parent received ${images.length} images');
       setState(() {
         _images = images;
       });
-      print('Parent _images now has ${_images.length} items');
-      print('Image paths:');
-      for (int i = 0; i < _images.length; i++) {
-        print('   ${i + 1}. ${_images[i].path}');
-      }
     },
   );
 }
@@ -1355,23 +1350,22 @@ success = await MaterialService.createMaterial(materialData, _images);
 }
 
 // Image Upload Widget
-class ImageUploadWidget extends StatefulWidget {
+class ImageUploadWidget extends StatelessWidget {
+  final List<XFile> images;
   final Function(List<XFile>) onImagesChanged;
-  const ImageUploadWidget({super.key, required this.onImagesChanged});
+  
+  const ImageUploadWidget({
+    super.key,
+    required this.images,
+    required this.onImagesChanged,
+  });
 
-  @override
-  State<ImageUploadWidget> createState() => _ImageUploadWidgetState();
-}
-
-class _ImageUploadWidgetState extends State<ImageUploadWidget> {
-  final ImagePicker _picker = ImagePicker();
-  List<XFile> _images = [];
-
-  Future<void> _pickImages() async {
+  Future<void> _pickImages(BuildContext context) async {
     try {
+      final ImagePicker picker = ImagePicker();
       print('📸 Opening image picker...');
       
-      final List<XFile> pickedFiles = await _picker.pickMultiImage(
+      final List<XFile> pickedFiles = await picker.pickMultiImage(
         imageQuality: 85,
         maxWidth: 1920,
         maxHeight: 1920,
@@ -1427,67 +1421,61 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       }
 
       if (copiedImages.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to process selected images'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to process selected images'),
+            backgroundColor: Colors.red,
+          ),
+        );
         return;
       }
 
-      setState(() {
-        if (_images.length + copiedImages.length > 5) {
-          int availableSlots = 5 - _images.length;
-          _images.addAll(copiedImages.take(availableSlots));
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        } else {
-          _images.addAll(copiedImages);
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Added ${copiedImages.length} image(s)'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        }
-      });
+      List<XFile> newImages = List.from(images);
       
-      print('📊 Total images now: ${_images.length}');
-      widget.onImagesChanged(_images);
+      if (newImages.length + copiedImages.length > 5) {
+        int availableSlots = 5 - newImages.length;
+        newImages.addAll(copiedImages.take(availableSlots));
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Maximum 5 images allowed. Added $availableSlots images.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        newImages.addAll(copiedImages);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added ${copiedImages.length} image(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+      print('📊 Total images now: ${newImages.length}');
+      onImagesChanged(newImages);
 
     } catch (e) {
       print('❌ Image picker error: $e');
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error selecting images: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error selecting images: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
-  Future<void> _takePhoto() async {
+
+  Future<void> _takePhoto(BuildContext context) async {
     try {
+      final ImagePicker picker = ImagePicker();
       print('📷 Opening camera...');
       
-      final XFile? photo = await _picker.pickImage(
+      final XFile? photo = await picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 85,
         maxWidth: 1920,
@@ -1516,42 +1504,39 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
       print('   ✅ Saved to: $targetPath');
 
-      setState(() {
-        if (_images.length >= 5) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Maximum 5 images allowed'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        } else {
-          _images.add(XFile(targetPath));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Photo added'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      });
-
-      widget.onImagesChanged(_images);
+      if (images.length >= 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Maximum 5 images allowed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        List<XFile> newImages = List.from(images);
+        newImages.add(XFile(targetPath));
+        onImagesChanged(newImages);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Photo added'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
 
     } catch (e) {
       print('❌ Camera error: $e');
       
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error taking photo: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error taking photo: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  void _showImageSourceOptions() {
+  void _showImageSourceOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1569,7 +1554,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                   title: const Text('Choose from Gallery'),
                   onTap: () {
                     Navigator.pop(context);
-                    _pickImages();
+                    _pickImages(context);
                   },
                 ),
                 ListTile(
@@ -1577,7 +1562,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                   title: const Text('Take Photo'),
                   onTap: () {
                     Navigator.pop(context);
-                    _takePhoto();
+                    _takePhoto(context);
                   },
                 ),
               ],
@@ -1588,7 +1573,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
     );
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1603,7 +1588,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
         ),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: _images.length < 5 ? _showImageSourceOptions : null,
+          onTap: images.length < 5 ? () => _showImageSourceOptions(context) : null,
           child: Container(
             height: 120,
             decoration: BoxDecoration(
@@ -1611,7 +1596,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
               borderRadius: BorderRadius.circular(12), 
               border: Border.all(color: const Color(0xFFBEC092), width: 1)
             ),
-            child: _images.isEmpty
+            child: images.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1643,11 +1628,11 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                 : ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.all(8),
-                    itemCount: _images.length + (_images.length < 5 ? 1 : 0),
+                    itemCount: images.length + (images.length < 5 ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (index == _images.length) {
+                      if (index == images.length) {
                         return GestureDetector(
-                          onTap: _showImageSourceOptions,
+                          onTap: () => _showImageSourceOptions(context),
                           child: Container(
                             width: 100,
                             margin: const EdgeInsets.only(right: 8),
@@ -1678,7 +1663,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               image: DecorationImage(
-                                image: FileImage(File(_images[index].path)),
+                                image: FileImage(File(images[index].path)),
                                 fit: BoxFit.cover,
                               ),
                             ),
@@ -1688,10 +1673,9 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                             right: 12,
                             child: GestureDetector(
                               onTap: () {
-                                setState(() {
-                                  _images.removeAt(index);
-                                  widget.onImagesChanged(_images);
-                                });
+                                List<XFile> newImages = List.from(images);
+                                newImages.removeAt(index);
+                                onImagesChanged(newImages);
                                 
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -1742,7 +1726,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
                   ),
           ),
         ),
-        if (_images.isNotEmpty)
+        if (images.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
@@ -1756,10 +1740,5 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
           ),
       ],
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }
