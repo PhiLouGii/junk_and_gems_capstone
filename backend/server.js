@@ -327,7 +327,7 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ error: "Access token required" });
   }
 
-  jwt.verify(token, "your_jwt_secret", (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret", (err, user) => {
     if (err) {
       return res.status(403).json({ error: "Invalid token" });
     }
@@ -392,7 +392,7 @@ app.post("/signup", async (req, res) => {
     );
     
     const user = result.rows[0];
-    const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "your_jwt_secret", { expiresIn: "1h" });
     
     // Notify all users about new member
     console.log(`📢 Notifying all users about new member: ${user.name} (ID: ${user.id})`);
@@ -644,7 +644,7 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Incorrect password" });
     }
 
-    const token = jwt.sign({ id: user.id }, "your_jwt_secret", { expiresIn: "1h" });
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "your_jwt_secret", { expiresIn: "1h" });
     
     res.json({ 
       message: "Login successful", 
