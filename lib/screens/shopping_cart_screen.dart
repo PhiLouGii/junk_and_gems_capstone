@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -26,44 +27,36 @@ class _ShoppingCartScreenState extends State<ShoppingCartScreen> with WidgetsBin
   int _availableGems = 0;
   int _appliedGems = 0;
   final TextEditingController _gemsController = TextEditingController();
-  bool _isLoading = true; // Start as loading
+  bool _isLoading = false;
   bool _hasAuthError = false;
   String _token = '';
-  bool _isInitialLoad = true; // Track if this is the first load
+  String? _errorMessage;
 
   @override
-void initState() {
-  super.initState();
-  WidgetsBinding.instance.addObserver(this);
-  print(' ShoppingCart initState - Loading data...');
-  // Load data immediately
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    _checkAuthAndLoadData();
-  });
-}
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    print('🛒 ShoppingCart initState');
+    // Load data after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
 
   @override
   void didUpdateWidget(ShoppingCartScreen oldWidget) {
-  super.didUpdateWidget(oldWidget);
-  // Reload cart data if userId changed
-  if (oldWidget.userId != widget.userId) {
-    print('UserId changed, reloading cart data...');
-    // Clear existing data first
-    setState(() {
-      _cartItems = [];
-      _availableGems = 0;
-      _appliedGems = 0;
-    });
-    _checkAuthAndLoadData();
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      print('UserId changed, reloading cart data...');
+      _loadData();
+    }
   }
-}
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Reload cart when app comes to foreground
       print('App resumed, refreshing cart...');
-      _checkAuthAndLoadData();
+      _loadData();
     }
   }
 
@@ -74,163 +67,186 @@ void initState() {
     super.dispose();
   }
 
-  Future<void> _checkAuthAndLoadData() async {
-  // Prevent concurrent loads
-  if (_isLoading) {
-    print(' Already loading, skipping duplicate load request');
-    return;
-  }
-
-  if (!mounted) return;
-
-  setState(() {
-    _isLoading = true;
-    _hasAuthError = false;
-  });
-
-    try {
-    print('=' * 50);
-    print('AUTHENTICATION CHECK STARTED');
-    print('User ID: ${widget.userId}');
-    print('=' * 50);
-    
-    await ApiService.debugAuthData();
-      
-      final token = await ApiService.getToken();
-    _token = token ?? '';
-    print('Token exists: ${token != null}');
-      
-      if (_token.isNotEmpty) {
-      print('Token preview: ${_token.substring(0, min(20, _token.length))}...');
-    }
-      
-      final userId = await ApiService.getUserId();
-      print('User ID from storage: $userId');
-      print('User ID from widget: ${widget.userId}');
-      
-      if (userId != null && userId != widget.userId) {
-      print('WARNING: User ID mismatch!');
-    }
-      
-      final isValid = await ApiService.verifyToken();
-    print('Token validation: $isValid');
-
-      
-      if (_token.isEmpty || !isValid) {
-      print('Token is missing, invalid, or expired');
-      if (mounted) {
-        setState(() {
-          _hasAuthError = true;
-          _isLoading = false;
-        });
-      }
+  Future<void> _loadData() async {
+    // Prevent duplicate loads
+    if (_isLoading) {
+      print('⚠️ Already loading, skipping...');
       return;
     }
 
-      print('Authentication verified - Loading cart data...');
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _hasAuthError = false;
+      _errorMessage = null;
+    });
+
+    try {
       print('=' * 50);
+      print('🔐 STARTING CART LOAD');
+      print('User ID: ${widget.userId}');
       
-      // Load cart data after authentication is verified
-      await _loadCartData();
+      // Check authentication with timeout
+      final token = await ApiService.getToken().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('❌ Token fetch timeout');
+          throw TimeoutException('Connection timeout');
+        },
+      );
+      
+      _token = token ?? '';
+      print('Token exists: ${token != null}');
+
+      if (_token.isEmpty) {
+        print('❌ No token found');
+        if (mounted) {
+          setState(() {
+            _hasAuthError = true;
+            _isLoading = false;
+            _errorMessage = 'Please login to view your cart';
+          });
+        }
+        return;
+      }
+
+      // Verify token with timeout
+      final isValid = await ApiService.verifyToken().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('❌ Token verification timeout');
+          return false;
+        },
+      );
+
+      if (!isValid) {
+        print('❌ Invalid token');
+        if (mounted) {
+          setState(() {
+            _hasAuthError = true;
+            _isLoading = false;
+            _errorMessage = 'Session expired. Please login again.';
+          });
+        }
+        return;
+      }
+
+      print('✅ Authentication verified');
+      
+      // Load cart data with timeout
+      await _loadCartDataWithTimeout();
       
     } catch (e) {
-    print('Auth check error: $e');
-    print('Stack trace: ${StackTrace.current}');
-    if (mounted) {
-      setState(() {
-        _hasAuthError = true;
-        _isLoading = false;
-      });
+      print('❌ Load error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (e is TimeoutException) {
+            _errorMessage = 'Connection timeout. Please check your internet.';
+          } else {
+            _errorMessage = 'Failed to load cart. Please try again.';
+          }
+        });
+      }
     }
   }
-}
 
-  Future<void> _loadCartData() async {
-    print('=== LOADING CART DATA ===');
-    print('User ID: ${widget.userId}');
-    print('Mounted: $mounted');
-    print('Current _isLoading: $_isLoading');
-    
+  Future<void> _loadCartDataWithTimeout() async {
     try {
-      int userGems = 0;
-      List<dynamic> cartItems = [];
+      // Load with timeout
+      await Future.wait([
+        _loadUserGems(),
+        _loadCartItems(),
+      ]).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          print('❌ Cart data loading timeout');
+          throw TimeoutException('Failed to load cart data');
+        },
+      );
 
-      // Load user gems
-      try {
-        print('📦 Fetching user gems...');
-        userGems = await CartService.getUserGems(widget.userId);
-        print('✅ User gems loaded: $userGems');
-      } catch (e) {
-        print('❌ Could not load user gems: $e');
-        userGems = 0;
-        
-        if (_isAuthError(e)) {
-          _handleAuthError();
-          return;
-        }
-      }
-
-      // Load cart items - THIS IS THE CRITICAL PART
-      try {
-        print('📦 Fetching cart items from API...');
-        cartItems = await CartService.getCartItems(widget.userId);
-        print('✅ API RETURNED: ${cartItems.length} items');
-        
-        // Debug: Print details of loaded items
-        if (cartItems.isNotEmpty) {
-          print('📋 Cart contents from API:');
-          for (var item in cartItems) {
-            print('  - ${item['title']} (ID: ${item['cart_item_id']}, Qty: ${item['quantity']}, Price: ${item['price']})');
-          }
-        } else {
-          print('⚠️ API returned empty list (no items in cart)');
-        }
-      } catch (e) {
-        print('❌ ERROR loading cart items: $e');
-        print('Stack trace: ${StackTrace.current}');
-        
-        if (_isAuthError(e)) {
-          _handleAuthError();
-          return;
-        }
-        
-        // Even if loading fails, set empty list
-        cartItems = [];
-      }
-
-      // CRITICAL: Update state with loaded data
       if (mounted) {
-        print('🔄 Calling setState with ${cartItems.length} items...');
         setState(() {
-          _cartItems = List.from(cartItems); // Create new list to ensure rebuild
-          _availableGems = userGems;
-          _isLoading = false; // ONLY set to false after data is set
+          _isLoading = false;
           _hasAuthError = false;
+          _errorMessage = null;
         });
-        
-        print('✅ setState completed');
-        print('📊 _cartItems.length is now: ${_cartItems.length}');
-        print('💎 _availableGems is now: $_availableGems');
-        print('⏳ _isLoading is now: $_isLoading');
-      } else {
-        print('⚠️ Widget not mounted, skipping setState');
       }
+      
+      print('✅ Cart loaded successfully: ${_cartItems.length} items');
       
     } catch (e) {
-      print('❌ CRITICAL ERROR in _loadCartData: $e');
-      print('Stack trace: ${StackTrace.current}');
+      print('❌ Cart loading error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (e is TimeoutException) {
+            _errorMessage = 'Loading timeout. Please retry.';
+          } else {
+            _errorMessage = e.toString().replaceAll('Exception: ', '');
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUserGems() async {
+    try {
+      print('📦 Fetching user gems...');
+      final gems = await CartService.getUserGems(widget.userId);
+      print('✅ Gems loaded: $gems');
       
+      if (mounted) {
+        setState(() {
+          _availableGems = gems;
+        });
+      }
+    } catch (e) {
+      print('⚠️ Gems load error: $e');
+      if (_isAuthError(e)) {
+        throw e; // Re-throw auth errors
+      }
+      // Set to 0 on non-auth errors
+      if (mounted) {
+        setState(() {
+          _availableGems = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadCartItems() async {
+    try {
+      print('📦 Fetching cart items...');
+      final items = await CartService.getCartItems(widget.userId);
+      print('✅ Cart items loaded: ${items.length}');
+      
+      if (items.isNotEmpty) {
+        print('📋 Items:');
+        for (var item in items) {
+          print('  - ${item['title']} (ID: ${item['cart_item_id']})');
+        }
+      }
+      
+      if (mounted) {
+        setState(() {
+          _cartItems = List.from(items);
+        });
+      }
+    } catch (e) {
+      print('❌ Cart items error: $e');
+      if (_isAuthError(e)) {
+        throw e; // Re-throw auth errors
+      }
+      // Set to empty on non-auth errors
       if (mounted) {
         setState(() {
           _cartItems = [];
-          _availableGems = 0;
-          _isLoading = false;
         });
       }
+      rethrow;
     }
-    
-    print('=== CART DATA LOADING COMPLETE ===');
-    print('Final state: _cartItems=${_cartItems.length}, _isLoading=$_isLoading');
   }
 
   bool _isAuthError(dynamic error) {
@@ -238,14 +254,9 @@ void initState() {
     return errorStr.contains('Session expired') || 
            errorStr.contains('Please login') ||
            errorStr.contains('Authentication failed') ||
-           errorStr.contains('not authenticated');
-  }
-
-  void _handleAuthError() {
-    setState(() {
-      _hasAuthError = true;
-      _isLoading = false;
-    });
+           errorStr.contains('not authenticated') ||
+           errorStr.contains('401') ||
+           errorStr.contains('403');
   }
 
   void _navigateToLogin() {
@@ -286,7 +297,9 @@ void initState() {
       _showErrorSnackBar('Failed to update quantity');
       
       if (_isAuthError(e)) {
-        _handleAuthError();
+        setState(() {
+          _hasAuthError = true;
+        });
       }
     }
   }
@@ -305,7 +318,9 @@ void initState() {
       _showErrorSnackBar('Failed to remove item');
       
       if (_isAuthError(e)) {
-        _handleAuthError();
+        setState(() {
+          _hasAuthError = true;
+        });
       }
     }
   }
@@ -333,6 +348,7 @@ void initState() {
   }
 
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -351,6 +367,7 @@ void initState() {
   }
 
   void _showSuccessSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -369,6 +386,7 @@ void initState() {
   }
 
   void _showWarningSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -384,14 +402,6 @@ void initState() {
         margin: const EdgeInsets.all(16),
       ),
     );
-  }
-
-  Future<void> _retryLoadData() async {
-    setState(() {
-      _isLoading = true;
-      _hasAuthError = false;
-    });
-    await _checkAuthAndLoadData();
   }
 
   @override
@@ -427,7 +437,7 @@ void initState() {
           IconButton(
             icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
             onPressed: () {
-              Navigator.pop(context, true); // Signal refresh needed
+              Navigator.pop(context, true);
             },
           ),
           Expanded(
@@ -476,21 +486,21 @@ void initState() {
   }
 
   Widget _buildBody() {
-    // CRITICAL: Show loading state while fetching data
     if (_isLoading) {
       return _buildLoadingState();
     }
 
-    // Show auth error if not authenticated
     if (_hasAuthError) {
       return _buildAuthErrorScreen();
     }
 
-    // ONLY show empty cart if we're NOT loading AND cart is actually empty
-    // This prevents showing empty state while data is being fetched
-    if (!_isLoading && _cartItems.isEmpty) {
+    if (_errorMessage != null) {
+      return _buildErrorScreen();
+    }
+
+    if (_cartItems.isEmpty) {
       return RefreshIndicator(
-        onRefresh: _checkAuthAndLoadData,
+        onRefresh: _loadData,
         color: const Color(0xFF88844D),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -502,9 +512,8 @@ void initState() {
       );
     }
 
-    // Show cart items
     return RefreshIndicator(
-      onRefresh: _checkAuthAndLoadData,
+      onRefresh: _loadData,
       color: const Color(0xFF88844D),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -592,7 +601,73 @@ void initState() {
               color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
+          const SizedBox(height: 12),
+          Text(
+            'This may take a few seconds',
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Something went wrong',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage ?? 'Failed to load cart',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh, size: 20),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF88844D),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -627,7 +702,7 @@ void initState() {
             ),
             const SizedBox(height: 12),
             Text(
-              'Please login to access your shopping cart and gems.',
+              _errorMessage ?? 'Please login to access your shopping cart',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
@@ -654,7 +729,7 @@ void initState() {
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
-                  onPressed: _retryLoadData,
+                  onPressed: _loadData,
                   icon: const Icon(Icons.refresh, size: 20),
                   label: const Text('Retry'),
                   style: OutlinedButton.styleFrom(
@@ -714,7 +789,7 @@ void initState() {
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.pop(context, true); // Signal refresh
+                Navigator.pop(context, true);
               },
               icon: const Icon(Icons.shopping_bag_outlined),
               label: const Text('Browse Marketplace'),
@@ -1363,7 +1438,7 @@ void initState() {
             ),
           );
           // Reload cart after returning from checkout
-          await _checkAuthAndLoadData();
+          await _loadData();
         },
         icon: const Icon(Icons.shopping_bag, size: 22),
         label: const Text(
@@ -1437,7 +1512,7 @@ void initState() {
                         ),
                       );
                       // Reload cart after returning from checkout
-                      await _checkAuthAndLoadData();
+          await _loadData();
                     },
                     icon: const Icon(Icons.shopping_bag, size: 20),
                     label: const Text('Checkout'),
