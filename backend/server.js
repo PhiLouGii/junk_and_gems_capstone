@@ -4832,26 +4832,31 @@ app.get("/api/orders/:userId", authenticateToken, async (req, res) => {
 });
 
 // Get user's shopping cart
-app.get("/api/users/:userId/cart", authenticateToken, async (req, res) => {
+app.get("/api/users/:userId/cart", async (req, res) => {
   const { userId } = req.params;
-
+  
+  // Manual token verification instead of middleware
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+  
+  const token = authHeader.substring(7);
+  
   try {
-    console.log(`🛒 Getting cart for user ${userId}`);
+    // Verify token manually
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
     
-    // First, let's check what columns actually exist in products table
-    const productColumns = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'products'
-    `);
+    // Verify user matches
+    if (parseInt(userId) !== decoded.id) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
     
-    const hasImageData = productColumns.rows.some(col => col.column_name === 'image_data_base64');
-    const hasImageUrl = productColumns.rows.some(col => col.column_name === 'image_url');
+    console.log(` Getting cart for user ${userId}`);
     
-    console.log(`🛒 Products table - has image_data_base64: ${hasImageData}, has image_url: ${hasImageUrl}`);
-    
-    // Build dynamic query based on available columns
-    let query = `
+    // Simplified query - no dynamic column checking
+    const query = `
       SELECT 
         ci.id as cart_item_id,
         ci.quantity,
@@ -4864,21 +4869,10 @@ app.get("/api/users/:userId/cart", authenticateToken, async (req, res) => {
         p.materials_used,
         p.dimensions,
         p.location,
+        p.image_data_base64,
         p.artisan_id,
         u.name as artisan_name,
         u.profile_image_url as artisan_avatar
-    `;
-    
-    // Add image column based on what exists
-    if (hasImageData) {
-      query += `, p.image_data_base64`;
-    } else if (hasImageUrl) {
-      query += `, p.image_url as image_data_base64`;
-    } else {
-      query += `, NULL as image_data_base64`;
-    }
-    
-    query += `
       FROM cart_items ci
       LEFT JOIN products p ON ci.product_id = p.id
       LEFT JOIN users u ON p.artisan_id = u.id
@@ -4886,52 +4880,38 @@ app.get("/api/users/:userId/cart", authenticateToken, async (req, res) => {
       ORDER BY ci.created_at DESC
     `;
 
-    console.log(`🛒 Executing query:`, query);
-    
     const result = await pool.query(query, [userId]);
-    console.log(`🛒 Found ${result.rows.length} cart items for user ${userId}`);
+    console.log(` Found ${result.rows.length} cart items for user ${userId}`);
 
-    // Process results safely
-    const cartItems = result.rows.map(item => {
-      try {
-        const cartItem = {
-          cart_item_id: item.cart_item_id,
-          product_id: item.product_id,
-          title: item.title || 'Unknown Product',
-          description: item.description || '',
-          price: item.price ? parseFloat(item.price) : 0,
-          category: item.category,
-          condition: item.condition,
-          materials_used: item.materials_used,
-          dimensions: item.dimensions,
-          location: item.location,
-          image_data_base64: item.image_data_base64 || [],
-          artisan_id: item.artisan_id,
-          artisan_name: item.artisan_name || 'Unknown Artisan',
-          artisan_avatar: item.artisan_avatar,
-          quantity: item.quantity || 1
-        };
-        
-        // If we have image_url but no image_data_base64, convert it
-        if (item.image_url && (!item.image_data_base64 || item.image_data_base64.length === 0)) {
-          cartItem.image_data_base64 = [item.image_url];
-        }
-        
-        return cartItem;
-      } catch (itemErr) {
-        console.error(`❌ Error processing cart item:`, itemErr);
-        return null;
-      }
-    }).filter(item => item !== null); // Remove any null items from errors
+    // Process results
+    const cartItems = result.rows.map(item => ({
+      cart_item_id: item.cart_item_id,
+      product_id: item.product_id,
+      title: item.title || 'Unknown Product',
+      description: item.description || '',
+      price: item.price ? parseFloat(item.price) : 0,
+      category: item.category,
+      condition: item.condition,
+      materials_used: item.materials_used,
+      dimensions: item.dimensions,
+      location: item.location,
+      image_data_base64: item.image_data_base64 || [],
+      artisan_id: item.artisan_id,
+      artisan_name: item.artisan_name || 'Unknown Artisan',
+      artisan_avatar: item.artisan_avatar,
+      quantity: item.quantity || 1
+    }));
 
-    console.log(`🛒 Successfully processed ${cartItems.length} cart items`);
+    console.log(` Successfully processed ${cartItems.length} cart items`);
     res.json(cartItems);
     
   } catch (err) {
-    console.error("❌ Get cart error:", err);
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+    console.error(" Get cart error:", err);
     res.status(500).json({ 
-      error: "Server error: " + err.message,
-      details: "Check server logs for more information"
+      error: "Server error: " + err.message
     });
   }
 });
@@ -5086,10 +5066,27 @@ app.delete("/api/users/:userId/cart", authenticateToken, async (req, res) => {
 });
 
 // Get user's available gems
-app.get("/api/users/:userId/gems", authenticateToken, async (req, res) => {
+app.get("/api/users/:userId/gems", async (req, res) => {
   const { userId } = req.params;
-
+  
+  // Manual token verification
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+  
+  const token = authHeader.substring(7);
+  
   try {
+    // Verify token manually
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+    
+    // Verify user matches
+    if (parseInt(userId) !== decoded.id) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
     const result = await pool.query(
       "SELECT available_gems FROM users WHERE id = $1",
       [userId]
@@ -5102,7 +5099,11 @@ app.get("/api/users/:userId/gems", authenticateToken, async (req, res) => {
     res.json({
       available_gems: parseInt(result.rows[0].available_gems) || 0
     });
+    
   } catch (err) {
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
     console.error("Get user gems error:", err);
     res.status(500).json({ error: "Server error: " + err.message });
   }
