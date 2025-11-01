@@ -13,7 +13,7 @@
 
 
 ## Description
-Junk & Gems is a cross-platform mobile application that connects waste donors, artisans, and eco-entrepreneurs in Lesotho. The platform promotes upcycling and sustainable entrepreneurship by turning waste into valuable, marketable products. 
+Junk & Gems is a cross-platform mobile application connecting waste donors, artisans, and eco-entrepreneurs across Lesotho. The platform fosters sustainable entrepreneurship by transforming waste into valuable, marketable products, empowering communities, and promoting upcycling as a creative and eco-friendly practice. 
 
 The system includes: 
 - **Flutter Mobile App** (for Android & iOS): Used by donors, artisans, and buyers.
@@ -190,9 +190,6 @@ junk_and_gems/
 ## Screenshots
 <img src="designs_screenshots/onboarding_screen.png" alt="Onboarding Screen" width="150"> <img src="designs_screenshots/browse_screen.png" alt="Browse Screen" width="150"> <img src="designs_screenshots/marketplace_screen.png" alt="Marketplace Screen" width="150"> <img src="designs_screenshots/checkout_screen.png" alt="Checkout Screen" width="150"> <img src="designs_screenshots/upload_materials_screen.png" alt="Upload Materials Screen" width="150">
 
-## Future Work
-- Sesotho Implementation
-- Mobile Payments
 ## Author
 - Philippa Louise Giibwa. Bsc. Software Engineering, ALU (2025). 📧 p.giibwa@alustudent.com
 - Supervisor: Pelin Mutanguha
