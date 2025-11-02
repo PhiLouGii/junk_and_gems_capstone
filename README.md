@@ -208,3 +208,6 @@ junk_and_gems/
 ## Author
 - Philippa Louise Giibwa. Bsc. Software Engineering, ALU (2025). 📧 p.giibwa@alustudent.com
 - Supervisor: Pelin Mutanguha
+
+---
+💚 *Turning trash into treasure, together* 💚
