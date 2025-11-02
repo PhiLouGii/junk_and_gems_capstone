@@ -22,7 +22,7 @@
   "scripts": {
     "dev": "vite",
     "start": "react-scripts start",
-    "build": "tsc && vite build",
+    "build": "tsc && npx vite build",
     "preview": "vite preview",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -46,6 +46,7 @@
     ]
   },
   "devDependencies": {
+    "vite": "^4.4.9",
     "@types/react-router-dom": "^5.3.3",
     "prettier": "^3.6.2"
   }
