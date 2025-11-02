@@ -25,8 +25,9 @@ The system includes:
 The goal is to empower communities, reduce waste pollution, and foster a circular economy within Lesotho. 
 
 ## Links
-Android App: [Download the APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
-
+- 📦[Download the APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
+- 📹[Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)
+- 🔗[GitHub Repo](https://github.com/PhiLouGii/junk_and_gems_capstone)
 
 ## Tech Stack
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
