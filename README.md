@@ -40,8 +40,8 @@ The goal is to empower communities, reduce waste pollution, and foster a circula
 **Tools**: Flutter Test Framework
 **Results**: 62/62 tests passed 
 
-<img src="designs_screenshots/test1.png" alt="Test Results" width="250">
-<img src="designs_screenshots/test2.png" alt="Test Results" width="250">
+<img src="designs_screenshots/test1.png" alt="Test Results" width="650">
+<img src="designs_screenshots/test2.png" alt="Test Results" width="650">
 
 **Test Coverage**
 - 11 Widget tests (UI components)
