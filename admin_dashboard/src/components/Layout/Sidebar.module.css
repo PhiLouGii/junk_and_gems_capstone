@@ -1,0 +1,57 @@
+.sidebar {
+  width: 250px;
+  background: #2c3e50;
+  color: white;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.logo {
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid #34495e;
+  text-align: center;
+}
+
+.logo h2 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.25rem;
+}
+
+.logo span {
+  color: #bdc3c7;
+  font-size: 0.9rem;
+}
+
+.nav {
+  padding: 1rem 0;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  color: #bdc3c7;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.navItem:hover {
+  background: #34495e;
+  color: white;
+}
+
+.navItem.active {
+  background: #3498db;
+  color: white;
+}
+
+.icon {
+  margin-right: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.label {
+  font-weight: 500;
+}
