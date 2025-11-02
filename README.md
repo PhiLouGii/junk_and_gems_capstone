@@ -42,9 +42,6 @@ The goal is to empower communities, reduce waste pollution, and foster a circula
 ## Testing Results
 Detailed TESTING RESULTS CAN BE FOUND: [here](TESTING_RESULTS.md) 
 
-## GitHub Repository
-https://github.com/PhiLouGii/junk_and_gems_capstone 
-
 ## Setup and Installation
 ### Prerequisites
 - Flutter SDK (v3.0+)
@@ -67,7 +64,7 @@ npm install
 
 3. Create a ```.env``` file:
 ```bash
-PORT=3000
+PORT=3003
 DATABASE_URL=postgresql://user:password@localhost:5433/junk_and_gems
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
