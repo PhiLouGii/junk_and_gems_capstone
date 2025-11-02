@@ -1,0 +1,149 @@
+.security {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.security h1 {
+  color: #88844D;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+
+.security h2 {
+  color: #88844D;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  color: #88844D;
+  font-size: 1.2rem;
+}
+
+/* Reports Grid */
+.reports {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+/* Card Styling */
+.card {
+  background: #F7F2E4;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #88844D;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card h2 {
+  border-bottom: 2px solid #BEC092;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.card li {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  border-radius: 6px;
+  border-left: 3px solid #BEC092;
+  color: #333;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.card li:hover {
+  background: #E4E5C2;
+  border-left-color: #88844D;
+  transform: translateX(4px);
+}
+
+.card li:last-child {
+  margin-bottom: 0;
+}
+
+.card p {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .reports {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .security {
+    padding: 1rem;
+  }
+
+  .security h1 {
+    font-size: 1.5rem;
+  }
+
+  .security h2 {
+    font-size: 1.15rem;
+  }
+
+  .reports {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1.5rem;
+  }
+
+  .card li {
+    font-size: 0.875rem;
+    padding: 0.625rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .security {
+    padding: 0.75rem;
+  }
+
+  .security h1 {
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  .card h2 {
+    font-size: 1.1rem;
+  }
+
+  .card li {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
+}

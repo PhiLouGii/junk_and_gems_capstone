@@ -35,34 +35,34 @@ const Login: React.FC = () => {
 </button>
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    try {
-      console.log('Attempting login with:', { email, password });
-      const response = await currentAPI.login({ email, password });
-      console.log('Login response:', response);
+  try {
+    console.log('Attempting login with:', { email, password });
+    const response = await currentAPI.login({ email, password });
+    console.log('Login response:', response);
+    
+    const token = response.data.token;
+    
+    if (token) {
+      localStorage.setItem('adminToken', token);
+      console.log('Login successful, redirecting to dashboard...');
       
-      // Try different possible token locations in response
-      const token = response.data.token || response.data.access_token || response.data.accessToken;
-      
-      if (token) {
-        localStorage.setItem('adminToken', token);
-        console.log('Login successful, token stored');
-        navigate('/');
-      } else {
-        console.error('No token found in response:', response.data);
-        setError('Login successful but no token received');
-      }
-    } catch (err: any) {
-      console.error('Login error details:', err);
-      console.error('Response data:', err.response?.data);
-      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed - check credentials');
-    } finally {
-      setLoading(false);
+      // Redirect to root path (dashboard)
+      navigate('/');
+    } else {
+      console.error('No token found in response');
+      setError('Login successful but no token received');
     }
-  };
+  } catch (err: any) {
+    console.error('Login error:', err);
+    setError(err.response?.data?.message || err.response?.data?.error || 'Login failed - check credentials');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Common admin credentials to try
   const tryCommonCredentials = (type: string) => {

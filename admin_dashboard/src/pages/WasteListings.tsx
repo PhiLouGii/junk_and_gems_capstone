@@ -78,7 +78,7 @@ const WasteListings: React.FC = () => {
             <p className={styles.description}>{listing.description}</p>
             <div className={styles.listingDetails}>
               <span>Category: {listing.category}</span>
-              <span>Price: ${listing.price}</span>
+              <span>Price: M{listing.price}</span>
               <span>Created: {new Date(listing.createdAt).toLocaleDateString()}</span>
             </div>
             <div className={styles.actions}>

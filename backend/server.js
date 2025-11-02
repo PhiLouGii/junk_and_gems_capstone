@@ -327,11 +327,27 @@ function authenticateToken(req, res, next) {
     return res.status(401).json({ error: "Access token required" });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret", (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret", async (err, decoded) => {
     if (err) {
       return res.status(403).json({ error: "Invalid token" });
     }
-    req.user = user;
+    
+    
+    try {
+      const userResult = await pool.query(
+        'SELECT id, email, name FROM users WHERE id = $1',
+        [decoded.id]
+      );
+      
+      if (userResult.rows.length > 0) {
+        req.user = userResult.rows[0]; 
+      } else {
+        req.user = decoded;
+      }
+    } catch (dbErr) {
+      req.user = decoded;
+    }
+    
     next();
   });
 }
@@ -7323,19 +7339,32 @@ app.post("/test-email", async (req, res) => {
 
 // Admin Middleware - Check if user is admin
 function isAdmin(req, res, next) {
-  // For now, check if user email contains 'admin' or specific admin emails
-  // You can enhance this later with a proper admin role in the database
+  console.log('Checking admin access...');
+  console.log('User from token:', req.user);
+  
+  // Admin emails that have access
   const adminEmails = [
     'admin@junkandgems.com',
     'junkandgems.ls@gmail.com',
     'admin@test.com'
   ];
   
+  // Get user email from the JWT token (set by authenticateToken middleware)
   const userEmail = req.user?.email;
   
+  console.log('User email:', userEmail);
+  console.log('Is admin:', adminEmails.includes(userEmail));
+  
+  if (!userEmail) {
+    console.log('No email found in token');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
   if (adminEmails.includes(userEmail)) {
+    console.log('Admin access granted');
     next();
   } else {
+    console.log('Admin access denied');
     return res.status(403).json({ error: 'Admin access required' });
   }
 }
@@ -7347,45 +7376,50 @@ app.get('/admin/stats', authenticateToken, isAdmin, async (req, res) => {
 
     // Get total users
     const usersResult = await pool.query('SELECT COUNT(*) FROM users');
-    const totalUsers = parseInt(usersResult.rows[0].count);
+    const totalUsers = parseInt(usersResult.rows[0].count) || 0;
+    console.log('Total users:', totalUsers);
 
     // Get total materials (active listings)
     const materialsResult = await pool.query(
       "SELECT COUNT(*) FROM materials WHERE claim_status IN ('available', 'pending')"
     );
-    const activeListings = parseInt(materialsResult.rows[0].count);
+    const activeListings = parseInt(materialsResult.rows[0].count) || 0;
+    console.log('Active listings:', activeListings);
 
     // Get total products
     const productsResult = await pool.query('SELECT COUNT(*) FROM products');
-    const totalProducts = parseInt(productsResult.rows[0].count);
+    const totalProducts = parseInt(productsResult.rows[0].count) || 0;
+    console.log('Total products:', totalProducts);
 
     // Get total transactions/orders
-    const ordersResult = await pool.query('SELECT COUNT(*) FROM orders');
-    const totalTransactions = parseInt(ordersResult.rows[0].count);
+    let totalTransactions = 0;
+    try {
+      const ordersResult = await pool.query('SELECT COUNT(*) FROM orders');
+      totalTransactions = parseInt(ordersResult.rows[0].count) || 0;
+    } catch (err) {
+      console.log('Orders table might not exist yet');
+    }
+    console.log('Total transactions:', totalTransactions);
 
-    // Get pending approvals (materials with pending status)
+    // Get pending approvals
     const pendingResult = await pool.query(
       "SELECT COUNT(*) FROM materials WHERE claim_status = 'pending'"
     );
-    const pendingApprovals = parseInt(pendingResult.rows[0].count);
+    const pendingApprovals = parseInt(pendingResult.rows[0].count) || 0;
+    console.log('Pending approvals:', pendingApprovals);
 
-    // Get total revenue from orders
-    const revenueResult = await pool.query(
-      'SELECT SUM(final_amount) as total FROM orders WHERE payment_status = $1',
-      ['completed']
-    );
-    const totalRevenue = parseFloat(revenueResult.rows[0]?.total || 0);
-
-    // Get recent activity counts
-    const recentUsersResult = await pool.query(
-      "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days'"
-    );
-    const newUsersThisWeek = parseInt(recentUsersResult.rows[0].count);
-
-    const recentMaterialsResult = await pool.query(
-      "SELECT COUNT(*) FROM materials WHERE created_at > NOW() - INTERVAL '7 days'"
-    );
-    const newMaterialsThisWeek = parseInt(recentMaterialsResult.rows[0].count);
+    // Get total revenue
+    let totalRevenue = 0;
+    try {
+      const revenueResult = await pool.query(
+        'SELECT SUM(final_amount) as total FROM orders WHERE payment_status = $1',
+        ['completed']
+      );
+      totalRevenue = parseFloat(revenueResult.rows[0]?.total || 0);
+    } catch (err) {
+      console.log('Revenue calculation skipped');
+    }
+    console.log('Total revenue:', totalRevenue);
 
     const stats = {
       totalUsers,
@@ -7394,17 +7428,18 @@ app.get('/admin/stats', authenticateToken, isAdmin, async (req, res) => {
       totalTransactions,
       pendingApprovals,
       totalRevenue,
-      newUsersThisWeek,
-      newMaterialsThisWeek,
       lastUpdated: new Date().toISOString()
     };
 
-    console.log('✅ Admin stats:', stats);
+    console.log('✅ Sending stats:', stats);
     res.json(stats);
 
   } catch (error) {
     console.error('❌ Admin stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    res.status(500).json({ 
+      error: 'Failed to fetch dashboard stats',
+      details: error.message 
+    });
   }
 });
 

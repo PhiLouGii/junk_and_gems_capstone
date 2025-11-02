@@ -1,144 +1,182 @@
 .loginContainer {
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #88844D 0%, #BEC092 100%);
+  padding: 2rem;
 }
 
 .loginCard {
   background: white;
-  padding: 2rem;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  width: 100%;
+  padding: 3rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   max-width: 450px;
+  width: 100%;
 }
 
 .loginCard h1 {
+  color: #88844D;
   text-align: center;
   margin-bottom: 0.5rem;
-  color: #333;
+  font-size: 2rem;
 }
 
 .loginCard h2 {
+  color: #BEC092;
   text-align: center;
-  margin-bottom: 1.5rem;
-  color: #666;
-  font-weight: normal;
+  margin-bottom: 2rem;
+  font-size: 1.25rem;
+  font-weight: 400;
 }
 
 .credentialButtons {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   text-align: center;
 }
 
 .credentialButtons p {
-  margin-bottom: 0.5rem;
   color: #666;
+  margin-bottom: 1rem;
   font-size: 0.9rem;
 }
 
 .credentialBtn {
-  background: #17a2b8;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  margin: 0.25rem;
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+  background: #F7F2E4;
+  color: #88844D;
+  border: 2px solid #E4E5C2;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.8rem;
-  transition: background 0.3s;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
 }
 
 .credentialBtn:hover {
-  background: #138496;
+  background: #E4E5C2;
+  border-color: #BEC092;
 }
 
 .loginForm {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
 }
 
 .formGroup {
-  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .formGroup label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #555;
-  font-weight: 500;
+  color: #88844D;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .formGroup input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  padding: 0.875rem;
+  border: 2px solid #E4E5C2;
+  border-radius: 8px;
   font-size: 1rem;
+  transition: all 0.3s ease;
 }
 
 .formGroup input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #88844D;
+  box-shadow: 0 0 0 3px rgba(136, 132, 77, 0.1);
 }
 
 .loginBtn {
-  padding: 0.75rem;
-  background: #667eea;
+  padding: 1rem;
+  background: #88844D;
   color: white;
   border: none;
-  border-radius: 5px;
-  font-size: 1rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s;
-  margin-top: 1rem;
+  transition: all 0.3s ease;
+  margin-top: 0.5rem;
 }
 
 .loginBtn:hover:not(:disabled) {
-  background: #5a6fd8;
+  background: #6d6a3d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(136, 132, 77, 0.3);
 }
 
 .loginBtn:disabled {
-  background: #ccc;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .error {
   background: #fee;
   color: #c33;
-  padding: 0.75rem;
-  border-radius: 5px;
-  margin-bottom: 1rem;
-  border: 1px solid #fcc;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #c33;
+  font-size: 0.9rem;
 }
 
 .debugInfo {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #f8f9fa;
-  border-radius: 5px;
-  font-size: 0.8rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #E4E5C2;
+  font-size: 0.85rem;
   color: #666;
 }
 
 .debugInfo p {
-  margin: 0.25rem 0;
+  margin: 0.5rem 0;
 }
 
-.createAdminBtn {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 0.75rem;
-  border-radius: 5px;
-  margin-bottom: 1rem;
-  width: 100%;
-  cursor: pointer;
-  transition: background 0.3s;
+.debugInfo strong {
+  color: #88844D;
 }
 
-.createAdminBtn:hover {
-  background: #218838;
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .loginContainer {
+    padding: 1rem;
+  }
+
+  .loginCard {
+    padding: 2rem;
+  }
+
+  .loginCard h1 {
+    font-size: 1.5rem;
+  }
+
+  .loginCard h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .loginCard {
+    padding: 1.5rem;
+  }
+
+  .loginCard h1 {
+    font-size: 1.25rem;
+  }
+
+  .loginCard h2 {
+    font-size: 1rem;
+  }
+
+  .formGroup input,
+  .loginBtn {
+    font-size: 0.95rem;
+  }
 }

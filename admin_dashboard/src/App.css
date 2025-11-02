@@ -1,3 +1,16 @@
+:root {
+  /* App Colors */
+  --primary: #88844D;
+  --primary-light: #BEC092;
+  --secondary: #E4E5C2;
+  --background: #F7F2E4;
+  --white: #FFFFFF;
+  --text-dark: #333333;
+  --text-light: #666666;
+  --border: #BEC092;
+  --shadow: rgba(136, 132, 77, 0.1);
+}
+
 * {
   margin: 0;
   padding: 0;

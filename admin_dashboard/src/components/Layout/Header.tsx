@@ -6,7 +6,10 @@ const Header: React.FC = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    // Clear token
     localStorage.removeItem('adminToken');
+    
+    // Redirect to login
     navigate('/login');
   };
 
@@ -17,8 +20,8 @@ const Header: React.FC = () => {
         <div className={styles.headerActions}>
           <span>Welcome, Admin</span>
           <button onClick={handleLogout} className={styles.logoutBtn}>
-            Logout
-          </button>
+        Logout
+      </button>
         </div>
       </div>
     </header>
