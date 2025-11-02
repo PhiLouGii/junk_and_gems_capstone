@@ -83,6 +83,11 @@
 <img src="designs_screenshots/profile.jpeg" alt="Profile" width="250">
 <img src="designs_screenshots/settings.jpeg" alt="Settings" width="250"> 
 
+**Test on Other Device Sizes** ✅
+- Tested on a Macbook Air
+- Tested on an iPad PRO 11
+<img src="designs_screenshots/macbook1.png" alt="Profile" width="250">
+<img src="designs_screenshots/tablet1.png" alt="Settings" width="250"> 
 ---
 
 ## 3. Performance Testing - Different Hardware Specifications
