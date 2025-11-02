@@ -7317,6 +7317,435 @@ app.post("/test-email", async (req, res) => {
   }
 });
 
+// ========================================
+// ADMIN ENDPOINTS
+// ========================================
+
+// Admin Middleware - Check if user is admin
+function isAdmin(req, res, next) {
+  // For now, check if user email contains 'admin' or specific admin emails
+  // You can enhance this later with a proper admin role in the database
+  const adminEmails = [
+    'admin@junkandgems.com',
+    'junkandgems.ls@gmail.com',
+    'admin@test.com'
+  ];
+  
+  const userEmail = req.user?.email;
+  
+  if (adminEmails.includes(userEmail)) {
+    next();
+  } else {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+}
+
+// Dashboard Stats
+app.get('/admin/stats', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('📊 Admin: Fetching dashboard stats...');
+
+    // Get total users
+    const usersResult = await pool.query('SELECT COUNT(*) FROM users');
+    const totalUsers = parseInt(usersResult.rows[0].count);
+
+    // Get total materials (active listings)
+    const materialsResult = await pool.query(
+      "SELECT COUNT(*) FROM materials WHERE claim_status IN ('available', 'pending')"
+    );
+    const activeListings = parseInt(materialsResult.rows[0].count);
+
+    // Get total products
+    const productsResult = await pool.query('SELECT COUNT(*) FROM products');
+    const totalProducts = parseInt(productsResult.rows[0].count);
+
+    // Get total transactions/orders
+    const ordersResult = await pool.query('SELECT COUNT(*) FROM orders');
+    const totalTransactions = parseInt(ordersResult.rows[0].count);
+
+    // Get pending approvals (materials with pending status)
+    const pendingResult = await pool.query(
+      "SELECT COUNT(*) FROM materials WHERE claim_status = 'pending'"
+    );
+    const pendingApprovals = parseInt(pendingResult.rows[0].count);
+
+    // Get total revenue from orders
+    const revenueResult = await pool.query(
+      'SELECT SUM(final_amount) as total FROM orders WHERE payment_status = $1',
+      ['completed']
+    );
+    const totalRevenue = parseFloat(revenueResult.rows[0]?.total || 0);
+
+    // Get recent activity counts
+    const recentUsersResult = await pool.query(
+      "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '7 days'"
+    );
+    const newUsersThisWeek = parseInt(recentUsersResult.rows[0].count);
+
+    const recentMaterialsResult = await pool.query(
+      "SELECT COUNT(*) FROM materials WHERE created_at > NOW() - INTERVAL '7 days'"
+    );
+    const newMaterialsThisWeek = parseInt(recentMaterialsResult.rows[0].count);
+
+    const stats = {
+      totalUsers,
+      activeListings,
+      totalProducts,
+      totalTransactions,
+      pendingApprovals,
+      totalRevenue,
+      newUsersThisWeek,
+      newMaterialsThisWeek,
+      lastUpdated: new Date().toISOString()
+    };
+
+    console.log('✅ Admin stats:', stats);
+    res.json(stats);
+
+  } catch (error) {
+    console.error('❌ Admin stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+  }
+});
+
+// Get All Users
+app.get('/admin/users', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('👥 Admin: Fetching all users...');
+
+    const result = await pool.query(`
+      SELECT 
+        id, name, email, username, user_type, 
+        available_gems, donation_count, created_at,
+        profile_image_url, phone_number
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+
+    console.log(`✅ Found ${result.rows.length} users`);
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error('❌ Get users error:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get User by ID
+app.get('/admin/users/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const userResult = await pool.query(
+      'SELECT * FROM users WHERE id = $1',
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get user's materials
+    const materialsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM materials WHERE uploader_id = $1',
+      [id]
+    );
+
+    // Get user's products
+    const productsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM products WHERE artisan_id = $1',
+      [id]
+    );
+
+    // Get user's orders
+    const ordersResult = await pool.query(
+      'SELECT COUNT(*) as count FROM orders WHERE user_id = $1',
+      [id]
+    );
+
+    const user = {
+      ...userResult.rows[0],
+      stats: {
+        materials: parseInt(materialsResult.rows[0].count),
+        products: parseInt(productsResult.rows[0].count),
+        orders: parseInt(ordersResult.rows[0].count)
+      }
+    };
+
+    res.json(user);
+
+  } catch (error) {
+    console.error('❌ Get user by ID error:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// Ban/Suspend User
+app.put('/admin/users/:id/ban', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    console.log(`🚫 Admin: Banning user ${id}`);
+
+    // Add a 'banned' column if it doesn't exist
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS ban_reason TEXT
+    `);
+
+    const result = await pool.query(
+      'UPDATE users SET banned = TRUE, ban_reason = $1 WHERE id = $2 RETURNING *',
+      [reason || 'Banned by admin', id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`✅ User ${id} banned`);
+    res.json({ success: true, user: result.rows[0] });
+
+  } catch (error) {
+    console.error('❌ Ban user error:', error);
+    res.status(500).json({ error: 'Failed to ban user' });
+  }
+});
+
+// Unban User
+app.put('/admin/users/:id/unban', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`✅ Admin: Unbanning user ${id}`);
+
+    const result = await pool.query(
+      'UPDATE users SET banned = FALSE, ban_reason = NULL WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`✅ User ${id} unbanned`);
+    res.json({ success: true, user: result.rows[0] });
+
+  } catch (error) {
+    console.error('❌ Unban user error:', error);
+    res.status(500).json({ error: 'Failed to unban user' });
+  }
+});
+
+// Get All Materials (for admin)
+app.get('/admin/materials', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('📦 Admin: Fetching all materials...');
+
+    const result = await pool.query(`
+      SELECT 
+        m.*, 
+        u.name as uploader_name,
+        u.email as uploader_email
+      FROM materials m
+      LEFT JOIN users u ON m.uploader_id = u.id
+      ORDER BY m.created_at DESC
+    `);
+
+    console.log(`✅ Found ${result.rows.length} materials`);
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error('❌ Get materials error:', error);
+    res.status(500).json({ error: 'Failed to fetch materials' });
+  }
+});
+
+// Approve Material
+app.put('/admin/materials/:id/approve', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`✅ Admin: Approving material ${id}`);
+
+    const result = await pool.query(
+      "UPDATE materials SET claim_status = 'available' WHERE id = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    res.json({ success: true, material: result.rows[0] });
+
+  } catch (error) {
+    console.error('❌ Approve material error:', error);
+    res.status(500).json({ error: 'Failed to approve material' });
+  }
+});
+
+// Reject/Delete Material
+app.delete('/admin/materials/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️ Admin: Deleting material ${id}`);
+
+    const result = await pool.query(
+      'DELETE FROM materials WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    res.json({ success: true, message: 'Material deleted' });
+
+  } catch (error) {
+    console.error('❌ Delete material error:', error);
+    res.status(500).json({ error: 'Failed to delete material' });
+  }
+});
+
+// Get All Transactions
+app.get('/admin/transactions', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('💰 Admin: Fetching all transactions...');
+
+    const result = await pool.query(`
+      SELECT 
+        o.*,
+        u.name as user_name,
+        u.email as user_email
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      ORDER BY o.created_at DESC
+      LIMIT 100
+    `);
+
+    console.log(`✅ Found ${result.rows.length} transactions`);
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error('❌ Get transactions error:', error);
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+// Get Points/Gems Leaderboard
+app.get('/admin/points/leaderboard', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('🏆 Admin: Fetching gems leaderboard...');
+
+    const result = await pool.query(`
+      SELECT 
+        id, name, email, available_gems, donation_count,
+        user_type, created_at
+      FROM users
+      ORDER BY available_gems DESC
+      LIMIT 50
+    `);
+
+    console.log(`✅ Found ${result.rows.length} users for leaderboard`);
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error('❌ Get leaderboard error:', error);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
+  }
+});
+
+// Adjust User Points/Gems
+app.put('/admin/points/:userId', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { gems, reason } = req.body;
+
+    console.log(`💎 Admin: Adjusting gems for user ${userId} by ${gems}`);
+
+    await pool.query(
+      'UPDATE users SET available_gems = available_gems + $1 WHERE id = $2',
+      [gems, userId]
+    );
+
+    await pool.query(
+      "INSERT INTO gem_transactions (user_id, amount, type, description) VALUES ($1, $2, 'admin_adjustment', $3)",
+      [userId, gems, reason || 'Admin adjustment']
+    );
+
+    res.json({ success: true, message: `Adjusted gems by ${gems}` });
+
+  } catch (error) {
+    console.error('❌ Adjust gems error:', error);
+    res.status(500).json({ error: 'Failed to adjust gems' });
+  }
+});
+
+// Get System Reports/Logs
+app.get('/admin/reports', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    console.log('📊 Admin: Generating reports...');
+
+    // Get various stats for reports
+    const userGrowth = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM users
+      WHERE created_at > NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `);
+
+    const materialActivity = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM materials
+      WHERE created_at > NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `);
+
+    const revenue = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        SUM(final_amount) as total
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '30 days'
+        AND payment_status = 'completed'
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `);
+
+    res.json({
+      userGrowth: userGrowth.rows,
+      materialActivity: materialActivity.rows,
+      revenue: revenue.rows
+    });
+
+  } catch (error) {
+    console.error('❌ Get reports error:', error);
+    res.status(500).json({ error: 'Failed to generate reports' });
+  }
+});
+
+console.log('🔐 Admin endpoints configured');
+console.log('   GET  /admin/stats');
+console.log('   GET  /admin/users');
+console.log('   GET  /admin/users/:id');
+console.log('   PUT  /admin/users/:id/ban');
+console.log('   PUT  /admin/users/:id/unban');
+console.log('   GET  /admin/materials');
+console.log('   PUT  /admin/materials/:id/approve');
+console.log('   DELETE /admin/materials/:id');
+console.log('   GET  /admin/transactions');
+console.log('   GET  /admin/points/leaderboard');
+console.log('   PUT  /admin/points/:userId');
+console.log('   GET  /admin/reports');
+
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
   console.log(`📧 SendGrid configured: ${process.env.SENDGRID_API_KEY ? 'Yes' : 'No'}`);

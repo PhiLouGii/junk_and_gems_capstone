@@ -3,7 +3,7 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #BEC092 0%, #88844D 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .loginCard {
@@ -12,7 +12,7 @@
   border-radius: 10px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 400px;
+  max-width: 450px;
 }
 
 .loginCard h1 {
@@ -23,9 +23,36 @@
 
 .loginCard h2 {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   color: #666;
   font-weight: normal;
+}
+
+.credentialButtons {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.credentialButtons p {
+  margin-bottom: 0.5rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.credentialBtn {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin: 0.25rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.3s;
+}
+
+.credentialBtn:hover {
+  background: #138496;
 }
 
 .loginForm {
@@ -57,22 +84,23 @@
   border-color: #667eea;
 }
 
-button {
+.loginBtn {
   padding: 0.75rem;
-  background: #88844D;
+  background: #667eea;
   color: white;
   border: none;
   border-radius: 5px;
   font-size: 1rem;
   cursor: pointer;
   transition: background 0.3s;
+  margin-top: 1rem;
 }
 
-button:hover:not(:disabled) {
-  background: #595633;
+.loginBtn:hover:not(:disabled) {
+  background: #5a6fd8;
 }
 
-button:disabled {
+.loginBtn:disabled {
   background: #ccc;
   cursor: not-allowed;
 }
@@ -86,8 +114,21 @@ button:disabled {
   border: 1px solid #fcc;
 }
 
-.testBtn {
-  background: #17a2b8;
+.debugInfo {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.debugInfo p {
+  margin: 0.25rem 0;
+}
+
+.createAdminBtn {
+  background: #28a745;
   color: white;
   border: none;
   padding: 0.75rem;
@@ -98,6 +139,6 @@ button:disabled {
   transition: background 0.3s;
 }
 
-.testBtn:hover {
-  background: #138496;
+.createAdminBtn:hover {
+  background: #218838;
 }

@@ -18,7 +18,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor to handle errors
+// Response interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -27,32 +27,43 @@ api.interceptors.response.use(
   }
 );
 
-export const adminAPI = {
-  // Auth - using your existing endpoints
+export const currentAPI = {
+  // Auth
   login: (credentials: { email: string; password: string }) =>
     api.post('/login', credentials),
 
-  // Products (Waste Listings) - using your existing endpoints
-  getProducts: () => api.get('/api/products'),
-  createProduct: (productData: any) => api.post('/api/products', productData),
-  updateProduct: (id: string, productData: any) => 
-    api.put(`/api/products/${id}`, productData),
-  deleteProduct: (id: string) => api.delete(`/api/products/${id}`),
-  
-  // Materials
-  getMaterials: () => api.get('/materials'),
-  createMaterial: (materialData: any) => api.post('/materials', materialData),
-  
-  // Cart/Transactions
-  getUserCart: (userId: string) => api.get(`/api/users/${userId}/cart`),
+  signup: (userData: { email: string; password: string; name: string; role?: string }) =>
+    api.post('/signup', userData),
 
-  // Admin specific endpoints - these might need to be created in your backend
+  // Dashboard
   getDashboardStats: () => api.get('/admin/stats'),
-  getUsers: () => api.get('/admin/users'),
-  updateUserStatus: (userId: string, status: string) =>
-    api.patch(`/admin/users/${userId}`, { status }),
-  getTransactions: () => api.get('/admin/transactions'),
-};
 
-// SWITCH TO REAL API - NO MORE MOCK BULLSHIT
-export const currentAPI = adminAPI;
+  // Users
+  getUsers: () => api.get('/admin/users'),
+  getUserById: (id: string) => api.get(`/admin/users/${id}`),
+  banUser: (id: string, reason?: string) => 
+    api.put(`/admin/users/${id}/ban`, { reason }),
+  unbanUser: (id: string) => api.put(`/admin/users/${id}/unban`),
+
+  // Materials (Waste Listings)
+  getMaterials: () => api.get('/admin/materials'),
+  approveMaterial: (id: string) => api.put(`/admin/materials/${id}/approve`),
+  deleteMaterial: (id: string) => api.delete(`/admin/materials/${id}`),
+
+  // Products
+  getProducts: () => api.get('/api/products'),
+  createProduct: (data: any) => api.post('/api/products', data),
+  updateProduct: (id: string, data: any) => api.put(`/api/products/${id}`, data),
+  deleteProduct: (id: string) => api.delete(`/api/products/${id}`),
+
+  // Transactions
+  getTransactions: () => api.get('/admin/transactions'),
+
+  // Points System
+  getPointsLeaderboard: () => api.get('/admin/points/leaderboard'),
+  adjustUserPoints: (userId: string, gems: number, reason: string) =>
+    api.put(`/admin/points/${userId}`, { gems, reason }),
+
+  // Reports
+  getReports: () => api.get('/admin/reports'),
+};

@@ -2,14 +2,37 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { currentAPI } from '../services/api';
 import styles from './Login.module.css';
-import axios from 'axios';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('admin@junkandgems.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  const createAdminUser = async () => {
+  try {
+    console.log('Attempting to create admin user...');
+    const signupData = {
+      email: 'admin@junkandgems.com',
+      password: 'admin123',
+      name: 'Admin User',
+      role: 'admin'
+    };
+    
+    const response = await currentAPI.signup(signupData);
+    console.log('Signup response:', response);
+    alert('Admin user created! Try logging in now.');
+  } catch (err: any) {
+    console.error('Signup error:', err);
+    alert(`Signup failed: ${err.response?.data?.message || err.message}`);
+  }
+};
+
+// Add this button to the JSX, before the form:
+<button type="button" onClick={createAdminUser} className={styles.createAdminBtn}>
+  Create Admin User (First Time Setup)
+</button>
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,31 +40,45 @@ const Login: React.FC = () => {
     setError('');
 
     try {
+      console.log('Attempting login with:', { email, password });
       const response = await currentAPI.login({ email, password });
-      // Store the token - adjust based on your API response
-      const token = response.data.token || response.data.accessToken;
+      console.log('Login response:', response);
+      
+      // Try different possible token locations in response
+      const token = response.data.token || response.data.access_token || response.data.accessToken;
+      
       if (token) {
         localStorage.setItem('adminToken', token);
+        console.log('Login successful, token stored');
         navigate('/');
       } else {
-        setError('No token received from server');
+        console.error('No token found in response:', response.data);
+        setError('Login successful but no token received');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed');
-      console.error('Login error:', err);
+      console.error('Login error details:', err);
+      console.error('Response data:', err.response?.data);
+      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed - check credentials');
     } finally {
       setLoading(false);
     }
   };
 
-  const testConnection = async () => {
-    try {
-      const response = await axios.get('https://junk-and-gems-api.onrender.com');
-      console.log('Backend connection successful:', response.data);
-      alert('Backend is connected! Check console for details.');
-    } catch (error) {
-      console.error('Backend connection failed:', error);
-      alert('Backend connection failed. Check console for details.');
+  // Common admin credentials to try
+  const tryCommonCredentials = (type: string) => {
+    switch(type) {
+      case 'admin':
+        setEmail('admin@junkandgems.com');
+        setPassword('admin123');
+        break;
+      case 'test':
+        setEmail('test@test.com');
+        setPassword('test123');
+        break;
+      case 'demo':
+        setEmail('demo@junkandgems.com');
+        setPassword('demo123');
+        break;
     }
   };
 
@@ -51,34 +88,53 @@ const Login: React.FC = () => {
         <h1>Admin Dashboard</h1>
         <h2>Junk & Gems</h2>
         
-        <button onClick={testConnection} className={styles.testBtn} type="button">
-          Test Backend Connection
-        </button>
+        <div className={styles.credentialButtons}>
+          <p>Try common credentials:</p>
+          <button type="button" onClick={() => tryCommonCredentials('admin')} className={styles.credentialBtn}>
+            Admin Credentials
+          </button>
+          <button type="button" onClick={() => tryCommonCredentials('test')} className={styles.credentialBtn}>
+            Test Credentials  
+          </button>
+          <button type="button" onClick={() => tryCommonCredentials('demo')} className={styles.credentialBtn}>
+            Demo Credentials
+          </button>
+        </div>
 
         <form onSubmit={handleLogin} className={styles.loginForm}>
           {error && <div className={styles.error}>{error}</div>}
+          
           <div className={styles.formGroup}>
             <label>Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter admin email"
               required
             />
           </div>
+          
           <div className={styles.formGroup}>
             <label>Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
               required
             />
           </div>
-          <button type="submit" disabled={loading}>
+          
+          <button type="submit" disabled={loading} className={styles.loginBtn}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <div className={styles.debugInfo}>
+          <p><strong>Backend:</strong> https://junk-and-gems-api.onrender.com</p>
+          <p><strong>If login fails:</strong> Check that admin users exist in your database</p>
+        </div>
       </div>
     </div>
   );
