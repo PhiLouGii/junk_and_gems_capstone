@@ -34,6 +34,20 @@ The goal is to empower communities, reduce waste pollution, and foster a circula
 - **Node.js**:
 - **PostgreSQL**:
 
+## Testing Results
+### 1. Automated Testing
+**Strategy**: Unit, Widget, and Provider Tests
+**Tools**: Flutter Test Framework
+**Results**: 62/62 tests passed 
+
+<img src="designs_screenshots/test1.png" alt="Test Results" width="250">
+<img src="designs_screenshots/test2.png" alt="Test Results" width="250">
+
+**Test Coverage**
+- 11 Widget tests (UI components)
+- 19 Provider tests (State management)
+- 32 Unit tests (Logic)
+
 ## GitHub Repository
 https://github.com/PhiLouGii/junk_and_gems_capstone 
 
