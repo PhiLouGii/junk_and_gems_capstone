@@ -43,45 +43,45 @@
 
 **Key Features Tested:**
 
-**Authentication:**  
-- Valid registration and login ✅  
-- Empty field validation ✅  
-- Invalid email format handling ✅  
+**Authentication:**  ✅
+- Valid registration and login 
+- Empty field validation 
+- Invalid email format handling 
 
-![Authentication](designs_screenshots/login.jpg)  
+<img src="designs_screenshots/login.jpeg" alt="Login" width="250">
 
-**Material Browsing:**  
-- Material list display ✅  
-- Search functionality ✅  
-- Category filtering ✅  
-- Empty search results handling ✅  
+**Material Browsing:**  ✅
+- Material list display  
+- Search functionality 
+- Category filtering 
+- Empty search results handling   
 
-![Browse Materials](designs_screenshots/browse.jpg)  
+<img src="designs_screenshots/browse.jpeg" alt="Browse" width="250">
 
-**Shopping Cart:**  
-- Add/remove items ✅  
-- Update quantities ✅  
-- Price calculation ✅  
-- Empty cart state ✅  
+**Shopping Cart:**  ✅
+- Add/remove items 
+- Update quantities 
+- Price calculation 
+- Empty cart state 
 
-![Shopping Cart](designs_screenshots/cart.jpg)  
+<img src="designs_screenshots/cart.jpeg" alt="Cart" width="250">
 
-**Marketplace & Listings:**  
-- Browse products ✅  
-- View product details ✅  
-- Create material listings ✅  
-- Image upload ✅  
+**Marketplace & Listings:**  ✅
+- Browse products 
+- View product details  
+- Create product listings 
+- Image upload 
 
-![Marketplace](designs_screenshots/marketplace.jpg)  
+<img src="designs_screenshots/marketplace.jpeg" alt="Market" width="250">
 
-**User Experience:**  
-- Profile management ✅  
-- Theme toggle (Light/Dark) ✅  
-- Language toggle (English/Sesotho) ✅  
-- Notifications ✅  
+**User Experience:**  ✅
+- Profile management  
+- Theme toggle (Light/Dark)  
+- Language toggle (English/Sesotho) 
+- Notifications   
 
-![Profile](designs_screenshots/profile.jpg)  
-![Settings](designs_screenshots/settings.jpg)  
+<img src="designs_screenshots/profile.jpeg" alt="Profile" width="250">
+<img src="designs_screenshots/settings.jpeg" alt="Settings" width="250"> 
 
 ---
 
