@@ -271,7 +271,7 @@ The demo showcases:
 ## Screenshots
 
 <p align="center">
-
+<img src="designs_screenshots/browse2.jpeg" alt="Browse Screen" width="180" 
 </p>
 
 ---
