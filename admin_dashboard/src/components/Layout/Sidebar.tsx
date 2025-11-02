@@ -8,7 +8,7 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: '📊' },
     { path: '/users', label: 'User Management', icon: '👥' },
-    { path: '/listings', label: 'Waste Listings', icon: '🗑️' },
+    { path: '/listings', label: 'Upcycled Products', icon: '🗑️' },
     { path: '/transactions', label: 'Transactions', icon: '💳' },
     { path: '/points', label: 'Point System', icon: '⭐' },
     { path: '/security', label: 'Security', icon: '🔒' },

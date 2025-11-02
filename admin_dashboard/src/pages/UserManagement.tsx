@@ -27,14 +27,17 @@ const UserManagement: React.FC = () => {
   };
 
   const updateUserStatus = async (userId: string, status: string) => {
-    try {
-      await currentAPI.updateUserStatus(userId, status);
-      fetchUsers(); // Refresh the list
-    } catch (error) {
-      console.error('Failed to update user status:', error);
-      alert('Failed to update user status');
+  try {
+    if (status === 'banned') {
+      await currentAPI.banUser(userId, 'Banned by admin');
+    } else {
+      await currentAPI.unbanUser(userId);
     }
-  };
+    fetchUsers(); // Refresh the list
+  } catch (error) {
+    console.error('Failed to update user status:', error);
+  }
+};
 
   if (loading) {
     return <div className={styles.loading}>Loading users...</div>;

@@ -43,7 +43,7 @@ const WasteListings: React.FC = () => {
   return (
     <div className={styles.wasteListings}>
       <div className={styles.header}>
-        <h1>Waste Listings Management</h1>
+        <h1>Upcycled Products Management</h1>
         <div className={styles.filters}>
           <button 
             className={filter === 'all' ? styles.active : ''}
