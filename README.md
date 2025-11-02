@@ -271,7 +271,12 @@ The demo showcases:
 ## Screenshots
 
 <p align="center">
-<img src="designs_screenshots/browse2.jpeg" alt="Browse Screen" width="180" 
+<img src="designs_screenshots/dashboard_screen.jpeg" alt="Dashboard Screen" width="150">
+<img src="designs_screenshots/browse2.jpeg" alt="Browse Screen" width="150">
+<img src="designs_screenshots/daily_reward.jpeg" alt="Daily Reward Popup" width="150">
+<img src="designs_screenshots/noitification2.jpeg" alt="Notification Screen" width="150">
+<img src="designs_screenshots/marketplace.jpeg" alt="Marketplace Screen" width="150">
+<img src="designs_screenshots/profile2.jpeg" alt="Profile Screen" width="150">
 </p>
 
 ---
