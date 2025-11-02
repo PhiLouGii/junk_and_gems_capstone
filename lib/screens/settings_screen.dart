@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:junk_and_gems/screens/payments_earnings_screen.dart';
 import 'package:junk_and_gems/services/notification_service.dart';
 import 'package:junk_and_gems/screens/login_screen.dart';
 import 'package:junk_and_gems/providers/language_provider.dart';
@@ -38,7 +37,6 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          // Add language toggle button in app bar
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: LanguageToggleButton(),
@@ -52,7 +50,17 @@ class SettingsScreen extends StatelessWidget {
           children: [
             _buildSectionHeader(context, loc.quickSettings),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.notifications_outlined, loc.notifications),
+            _buildSettingItem(
+              context, 
+              Icons.notifications_outlined, 
+              loc.notifications,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationSettingsScreen()),
+                );
+              }
+            ),
             Consumer<ThemeProvider>(
               builder: (context, themeProvider, child) {
                 return _buildSettingItem(
@@ -70,12 +78,6 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 32),
             _buildSectionHeader(context, loc.preferences),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.payment_outlined, loc.paymentsEarnings, onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PaymentsEarningsScreen()),
-              );
-            }),
             _buildSettingItem(context, Icons.settings_applications_outlined, loc.appPreferences, onTap: () {
               Navigator.push(
                 context,
@@ -85,7 +87,17 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 32),
             _buildSectionHeader(context, loc.support),
             const SizedBox(height: 16),
-            _buildSettingItem(context, Icons.help_outline, loc.helpSupport),
+            _buildSettingItem(
+              context, 
+              Icons.help_outline, 
+              loc.helpSupport,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HelpSupportScreen()),
+                );
+              }
+            ),
             _buildSettingItem(context, Icons.info_outline, loc.legalInfo),
             const SizedBox(height: 32),
             _buildSectionHeader(context, loc.account),
@@ -335,7 +347,326 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-// AppPreferencesScreen remains the same
+class NotificationSettingsScreen extends StatefulWidget {
+  const NotificationSettingsScreen({super.key});
+
+  @override
+  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+  bool _notificationsEnabled = true;
+  bool _donationReminders = true;
+  bool _pickupAlerts = true;
+  bool _rewardNotifications = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationSettings();
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      _donationReminders = prefs.getBool('donation_reminders') ?? true;
+      _pickupAlerts = prefs.getBool('pickup_alerts') ?? true;
+      _rewardNotifications = prefs.getBool('reward_notifications') ?? true;
+    });
+  }
+
+  Future<void> _saveNotificationSetting(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = context.loc;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Notification Settings',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildNotificationToggle(
+              context,
+              'Enable Notifications',
+              'Receive all app notifications',
+              _notificationsEnabled,
+              (value) {
+                setState(() => _notificationsEnabled = value);
+                _saveNotificationSetting('notifications_enabled', value);
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildNotificationToggle(
+              context,
+              'Donation Reminders',
+              'Get reminded about pending donations',
+              _donationReminders,
+              (value) {
+                setState(() => _donationReminders = value);
+                _saveNotificationSetting('donation_reminders', value);
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildNotificationToggle(
+              context,
+              'Pickup Alerts',
+              'Notifications about pickup schedules',
+              _pickupAlerts,
+              (value) {
+                setState(() => _pickupAlerts = value);
+                _saveNotificationSetting('pickup_alerts', value);
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildNotificationToggle(
+              context,
+              'Reward Notifications',
+              'Updates about your rewards and points',
+              _rewardNotifications,
+              (value) {
+                setState(() => _rewardNotifications = value);
+                _saveNotificationSetting('reward_notifications', value);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationToggle(
+    BuildContext context,
+    String title,
+    String subtitle,
+    bool value,
+    Function(bool) onChanged,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        value: value,
+        onChanged: onChanged,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 14,
+            color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
+          ),
+        ),
+        activeColor: const Color(0xFF88844D),
+      ),
+    );
+  }
+}
+
+class HelpSupportScreen extends StatelessWidget {
+  const HelpSupportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = context.loc;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          loc.helpSupport,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(context, 'FREQUENTLY ASKED QUESTIONS'),
+            const SizedBox(height: 16),
+            _buildFAQItem(
+              context,
+              'How do I donate items?',
+              'Navigate to the Donate tab, select your items, and schedule a pickup or drop-off at a collection point.',
+            ),
+            const SizedBox(height: 12),
+            _buildFAQItem(
+              context,
+              'How do rewards work?',
+              'Earn points for every donation you make. Points can be redeemed for rewards in our rewards catalog.',
+            ),
+            const SizedBox(height: 12),
+            _buildFAQItem(
+              context,
+              'What items can I donate?',
+              'We accept recyclable materials, clothing, electronics, and household items. Check the donation guidelines for specifics.',
+            ),
+            const SizedBox(height: 32),
+            _buildSectionHeader(context, 'CONTACT US'),
+            const SizedBox(height: 16),
+            _buildContactItem(context, Icons.email_outlined, 'Email', 'support@junknngems.com'),
+            const SizedBox(height: 12),
+            _buildContactItem(context, Icons.phone_outlined, 'Phone', '+266 1234 5678'),
+            const SizedBox(height: 12),
+            _buildContactItem(context, Icons.access_time_outlined, 'Hours', 'Mon-Fri: 8AM - 6PM'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _buildFAQItem(BuildContext context, String question, String answer) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            question,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            answer,
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactItem(BuildContext context, IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: const Color(0xFFBEC092),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: const Color(0xFF88844D), size: 20),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.6),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AppPreferencesScreen extends StatefulWidget {
   const AppPreferencesScreen({super.key});
 
@@ -346,7 +677,6 @@ class AppPreferencesScreen extends StatefulWidget {
 class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   double _fontSize = 1.0;
 
-  final List<double> _fontSizeOptions = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5];
   final Map<double, String> _fontSizeLabels = {
     0.8: 'Small',
     0.9: 'Small+',
