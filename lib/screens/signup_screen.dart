@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:junk_and_gems/services/google_auth_service.dart';
+import 'package:junk_and_gems/screens/dashboard_screen.dart';
+import 'package:junk_and_gems/services/notification_service.dart';
+import 'package:provider/provider.dart';
+import 'package:junk_and_gems/providers/auth_provider.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -21,6 +26,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool includePhoneNumber = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isGoogleLoading = false;
   
   static const String lesothoCountryCode = '+266';
 
@@ -156,6 +162,67 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+  setState(() {
+    _isGoogleLoading = true;
+  });
+
+  try {
+    final result = await GoogleAuthService.signInWithGoogle();
+    
+    if (result == null) {
+      // User cancelled
+      return;
+    }
+
+    final userData = result['user'];
+    
+    // Update AuthProvider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.initialize();
+
+    // Initialize notifications
+    try {
+      await NotificationService.scheduleDailyTip(
+        hour: 10,
+        minute: 0,
+        enabled: true,
+      );
+      NotificationService.startPeriodicSync(userData['id'].toString());
+      await NotificationService.syncAndShowLocalNotifications(
+        userData['id'].toString(),
+      );
+    } catch (notifError) {
+      print('Error setting up notifications: $notifError');
+    }
+
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DashboardScreen(
+            userId: userData['id'].toString(),
+            userName: userData['name'],
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString().replaceAll('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isGoogleLoading = false;
+      });
+    }
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -221,6 +288,63 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               fontWeight: FontWeight.w400),
                         ),
                         const SizedBox(height: 32),
+
+                        SizedBox(
+  width: double.infinity,
+  height: 56,
+  child: OutlinedButton.icon(
+    onPressed: _isGoogleLoading ? null : _handleGoogleSignIn,
+    style: OutlinedButton.styleFrom(
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFFDDDDDD), width: 1.5),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+    ),
+    icon: _isGoogleLoading 
+        ? const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Image.asset(
+            'assets/images/google_logo.png',
+            height: 24,
+            width: 24,
+          ),
+    label: Text(
+      _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.black87,
+      ),
+    ),
+  ),
+),
+
+const SizedBox(height: 24),
+
+// ADD THE DIVIDER:
+Row(
+  children: [
+    Expanded(child: Divider(color: Colors.grey.shade300)),
+    const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        'OR',
+        style: TextStyle(
+          color: Colors.black54,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ),
+    Expanded(child: Divider(color: Colors.grey.shade300)),
+  ],
+),
+
+const SizedBox(height: 24),
+
                         
                         // Name field
                         _buildTextField(
