@@ -24,7 +24,12 @@ The system includes:
 
 The goal is to empower communities, reduce waste pollution, and foster a circular economy within Lesotho. 
 
-## 🛠️Tech Stack
+## Links
+- 📦[Download the APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
+- 📹[Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)
+- 🔗[GitHub Repo](https://github.com/PhiLouGii/junk_and_gems_capstone)
+
+## Tech Stack
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
@@ -36,9 +41,6 @@ The goal is to empower communities, reduce waste pollution, and foster a circula
 
 ## Testing Results
 Detailed TESTING RESULTS CAN BE FOUND: [here](TESTING_RESULTS.md) 
-
-## GitHub Repository
-https://github.com/PhiLouGii/junk_and_gems_capstone 
 
 ## Setup and Installation
 ### Prerequisites
@@ -62,7 +64,7 @@ npm install
 
 3. Create a ```.env``` file:
 ```bash
-PORT=3000
+PORT=3003
 DATABASE_URL=postgresql://user:password@localhost:5433/junk_and_gems
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
@@ -206,3 +208,6 @@ junk_and_gems/
 ## Author
 - Philippa Louise Giibwa. Bsc. Software Engineering, ALU (2025). 📧 p.giibwa@alustudent.com
 - Supervisor: Pelin Mutanguha
+
+---
+💚 *Turning trash into treasure, together* 💚
