@@ -18,33 +18,41 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const adminAPI = {
-  // Auth
-  login: (credentials: { email: string; password: string }) =>
-    api.post('/admin/login', credentials),
+// Response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
 
-  // Dashboard Stats
-  getDashboardStats: () => api.get('/admin/dashboard/stats'),
+export const adminAPI = {
+  // Auth - using your existing endpoints
+  login: (credentials: { email: string; password: string }) =>
+    api.post('/login', credentials),
+
+  // Products (Waste Listings) - using your existing endpoints
+  getProducts: () => api.get('/api/products'),
+  createProduct: (productData: any) => api.post('/api/products', productData),
+  updateProduct: (id: string, productData: any) => 
+    api.put(`/api/products/${id}`, productData),
+  deleteProduct: (id: string) => api.delete(`/api/products/${id}`),
   
-  // User Management
-  getUsers: (page: number = 1) => api.get(`/admin/users?page=${page}`),
+  // Materials
+  getMaterials: () => api.get('/materials'),
+  createMaterial: (materialData: any) => api.post('/materials', materialData),
+  
+  // Cart/Transactions
+  getUserCart: (userId: string) => api.get(`/api/users/${userId}/cart`),
+
+  // Admin specific endpoints - these might need to be created in your backend
+  getDashboardStats: () => api.get('/admin/stats'),
+  getUsers: () => api.get('/admin/users'),
   updateUserStatus: (userId: string, status: string) =>
     api.patch(`/admin/users/${userId}`, { status }),
-  
-  // Waste Listings
-  getListings: (status?: string) => 
-    api.get(`/admin/listings${status ? `?status=${status}` : ''}`),
-  updateListingStatus: (listingId: string, status: string) =>
-    api.patch(`/admin/listings/${listingId}`, { status }),
-  
-  // Transactions
-  getTransactions: (page: number = 1) =>
-    api.get(`/admin/transactions?page=${page}`),
-  
-  // Points System
-  getPointsOverview: () => api.get('/admin/points/overview'),
-  adjustUserPoints: (userId: string, points: number, reason: string) =>
-    api.post('/admin/points/adjust', { userId, points, reason }),
+  getTransactions: () => api.get('/admin/transactions'),
 };
 
-export default api;
+// SWITCH TO REAL API - NO MORE MOCK BULLSHIT
+export const currentAPI = adminAPI;

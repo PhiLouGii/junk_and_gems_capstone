@@ -4,7 +4,8 @@ export interface User {
   email: string;
   points: number;
   status: 'active' | 'suspended';
-  lastLogin: string;
+  joinDate: string;
+  listingsCount: number;
 }
 
 export interface WasteListing {
@@ -12,6 +13,7 @@ export interface WasteListing {
   title: string;
   description: string;
   category: string;
+  price: number;
   status: 'pending' | 'approved' | 'rejected';
   userId: string;
   createdAt: string;
@@ -21,9 +23,11 @@ export interface WasteListing {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'earn' | 'spend' | 'transfer';
+  userName: string;
+  type: 'purchase' | 'sale' | 'transfer';
+  amount: number;
   points: number;
-  description: string;
+  status: 'completed' | 'pending' | 'failed';
   timestamp: string;
 }
 
@@ -32,4 +36,5 @@ export interface DashboardStats {
   activeListings: number;
   totalTransactions: number;
   pendingApprovals: number;
+  totalRevenue: number;
 }

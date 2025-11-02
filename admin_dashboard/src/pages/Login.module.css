@@ -85,3 +85,19 @@ button:disabled {
   margin-bottom: 1rem;
   border: 1px solid #fcc;
 }
+
+.testBtn {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 0.75rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.testBtn:hover {
+  background: #138496;
+}

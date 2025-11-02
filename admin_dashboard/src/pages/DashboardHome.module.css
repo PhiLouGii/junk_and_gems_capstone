@@ -52,3 +52,55 @@
   font-size: 1.1rem;
   color: #7f8c8d;
 }
+
+.errorContainer {
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.errorContainer h2 {
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+.errorContainer button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.quickActions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.quickActions button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.quickActions button:hover {
+  background: #0056b3;
+}
