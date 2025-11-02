@@ -48,7 +48,7 @@
 - Empty field validation ✅  
 - Invalid email format handling ✅  
 
-![Authentication](designs_screenshots/login.png)  
+![Authentication](designs_screenshots/login.jpg)  
 
 **Material Browsing:**  
 - Material list display ✅  
@@ -56,7 +56,7 @@
 - Category filtering ✅  
 - Empty search results handling ✅  
 
-![Browse Materials](designs_screenshots/browse.png)  
+![Browse Materials](designs_screenshots/browse.jpg)  
 
 **Shopping Cart:**  
 - Add/remove items ✅  
@@ -64,7 +64,7 @@
 - Price calculation ✅  
 - Empty cart state ✅  
 
-![Shopping Cart](designs_screenshots/cart.png)  
+![Shopping Cart](designs_screenshots/cart.jpg)  
 
 **Marketplace & Listings:**  
 - Browse products ✅  
@@ -72,7 +72,7 @@
 - Create material listings ✅  
 - Image upload ✅  
 
-![Marketplace](designs_screenshots/marketplace.png)  
+![Marketplace](designs_screenshots/marketplace.jpg)  
 
 **User Experience:**  
 - Profile management ✅  
@@ -80,8 +80,8 @@
 - Language toggle (English/Sesotho) ✅  
 - Notifications ✅  
 
-![Profile](designs_screenshots/profile.png)  
-![Settings](designs_screenshots/settings.png)  
+![Profile](designs_screenshots/profile.jpg)  
+![Settings](designs_screenshots/settings.jpg)  
 
 ---
 
