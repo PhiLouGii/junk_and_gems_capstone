@@ -25,7 +25,7 @@ The system includes:
 The goal is to empower communities, reduce waste pollution, and foster a circular economy within Lesotho. 
 
 ## Links
-Android App: [Download the APK](https://drive.google.com/file/d/your-file-id/view)
+Android App: [Download the APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
 
 
 ## Tech Stack
