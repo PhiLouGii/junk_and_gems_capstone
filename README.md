@@ -26,7 +26,7 @@
 - **[Web App](https://junk-and-gems-web.vercel.app/)** - View in browser
 - **[Admin Dashboard](https://junkandgems-admin-dashboard-evyz8kb09-philougiis-projects.vercel.app/)** - Manage platform
 - **[Backend API](https://junk-and-gems-api.onrender.com)** - Live API endpoint
-- **[Initial Prototype Demo Video](https://drive.google.com/file/d/1r-Ot0Vp1mtyxKzj-KHjuED-4P8NNOdtz/view?usp=sharing) - Initial Project setup demo video
+- **[Initial Prototype Demo Video](https://drive.google.com/file/d/1r-Ot0Vp1mtyxKzj-KHjuED-4P8NNOdtz/view?usp=sharing)** - Initial Project setup demo video
 
 ---
 
