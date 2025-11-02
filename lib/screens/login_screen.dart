@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  bool _obscurePassword = true; // Add password visibility state
   String? _errorMessage;
 
   // Google Sign-In Handler
@@ -377,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
                                   : Image.asset(
-                                      'assets/images/google_logo.png', // You'll need to add this
+                                      'assets/images/google_logo.png',
                                       height: 24,
                                       width: 24,
                                     ),
@@ -430,7 +431,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _passwordController,
                             hintText: 'Password',
                             icon: Icons.lock_outline,
-                            obscureText: true,
+                            obscureText: _obscurePassword,
+                            isPassword: true,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter your password';
@@ -557,6 +559,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hintText,
     required IconData icon,
     bool obscureText = false,
+    bool isPassword = false,
     String? Function(String?)? validator,
   }) =>
       Container(
@@ -574,6 +577,19 @@ class _LoginScreenState extends State<LoginScreen> {
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             prefixIcon: Icon(icon, color: const Color(0xFF88844D)),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: const Color(0xFF88844D),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  )
+                : null,
           ),
         ),
       );

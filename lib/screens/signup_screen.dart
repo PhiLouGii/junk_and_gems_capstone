@@ -19,6 +19,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool isLoading = false;
   bool includePhoneNumber = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   
   static const String lesothoCountryCode = '+266';
 
@@ -307,7 +309,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             controller: passwordController,
                             hintText: 'Password',
                             icon: Icons.lock_outline,
-                            obscureText: true),
+                            obscureText: _obscurePassword,
+                            isPassword: true,
+                            onToggleVisibility: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            }
+                            ),
                         const SizedBox(height: 20),
                         
                         // Confirm password field
@@ -315,7 +324,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             controller: confirmPasswordController,
                             hintText: 'Confirm Password',
                             icon: Icons.lock_outline,
-                            obscureText: true),
+                            obscureText: _obscureConfirmPassword,
+                            isPassword: true,
+                            onToggleVisibility: () {
+                              setState(() {
+                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                              });
+                            }
+                            ),
                         const SizedBox(height: 30),
                         
                         // Sign up button
@@ -379,6 +395,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     required String hintText,
     required IconData icon,
     bool obscureText = false,
+    bool isPassword = false,
+    VoidCallback? onToggleVisibility,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
   }) =>
@@ -398,6 +416,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             prefixIcon: Icon(icon, color: const Color(0xFF88844D)),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: const Color(0xFF88844D),
+                    ),
+                    onPressed: onToggleVisibility,
+                  )
+                : null,
           ),
         ),
       );
