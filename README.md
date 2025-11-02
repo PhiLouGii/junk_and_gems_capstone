@@ -34,6 +34,9 @@ The goal is to empower communities, reduce waste pollution, and foster a circula
 - **Node.js**:
 - **PostgreSQL**:
 
+## Testing Results
+Detailed TESTING RESULTS CAN BE FOUND: [here](TESTING_RESULTS.md) 
+
 ## GitHub Repository
 https://github.com/PhiLouGii/junk_and_gems_capstone 
 
