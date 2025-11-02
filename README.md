@@ -30,7 +30,7 @@ The goal is to empower communities, reduce waste pollution, and foster a circula
 - [GitHub Repo](https://github.com/PhiLouGii/junk_and_gems_capstone)
 - [Access Web App](https://junk-and-gems-web.vercel.app/)
 - [Access Backend](https://junk-and-gems-api.onrender.com)
-- [Admin Dashboard]
+- [Admin Dashboard](https://junkandgems-admin-dashboard-evyz8kb09-philougiis-projects.vercel.app/)
 
 
 ## Tech Stack
