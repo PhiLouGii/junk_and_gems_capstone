@@ -25,9 +25,13 @@ The system includes:
 The goal is to empower communities, reduce waste pollution, and foster a circular economy within Lesotho. 
 
 ## Links
-- 📦[Download the APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
-- 📹[Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)
-- 🔗[GitHub Repo](https://github.com/PhiLouGii/junk_and_gems_capstone)
+- [Download the APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
+- [Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)
+- [GitHub Repo](https://github.com/PhiLouGii/junk_and_gems_capstone)
+- [Access Web App](https://junk-and-gems-web.vercel.app/)
+- [Access Backend](https://junk-and-gems-api.onrender.com)
+- [Admin Dashboard]
+
 
 ## Tech Stack
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
@@ -142,9 +146,6 @@ Figma design includes:
 | Web Dashboard      | React + TypeScript | Vercel                    | 🟡 In Progress |
 ```
 
-## Video Demo
-- https://youtu.be/P59IOvT2Nb0 - YouTube Link
-- https://drive.google.com/file/d/1r-Ot0Vp1mtyxKzj-KHjuED-4P8NNOdtz/view?usp=sharing - Google Drive link
 
 ## Project Structure
 ```bash
@@ -210,4 +211,6 @@ junk_and_gems/
 - Supervisor: Pelin Mutanguha
 
 ---
-💚 *Turning trash into treasure, together* 💚
+<p align="center">
+💚 Turning trash into treasure, together 💚
+</p>
