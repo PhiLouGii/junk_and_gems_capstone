@@ -24,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _isGoogleLoading = false;
-  bool _obscurePassword = true; // Add password visibility state
+  bool _obscurePassword = true;
   String? _errorMessage;
 
   // Google Sign-In Handler
@@ -40,33 +40,16 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await GoogleAuthService.signInWithGoogle();
       
       if (result == null) {
-        // User cancelled
         print('User cancelled Google Sign-In');
         return;
       }
 
       final userData = result['user'];
-      
-      // Update AuthProvider
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.initialize();
-
-      // Then navigate
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-              userName: userData['name'],
-              userId: userData['id'].toString(),
-            ),
-          ),
-        );
-      }
+      final token = result['token'];
       
       print('Google Sign-In successful!');
-      print('  User ID: ${authProvider.user?.id}');
-      print('  User Name: ${authProvider.user?.name}');
+      print('  User ID: ${userData['id']}');
+      print('  User Name: ${userData['name']}');
 
       // Initialize notifications
       try {
@@ -75,21 +58,39 @@ class _LoginScreenState extends State<LoginScreen> {
           minute: 0,
           enabled: true,
         );
+        print('Daily tips scheduled');
+
         NotificationService.startPeriodicSync(userData['id'].toString());
+        print('Notification sync started');
+
         await NotificationService.syncAndShowLocalNotifications(
           userData['id'].toString(),
         );
+        print('Initial notification sync completed');
       } catch (notifError) {
         print('Error setting up notifications: $notifError');
       }
 
+      // Update AuthProvider directly with user data
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      await authProvider.setUser(
+        User.fromJson(userData),
+        token,
+      );
+      
+      print('AuthProvider updated:');
+      print('  User ID: ${authProvider.user?.id}');
+      print('  User Name: ${authProvider.user?.name}');
+      print('  Is Authenticated: ${authProvider.isAuthenticated}');
+
+      // Navigate to dashboard (ONLY ONCE)
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => DashboardScreen(
-              userId: userData['id'].toString(),
               userName: userData['name'],
+              userId: userData['id'].toString(),
             ),
           ),
         );
@@ -129,65 +130,22 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       print('Login response status: ${response.statusCode}');
-      print('Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
         if (response.body.isEmpty) {
           throw Exception('Server returned empty response');
         }
         
-        late final Map<String, dynamic> result;
-        try {
-          result = json.decode(response.body);
-        } catch (jsonError) {
-          print('JSON parsing error: $jsonError');
-          print('   Response body: "${response.body}"');
-          throw Exception('Invalid response from server: $jsonError');
-        }
+        final result = json.decode(response.body);
         
         print('Login response data:');
         print('   User: ${result['user']}');
         print('   Token exists: ${result['token'] != null}');
         
-        final prefs = await SharedPreferences.getInstance();
-        
-        // Clear old auth data
-        print('Clearing old auth data...');
-        await prefs.remove('auth_token');
-        await prefs.remove('token');
-        await prefs.remove('user_data');
-        await prefs.remove('userId');
-        await prefs.remove('userName');
-        await prefs.remove('userEmail');
-        
         final token = result['token'];
         final userData = result['user'];
         
-        print('Saving new user data...');
-        // Store in BOTH formats
-        await prefs.setString('auth_token', token);
-        await prefs.setString('token', token);
-        await prefs.setString('user_data', json.encode(userData));
-        await prefs.setString('userId', userData['id'].toString());
-        await prefs.setString('userName', userData['name']);
-        await prefs.setString('userEmail', userData['email']);
-        await prefs.setBool('isLoggedIn', true);
-        await prefs.setBool('isGoogleUser', false); // Mark as regular user
-        
-        print('Stored user data:');
-        print('   userId: ${userData['id']}');
-        print('   userName: ${userData['name']}');
-        
-        // Update AuthProvider
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        await authProvider.initialize();
-        
-        print('AuthProvider initialized:');
-        print('   User ID: ${authProvider.user?.id}');
-        print('   User Name: ${authProvider.user?.name}');
-        print('   Is Authenticated: ${authProvider.isAuthenticated}');
-
-        // INITIALIZE NOTIFICATIONS AFTER LOGIN
+        // Initialize notifications
         print('Initializing notifications...');
         try {
           await NotificationService.scheduleDailyTip(
@@ -207,6 +165,18 @@ class _LoginScreenState extends State<LoginScreen> {
         } catch (notifError) {
           print('Error setting up notifications: $notifError');
         }
+
+        // Update AuthProvider directly with user data
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.setUser(
+          User.fromJson(userData),
+          token,
+        );
+        
+        print('AuthProvider updated:');
+        print('   User ID: ${authProvider.user?.id}');
+        print('   User Name: ${authProvider.user?.name}');
+        print('   Is Authenticated: ${authProvider.isAuthenticated}');
 
         print('Login successful!');
 

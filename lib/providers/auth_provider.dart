@@ -149,6 +149,24 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<void> setUser(User user, String token) async {
+  print('🔐 Setting user directly: ${user.name}');
+  
+  _user = user;
+  _token = token;
+  _isInitialized = true;
+  
+  // Save to storage
+  await _saveToStorage();
+  
+  // Refresh from server to get latest data
+  await _refreshFromServer();
+  
+  notifyListeners();
+  
+  print('✅ User set: ${_user?.name} (${_user?.availableGems} gems)');
+}
+
   /// Load auth data from SharedPreferences
   Future<void> _loadFromStorage() async {
     try {
