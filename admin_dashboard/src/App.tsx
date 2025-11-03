@@ -10,6 +10,8 @@ function App() {
   return (
     <Router>
       <div className="App">
+        <h1>Junk and Gems Admin Dashboard</h1>
+        <p>Welcome to the admin dashboard!</p>
         <Routes>
           <Route 
             path="/login" 
