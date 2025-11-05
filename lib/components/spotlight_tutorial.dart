@@ -32,7 +32,7 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
     TutorialStep(
       targetKey: 'nav_shop',
       title: 'Marketplace',
-      description: 'Buy something uniquely designed and upcycled or donate your own creations.',
+      description: 'Buy something uniquely designed and upcycled or sell your own creations.',
       position: TutorialPosition.top,
     ),
     TutorialStep(
@@ -44,7 +44,7 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
     TutorialStep(
       targetKey: 'nav_profile',
       title: 'Your Profile',
-      description: 'Your profile and settings are here. Customize your experience!',
+      description: 'Your profile and settings are here. Customise your experience!',
       position: TutorialPosition.top,
     ),
   ];
@@ -370,7 +370,7 @@ class _TutorialTargetState extends State<TutorialTarget> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) { 
-      (_SpotlightTutorialState()..registerContext(widget.targetKey, context));
+      _SpotlightTutorialState._contextMap[widget.targetKey] = context;
     });
   }
 
@@ -382,6 +382,9 @@ class _TutorialTargetState extends State<TutorialTarget> {
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _SpotlightTutorialState._contextMap[widget.targetKey] = context;
+    });
     return widget.child;
   }
 }
