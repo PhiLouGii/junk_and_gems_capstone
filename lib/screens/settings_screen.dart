@@ -36,12 +36,7 @@ class SettingsScreen extends StatelessWidget {
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: LanguageToggleButton(),
-          ),
-        ],
+        //Language toggle removed
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -715,10 +710,9 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader(context, loc.language.toUpperCase()),
+            // Language section removed
+            _buildSectionHeader(context, loc.display),
             const SizedBox(height: 16),
-            _buildLanguageToggle(context),
-            const SizedBox(height: 32),
             _buildSectionHeader(context, loc.display),
             const SizedBox(height: 16),
             _buildFontSizeSlider(context),
@@ -746,6 +740,8 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
     );
   }
 
+// Language toggle removed - Sesotho functionality disabled
+/*
   Widget _buildLanguageToggle(BuildContext context) {
     final loc = context.loc;
     
@@ -800,6 +796,7 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
       },
     );
   }
+  */
 
   Widget _buildFontSizeSlider(BuildContext context) {
     final loc = context.loc;
@@ -881,11 +878,9 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
   }
 
   Widget _buildFontSizePreview(BuildContext context) {
-    final loc = context.loc;
-    
-    return Consumer<LanguageProvider>(
-      builder: (context, languageProvider, child) {
-        return Container(
+  final loc = context.loc;
+  
+  return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
@@ -922,79 +917,71 @@ class _AppPreferencesScreenState extends State<AppPreferencesScreen> {
             ],
           ),
         );
-      },
-    );
   }
 
   Widget _buildPreviewCard(BuildContext context) {
-    final loc = context.loc;
-    
-    return Consumer<LanguageProvider>(
-      builder: (context, languageProvider, child) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+  final loc = context.loc;
+  
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).cardColor,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          loc.appPreview,
+          style: TextStyle(
+            fontSize: 18 * _fontSize,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'This is an example showing what the app interface will look like.',
+          style: TextStyle(
+            fontSize: 14 * _fontSize,
+            color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE4E5C2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
             children: [
+              Icon(Icons.recycling,
+                  color: const Color(0xFF88844D),
+                  size: 20 * _fontSize),
+              const SizedBox(width: 8),
               Text(
-                loc.appPreview,
-                style: TextStyle(
-                  fontSize: 18 * _fontSize,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                languageProvider.isSesotho
-                    ? 'Ona ke mohlala o bontšang hore na sebopeho sa app se tla shebahala joang.'
-                    : 'This is an example showing what the app interface will look like.',
+                loc.donateMaterials,
                 style: TextStyle(
                   fontSize: 14 * _fontSize,
-                  color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.8),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE4E5C2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.recycling,
-                        color: const Color(0xFF88844D),
-                        size: 20 * _fontSize),
-                    const SizedBox(width: 8),
-                    Text(
-                      loc.donateMaterials,
-                      style: TextStyle(
-                        fontSize: 14 * _fontSize,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF88844D),
-                      ),
-                    ),
-                  ],
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF88844D),
                 ),
               ),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 }

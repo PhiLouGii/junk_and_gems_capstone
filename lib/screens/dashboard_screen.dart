@@ -8,6 +8,7 @@ import 'package:junk_and_gems/screens/notfications_messages_screen.dart';
 import 'package:junk_and_gems/screens/profile_screen.dart';
 import 'package:junk_and_gems/screens/other_user_profile_screen.dart';
 import 'package:junk_and_gems/services/user_service.dart';
+import 'package:junk_and_gems/components/spotlight_tutorial.dart';
 import 'package:provider/provider.dart';
 import 'package:junk_and_gems/providers/theme_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<dynamic> contributors = [];
   bool isLoading = true;
   bool showDailyReward = false;
+  bool showTutorial = false;
   Map<String, dynamic>? dailyRewardData;
 
   @override
@@ -40,6 +42,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _loadData();
     _checkDailyReward();
+    _checkFirstTime();
   }
 
   Future<void> _checkDailyReward() async {
@@ -79,6 +82,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _checkFirstTime() async {
+  final prefs = await SharedPreferences.getInstance();
+  final hasSeenTutorial = prefs.getBool('has_seen_dashboard_tutorial') ?? false;
+  
+  if (!hasSeenTutorial) {
+    // Delay to ensure widgets are rendered
+    await Future.delayed(const Duration(milliseconds: 800));
+    setState(() {
+      showTutorial = true;
+    });
+  }
+}
+
   Future<void> _loadData() async {
     try {
       print('Loading dashboard data...');
@@ -105,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   
   @override
   Widget build(BuildContext context) {
-    // IMPORTANT: Use Consumer to react to auth changes
+    // Use Consumer to react to auth changes
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         // Show loading while auth initializes
@@ -210,6 +226,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       await authProvider.refresh();
                     },
                   ),
+                  if (showTutorial)
+                    SpotlightTutorial(
+                      onComplete: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('has_seen_dashboard_tutorial', true);
+                        setState(() {
+                          showTutorial = false;
+      });
+    },
+  ),
               ],
             ),
           ),
@@ -473,7 +499,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                _buildGemsCircle(gemsEarned, isLargeScreen),
+                TutorialTarget(
+                  targetKey: 'gems_circle',
+                  child: _buildGemsCircle(gemsEarned, isLargeScreen),
+                ),
               ],
             ),
           ],
@@ -1256,38 +1285,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _navItem(Icons.home_filled, true, 'Home', onTap: () {}),
-          _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
-            );
-          }),
-          _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => MarketplaceScreen(userName: widget.userName),
-              ),
-            );
-          }),
-          _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
-            );
-          }),
-          _navItem(Icons.person_outline, false, 'Profile', onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProfileScreen(
-                  userName: widget.userName,
-                  userId: widget.userId,
-                ),
-              ),
-            );
-          }),
-        ],
+          TutorialTarget(
+            targetKey: 'nav_browse',
+            child: _navItem(Icons.inventory_2_outlined, false, 'Browse', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BrowseMaterialsScreen()),
+              );
+            }),
+          ),
+          TutorialTarget(
+            targetKey: 'nav_shop',
+            child: _navItem(Icons.shopping_bag_outlined, false, 'Shop', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MarketplaceScreen(userName: widget.userName, userId: widget.userId),
+        ),
+      );
+    }),
+  ),
+          TutorialTarget(
+            targetKey: 'nav_alerts',
+            child: _navItem(Icons.notifications_outlined, false, 'Alerts', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationsMessagesScreen()),
+      );
+    }),
+  ),
+          TutorialTarget(
+            targetKey: 'nav_profile',
+            child: _navItem(Icons.person_outline, false, 'Profile', onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfileScreen(
+                    userName: widget.userName,
+                    userId: widget.userId,
+          ),
+        ),
+      );
+    }),
+  ),
+],
       ),
     );
   }
