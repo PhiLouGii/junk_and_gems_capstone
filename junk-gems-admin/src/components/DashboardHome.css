@@ -1,0 +1,127 @@
+/* DashboardHome.css */
+
+.dashboardHome {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.warning {
+  padding: 1rem;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background: #F7F2E4;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.statCard h3 {
+  font-size: 0.95rem;
+  color: #666;
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+}
+
+.statNumber {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #88844D;
+  line-height: 1;
+}
+
+.recentActivity {
+  background: #F7F2E4;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.recentActivity h2 {
+  margin-top: 0;
+}
+
+.quickActions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.quickActions button {
+  padding: 0.75rem 1.5rem;
+  background: #88844D;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.quickActions button:hover {
+  background: #6d6a3d;
+  transform: translateY(-1px);
+}
+
+.quickActions button:active {
+  transform: translateY(0);
+}
+
+.quickActions button:nth-child(2) {
+  background: #BEC092;
+}
+
+.quickActions button:nth-child(2):hover {
+  background: #a5a26b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .dashboardHome {
+    padding: 1rem;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statNumber {
+    font-size: 2rem;
+  }
+
+  .quickActions {
+    flex-direction: column;
+  }
+
+  .quickActions button {
+    width: 100%;
+  }
+}
