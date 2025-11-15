@@ -16,7 +16,6 @@ const AdminLogin: React.FC = () => {
     setError('');
 
     try {
-      // Your backend uses /login endpoint
       const response = await axios.post(`${API_BASE_URL}/login`, {
         email,
         password
@@ -24,23 +23,17 @@ const AdminLogin: React.FC = () => {
 
       console.log('Login response:', response.data);
 
-      // Your backend returns: { message, token, user }
       const token = response.data.token;
       const user = response.data.user;
 
       if (token) {
-        // Store token in localStorage
         localStorage.setItem('token', token);
         
-        // Store user info if available
         if (user) {
           localStorage.setItem('user', JSON.stringify(user));
         }
 
-        // Show success message
         alert('Login successful! Redirecting to dashboard...');
-
-        // Redirect to dashboard
         window.location.href = '/';
       } else {
         setError('Login successful but no token received. Please contact support.');
@@ -78,19 +71,22 @@ const AdminLogin: React.FC = () => {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)',
-      padding: '1rem'
+      background: 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)'
     }}>
       <div style={{
         background: 'white',
         borderRadius: '12px',
-        padding: '2rem',
-        maxWidth: '400px',
-        width: '100%',
+        padding: '2.5rem',
+        width: '420px',
+        maxWidth: '90%',
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)'
       }}>
         {/* Logo/Header */}
@@ -104,9 +100,23 @@ const AdminLogin: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '2.5rem'
+            overflow: 'hidden'
           }}>
-            🌍
+            <img 
+              src="/logo.jpg"
+              alt="Junk & Gems Logo" 
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.parentElement) {
+                  e.currentTarget.parentElement.innerHTML = '<span style="font-size: 2.5rem">🌍</span>';
+                }
+              }}
+            />
           </div>
           <h1 style={{ color: '#88844D', margin: '0 0 0.5rem 0' }}>Junk & Gems</h1>
           <p style={{ color: '#666', fontSize: '0.95rem', margin: 0 }}>Admin Dashboard Login</p>
