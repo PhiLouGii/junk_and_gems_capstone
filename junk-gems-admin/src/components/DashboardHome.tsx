@@ -161,7 +161,7 @@ const DashboardHome: React.FC = () => {
       }));
 
       // Generate daily engagement data
-      const dailyEngagement = generateDailyEngagement();
+      const dailyEngagement = generateDailyEngagement(materials, products);
 
       // Get recent activity from products
       const recentActivity: Activity[] = products
@@ -231,14 +231,49 @@ const DashboardHome: React.FC = () => {
     }
   };
 
-  const generateDailyEngagement = (): DailyEngagement[] => {
+  const generateDailyEngagement = (materials: Material[], products: Product[]): DailyEngagement[] => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days.map(date => ({
-      date,
-      activeUsers: Math.floor(Math.random() * 4) + 2,
-      listings: Math.floor(Math.random() * 5) + 1,
-      claims: Math.floor(Math.random() * 4) + 1,
-    }));
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday of current week
+    
+    return days.map((dayName, index) => {
+      const dayDate = new Date(startOfWeek);
+      dayDate.setDate(startOfWeek.getDate() + index);
+      const dayStart = new Date(dayDate.setHours(0, 0, 0, 0));
+      const dayEnd = new Date(dayDate.setHours(23, 59, 59, 999));
+      
+      // Count materials created on this day
+      const dayMaterials = materials.filter(m => {
+        const createdDate = new Date(m.created_at);
+        return createdDate >= dayStart && createdDate <= dayEnd;
+      });
+      
+      // Count products created on this day
+      const dayProducts = products.filter(p => {
+        const createdDate = new Date(p.created_at);
+        return createdDate >= dayStart && createdDate <= dayEnd;
+      });
+      
+      // Count claims (materials with confirmed status created on this day)
+      const dayClaims = dayMaterials.filter(m => m.claim_status === 'confirmed').length;
+      
+      // Calculate active users (unique creators from materials and products)
+      const uniqueCreators = new Set<string>();
+      dayMaterials.forEach(m => {
+        if (m.created_at) uniqueCreators.add(m.created_at.split('T')[0]);
+      });
+      dayProducts.forEach(p => {
+        if (p.creator_name) uniqueCreators.add(p.creator_name);
+      });
+      
+      return {
+        date: dayName,
+        activeUsers: uniqueCreators.size || 0,
+        listings: dayMaterials.length + dayProducts.length,
+        claims: dayClaims,
+      };
+    });
   };
 
   const formatTimeAgo = (date: Date): string => {
@@ -250,11 +285,57 @@ const DashboardHome: React.FC = () => {
   };
 
   if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading platform analytics...</div>;
-  }
+  return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading platform analytics...</div>;
+}
 
-  return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+return (
+  <>
+    {/* HEADER */}
+    <div
+      style={{
+        width: '95%',
+        margin: '0 auto',
+        padding: '1rem 2rem',
+        background: '#F7F2E4',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 1000
+      }}
+    >
+      <span style={{ marginRight: '1.5rem', fontWeight: 600, color: '#555' }}>
+        Welcome, Admin
+      </span>
+
+      <button
+        onClick={() => (window.location.href = '/login')}
+        style={{
+          padding: '0.5rem 1rem',
+          background: '#88844D',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontWeight: 600
+        }}
+      >
+        Logout
+      </button>
+    </div>
+
+    {/* CONTENT */}
+    <div 
+      style={{
+        padding: '2rem',
+        maxWidth: '1400px',
+        margin: '6rem auto 0 auto', 
+        textAlign: 'center'
+      }}
+    >
       <div style={{ marginBottom: '2rem' }}>
         <h1>🌍 Junk & Gems Platform Analytics</h1>
         <p style={{ color: '#666', fontSize: '0.95rem' }}>
@@ -592,7 +673,8 @@ const DashboardHome: React.FC = () => {
         </div>
       </div>
     </div>
-  );
+  </>
+);
 };
 
 export default DashboardHome;
