@@ -37,22 +37,29 @@ const UserManagement: React.FC = () => {
   }, [searchTerm, filterStatus, users]);
 
   interface ApiUser {
-    user_id: string;
-    name?: string;
+    id: string;
+    name: string;
     email: string;
+    username?: string;
+    user_type?: string;
+    available_gems?: number;
+    donation_count?: number;
     created_at: string;
-    role?: string;
-    status?: string;
-    gems?: number;
-    total_listings?: number;
-    total_claims?: number;
-    last_active?: string;
-    verified?: boolean;
+    profile_image_url?: string;
+    phone_number?: string;
+    banned?: boolean;
+    ban_reason?: string;
   }
 
-  interface ApiResponse {
+  interface AnalyticsResponse {
     success: boolean;
     users: ApiUser[];
+    summary?: {
+      totalUsers: number;
+      activeUsers: number;
+      bannedUsers: number;
+      verifiedUsers: number;
+    };
   }
 
   const fetchUsers = async () => {
@@ -61,7 +68,37 @@ const UserManagement: React.FC = () => {
       
       // Get authentication token from localStorage
       const token = localStorage.getItem('token');
-      
+
+      // Try analytics endpoint first (doesn't require admin auth)
+      try {
+        console.log('Trying analytics endpoint...');
+        const response = await axios.get<AnalyticsResponse>(`${API_BASE_URL}/api/analytics/users`);
+        
+        if (response.data.success && response.data.users) {
+          const apiUsers: User[] = response.data.users.map((user: ApiUser) => ({
+            _id: user.id,
+            name: user.name || 'Unknown User',
+            email: user.email,
+            createdAt: user.created_at,
+            role: user.user_type || 'user',
+            status: user.banned ? 'banned' : 'active',
+            points: user.available_gems || 0,
+            listings: user.donation_count || 0,
+            claims: 0,
+            lastActive: user.created_at,
+            verified: true
+          }));
+          
+          setUsers(apiUsers);
+          setError('');
+          setLoading(false);
+          return;
+        }
+      } catch {
+        console.log('Analytics endpoint failed, trying admin endpoint...');
+      }
+
+      // Fallback to admin endpoint if analytics fails
       if (!token) {
         setError('Authentication required. Please log in as an admin.');
         setUsers([]);
@@ -69,35 +106,28 @@ const UserManagement: React.FC = () => {
         return;
       }
 
-      // Fetch real users from the admin endpoint
-      const response = await axios.get<ApiResponse>(`${API_BASE_URL}/admin/users`, {
+      const response = await axios.get<ApiUser[]>(`${API_BASE_URL}/admin/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
-      if (response.data.success) {
-        // Map the API response to our User interface
-        const apiUsers: User[] = response.data.users.map((user: ApiUser) => ({
-          _id: user.user_id,
-          name: user.name || 'Unknown User',
-          email: user.email,
-          createdAt: user.created_at,
-          role: user.role || 'user',
-          status: (user.status || 'active') as 'active' | 'banned' | 'suspended',
-          points: user.gems || 0,
-          listings: user.total_listings || 0,
-          claims: user.total_claims || 0,
-          lastActive: user.last_active || user.created_at,
-          verified: user.verified || false
-        }));
-        
-        setUsers(apiUsers);
-        setError('');
-      } else {
-        setError('Failed to load users from server.');
-        setUsers([]);
-      }
+      const apiUsers: User[] = response.data.map((user: ApiUser) => ({
+        _id: user.id,
+        name: user.name || 'Unknown User',
+        email: user.email,
+        createdAt: user.created_at,
+        role: user.user_type || 'user',
+        status: user.banned ? 'banned' : 'active',
+        points: user.available_gems || 0,
+        listings: user.donation_count || 0,
+        claims: 0,
+        lastActive: user.created_at,
+        verified: true
+      }));
+      
+      setUsers(apiUsers);
+      setError('');
     } catch (err) {
       console.error('Failed to fetch users:', err);
       

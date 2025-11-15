@@ -5,6 +5,7 @@ import DashboardHome from './components/DashboardHome';
 import UserManagement from './components/UserManagement';
 import WasteListing from './components/WasteListing';
 import ProductListing from './components/ProductListing';
+import PointsManagement from './components/PointsManagement';
 
 function App() {
   return (
@@ -33,6 +34,11 @@ function App() {
         <Route path="/product-listing" element={
           <ProtectedRoute>
             <ProductListing/>
+          </ProtectedRoute>
+        } />
+        <Route path="/points-management" element={
+          <ProtectedRoute>
+            <PointsManagement/>
           </ProtectedRoute>
         } />
       </Routes>

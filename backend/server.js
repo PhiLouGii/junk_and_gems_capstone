@@ -7960,6 +7960,70 @@ app.get('/api/analytics/gems', async (req, res) => {
   }
 });
 
+// Get Analytics Data for Users (public dashboard data)
+app.get('/api/analytics/users', async (req, res) => {
+  try {
+    console.log('📊 Analytics: Fetching all users data for dashboard...');
+
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        name, 
+        email, 
+        username,
+        user_type, 
+        available_gems,
+        donation_count,
+        created_at,
+        profile_image_url,
+        phone_number,
+        banned,
+        ban_reason
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+
+    console.log(`✅ Analytics: Found ${result.rows.length} users`);
+    
+    // Calculate summary stats
+    const totalUsers = result.rows.length;
+    const activeUsers = result.rows.filter(u => !u.banned).length;
+    const bannedUsers = result.rows.filter(u => u.banned).length;
+    const verifiedUsers = result.rows.filter(u => u.email).length; // All with emails are "verified"
+    const totalGems = result.rows.reduce((sum, user) => sum + (parseInt(user.available_gems) || 0), 0);
+    const totalDonations = result.rows.reduce((sum, user) => sum + (parseInt(user.donation_count) || 0), 0);
+    
+    console.log('📊 Users summary:', { 
+      totalUsers, 
+      activeUsers, 
+      bannedUsers,
+      verifiedUsers,
+      totalGems,
+      totalDonations 
+    });
+
+    res.json({
+      success: true,
+      users: result.rows,
+      summary: {
+        totalUsers,
+        activeUsers,
+        bannedUsers,
+        verifiedUsers,
+        totalGems,
+        totalDonations
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Users analytics error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch users analytics data' 
+    });
+  }
+});
+
 // Get System Reports/Logs
 app.get('/admin/reports', authenticateToken, isAdmin, async (req, res) => {
   try {
