@@ -42,7 +42,7 @@ const WasteListing: React.FC = () => {
   const fetchMaterials = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://junk-and-gems-api.onrender.com/materials');
+      const response = await fetch('https://junk-and-gems-api.onrender.com/api/analytics/materials');
       
       if (!response.ok) {
         throw new Error('Failed to fetch materials');
