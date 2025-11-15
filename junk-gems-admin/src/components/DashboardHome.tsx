@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, Recycle, Clock, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, Recycle, Clock, ExternalLink, Award } from 'lucide-react';
 
 interface Material {
   id: string;
@@ -477,6 +477,55 @@ const DashboardHome: React.FC = () => {
         No products available
       </div>
     )}
+  </div>
+</div>
+
+{/* Points Distribution */}
+<div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <Award size={24} color="#88844D" style={{ marginRight: '8px' }} />
+      <h2 style={{ margin: 0 }}>💎 Gems System</h2>
+    </div>
+    <button
+      onClick={() => window.location.href = '/points-management'}
+      style={{
+        padding: '0.4rem 0.8rem',
+        background: '#88844D',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        fontSize: '0.85rem',
+        fontWeight: '600'
+      }}
+    >
+      View Details
+      <ExternalLink size={14} />
+    </button>
+  </div>
+  <div style={{ marginBottom: '1rem' }}>
+    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#88844D' }}>
+      {stats.totalPointsAwarded}
+    </div>
+    <div style={{ fontSize: '0.875rem', color: '#666' }}>Total Gems Awarded</div>
+  </div>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'white', borderRadius: '6px' }}>
+      <span>From Donations</span>
+      <strong>{stats.pointsFromDonations} (58%)</strong>
+    </div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'white', borderRadius: '6px' }}>
+      <span>From Claims</span>
+      <strong>{stats.pointsFromClaims} (27%)</strong>
+    </div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'white', borderRadius: '6px' }}>
+      <span>From Check-ins</span>
+      <strong>190 (15%)</strong>
+    </div>
   </div>
 </div>
 

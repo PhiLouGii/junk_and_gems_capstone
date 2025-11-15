@@ -7916,6 +7916,50 @@ app.put('/admin/points/:userId', authenticateToken, isAdmin, async (req, res) =>
   }
 });
 
+// Get Analytics Data for Gems/Points (includes all users with their gem data)
+app.get('/api/analytics/gems', async (req, res) => {
+  try {
+    console.log('📊 Analytics: Fetching all gems data for dashboard...');
+
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        name, 
+        email, 
+        available_gems,
+        donation_count,
+        user_type,
+        created_at,
+        profile_image_url
+      FROM users
+      ORDER BY available_gems DESC
+    `);
+
+    console.log(`✅ Analytics: Found ${result.rows.length} users with gems data`);
+    
+    // Calculate summary stats
+    const totalGems = result.rows.reduce((sum, user) => sum + (parseInt(user.available_gems) || 0), 0);
+    const totalDonations = result.rows.reduce((sum, user) => sum + (parseInt(user.donation_count) || 0), 0);
+    const activeUsers = result.rows.filter(u => (parseInt(u.available_gems) || 0) > 0).length;
+    
+    console.log('📊 Gems summary:', { totalGems, totalDonations, activeUsers });
+
+    res.json({
+      users: result.rows,
+      summary: {
+        totalGems,
+        totalDonations,
+        activeUsers,
+        totalUsers: result.rows.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Gems analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch gems analytics data' });
+  }
+});
+
 // Get System Reports/Logs
 app.get('/admin/reports', authenticateToken, isAdmin, async (req, res) => {
   try {
