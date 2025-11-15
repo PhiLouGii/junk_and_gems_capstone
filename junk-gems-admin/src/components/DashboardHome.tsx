@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, Recycle, Clock, Award, ExternalLink } from 'lucide-react';
-import type { PieLabelRenderProps } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, Recycle, Clock, ExternalLink } from 'lucide-react';
 
 interface Material {
   id: string;
@@ -42,9 +41,10 @@ interface Activity {
 interface Product {
   category: string;
   status: string;
-  createdAt: string;
+  created_at: string;
   title: string;
   price: number;
+  creator_name?: string;
 }
 
 const DashboardHome: React.FC = () => {
@@ -165,12 +165,12 @@ const DashboardHome: React.FC = () => {
 
       // Get recent activity from products
       const recentActivity: Activity[] = products
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 8)
         .map((p) => ({
           title: p.title,
           status: p.status,
-          time: formatTimeAgo(new Date(p.createdAt)),
+          time: formatTimeAgo(new Date(p.created_at)),
           type: p.status === 'claimed' ? 'claim' : p.price > 0 ? 'product' : 'listing'
         }));
 
@@ -248,8 +248,6 @@ const DashboardHome: React.FC = () => {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
   };
-
-  const COLORS = ['#88844D', '#BEC092', '#E4E5C2', '#6d6a3d', '#a5a26b', '#d4d2a8'];
 
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Loading platform analytics...</div>;
@@ -394,159 +392,93 @@ const DashboardHome: React.FC = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Category Distribution */}
-        <div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
-          <h2>🎯 Product Category Distribution</h2>
-          {stats.categoryBreakdown.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={stats.categoryBreakdown}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(props: PieLabelRenderProps) => 
-  `${props.name || ''} ${props.percent ? (props.percent * 100).toFixed(0) : 0}%`
-}
-                  outerRadius={90}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {stats.categoryBreakdown.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '280px', color: '#888' }}>
-              No category data available
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* POINT SYSTEM & USER SATISFACTION */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        
-        {/* Points Distribution */}
-        <div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
-            <Award size={24} color="#88844D" style={{ marginRight: '8px' }} />
-            <h2 style={{ margin: 0 }}>💎 Gems System Performance</h2>
-          </div>
-          <div style={{ marginBottom: '1rem' }}>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#88844D' }}>
-              {stats.totalPointsAwarded}
-            </div>
-            <div style={{ fontSize: '0.875rem', color: '#666' }}>Total Gems Awarded</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'white', borderRadius: '6px' }}>
-              <span>From Donations</span>
-              <strong>{stats.pointsFromDonations} (58%)</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'white', borderRadius: '6px' }}>
-              <span>From Claims</span>
-              <strong>{stats.pointsFromClaims} (27%)</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: 'white', borderRadius: '6px' }}>
-              <span>From Check-ins</span>
-              <strong>190 (15%)</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* User Satisfaction */}
-        <div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
-          <h2>😊 User Satisfaction Metrics</h2>
-          <div style={{ marginTop: '1rem' }}>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: '600' }}>Overall Satisfaction</span>
-                <span style={{ fontWeight: 'bold', color: '#88844D' }}>{stats.userSatisfaction}%</span>
-              </div>
-              <div style={{ width: '100%', height: '12px', background: '#E4E5C2', borderRadius: '6px', overflow: 'hidden' }}>
-                <div style={{ width: `${stats.userSatisfaction}%`, height: '100%', background: '#88844D', transition: 'width 0.5s' }} />
-              </div>
-            </div>
-            
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: '600' }}>Feature Usefulness</span>
-                <span style={{ fontWeight: 'bold', color: '#88844D' }}>{stats.featureUsefulnessScore}%</span>
-              </div>
-              <div style={{ width: '100%', height: '12px', background: '#E4E5C2', borderRadius: '6px', overflow: 'hidden' }}>
-                <div style={{ width: `${stats.featureUsefulnessScore}%`, height: '100%', background: '#BEC092', transition: 'width 0.5s' }} />
-              </div>
-            </div>
-
-            <div style={{ padding: '0.75rem', background: '#d1fae5', borderRadius: '8px', fontSize: '0.875rem' }}>
-              <strong>✅ Survey Response:</strong> 28/38 users (74% response rate)
-            </div>
-          </div>
-        </div>
-
-        {/* Multi-Role Engagement */}
-        <div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
-          <h2>👥 User Engagement Breakdown</h2>
-          <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ padding: '1rem', background: 'white', borderRadius: '8px', borderLeft: '4px solid #88844D' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#88844D' }}>87%</div>
-              <div style={{ fontSize: '0.875rem', color: '#666' }}>Multi-role Participation</div>
-            </div>
-            <div style={{ padding: '1rem', background: 'white', borderRadius: '8px', borderLeft: '4px solid #BEC092' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#88844D' }}>84%</div>
-              <div style={{ fontSize: '0.875rem', color: '#666' }}>Listed Waste Materials</div>
-            </div>
-            <div style={{ padding: '1rem', background: 'white', borderRadius: '8px', borderLeft: '4px solid #E4E5C2' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#88844D' }}>63%</div>
-              <div style={{ fontSize: '0.875rem', color: '#666' }}>Claimed Materials</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RECENT ACTIVITY FEED */}
-      <div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
-        <h2>⚡ Real-Time Platform Activity</h2>
-        <div style={{ marginTop: '1rem' }}>
-          {stats.recentActivity.map((activity, index) => (
-            <div key={index} style={{ 
+      {/* Recent Products List */}
+    <div style={{ background: '#F7F2E4', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+    <h2 style={{ margin: 0 }}>🛍️ Recent Products</h2>
+    <button
+      onClick={() => window.location.href = '/product-listing'}
+      style={{
+        padding: '0.4rem 0.8rem',
+        background: '#88844D',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        fontSize: '0.85rem',
+        fontWeight: '600'
+      }}
+    >
+      View Details
+      <ExternalLink size={14} />
+    </button>
+  </div>
+  
+  <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+    {stats.recentActivity.length > 0 ? (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {stats.recentActivity.slice(0, 5).map((activity, index) => (
+          <div 
+            key={index} 
+            style={{ 
+              background: 'white', 
+              borderRadius: '8px', 
+              padding: '0.75rem',
+              borderLeft: '4px solid #88844D'
+            }}
+          >
+            <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              padding: '1rem', 
-              borderBottom: index < stats.recentActivity.length - 1 ? '1px solid #ddd' : 'none',
-              alignItems: 'center'
+              alignItems: 'flex-start',
+              marginBottom: '0.25rem'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                {activity.type === 'listing' && <Package size={18} color="#88844D" style={{ marginRight: '8px' }} />}
-                {activity.type === 'claim' && <Recycle size={18} color="#22c55e" style={{ marginRight: '8px' }} />}
-                {activity.type === 'product' && <ShoppingCart size={18} color="#3b82f6" style={{ marginRight: '8px' }} />}
-                <div>
-                  <p style={{ fontWeight: '600', color: '#88844D', margin: 0 }}>{activity.title}</p>
-                  <p style={{ fontSize: '0.8rem', color: '#666', margin: '0.25rem 0 0 0' }}>{activity.time}</p>
-                </div>
-              </div>
+              <h3 style={{ 
+                margin: 0, 
+                color: '#88844D', 
+                fontSize: '0.9rem',
+                fontWeight: '600'
+              }}>
+                {activity.title}
+              </h3>
               <span style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '20px',
+                padding: '0.2rem 0.6rem',
+                borderRadius: '10px',
                 fontSize: '0.7rem',
                 fontWeight: '600',
-                background: activity.status === 'approved' ? '#d1fae5' : 
-                           activity.status === 'claimed' ? '#bfdbfe' : 
-                           activity.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                color: activity.status === 'approved' ? '#065f46' : 
-                       activity.status === 'claimed' ? '#1e40af' : 
-                       activity.status === 'pending' ? '#92400e' : '#991b1b',
-                textTransform: 'uppercase'
+                background: activity.status === 'sold' ? '#d1fae5' : 
+                           activity.status === 'pending' ? '#fef3c7' : '#dbeafe',
+                color: activity.status === 'sold' ? '#065f46' : 
+                       activity.status === 'pending' ? '#92400e' : '#1e40af'
               }}>
-                {activity.status}
+                {activity.status || 'available'}
               </span>
             </div>
-          ))}
-        </div>
+            <div style={{ 
+              fontSize: '0.8rem', 
+              color: '#666',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span>{activity.time}</span>
+              {activity.type === 'product' && (
+                <ShoppingCart size={14} color="#88844D" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '240px', color: '#888' }}>
+        No products available
+      </div>
+    )}
+  </div>
+</div>
 
         {/* Quick Actions */}
         <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
