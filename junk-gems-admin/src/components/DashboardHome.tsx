@@ -95,7 +95,7 @@ const DashboardHome: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       // Fetch REAL materials data from /materials endpoint
-      const materialsResponse = await fetch('https://junk-and-gems-api.onrender.com/materials');
+      const materialsResponse = await fetch('https://junk-and-gems-api.onrender.com/api/analytics/materials');
       const materials: Material[] = await materialsResponse.json();
 
       // Fetch products (marketplace products)
