@@ -241,7 +241,7 @@ const ProductListing: React.FC = () => {
             <div>
               <h3 style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>Total Revenue</h3>
               <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
-                ${summary.totalRevenue}
+                M{summary.totalRevenue}
               </div>
             </div>
             <DollarSign size={32} color="#3b82f6" />
@@ -259,7 +259,7 @@ const ProductListing: React.FC = () => {
             <div>
               <h3 style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>Avg Price</h3>
               <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#88844D' }}>
-                ${summary.avgPrice}
+                M{summary.avgPrice}
               </div>
             </div>
             <TrendingUp size={32} color="#88844D" />
@@ -324,7 +324,7 @@ const ProductListing: React.FC = () => {
                   labelLine={false}
                   label={(props: PieLabelRenderProps) => {
                     const entry = productStats.find((s) => s.category === props.name);
-                    return entry ? `${entry.category}: $${entry.revenue}` : '';
+                    return entry ? `${entry.category}: M${entry.revenue}` : '';
                   }}
                   outerRadius={100}
                   fill="#8884d8"
@@ -398,7 +398,7 @@ const ProductListing: React.FC = () => {
                       {stat.available}
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>
-                      ${stat.revenue}
+                      M{stat.revenue}
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'center' }}>
                       <span style={{

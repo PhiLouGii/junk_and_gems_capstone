@@ -7809,11 +7809,11 @@ app.get('/api/analytics/products', async (req, res) => {
     const result = await pool.query(`
       SELECT 
         p.*,
-        u.name as creator_name,
+        COALESCE(u.name, p.creator_name, 'Unknown Artisan') as creator_name,
         u.email as creator_email,
         u.profile_image_url as creator_avatar
       FROM products p
-      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN users u ON p.artisan_id = u.id
       ORDER BY p.created_at DESC
     `);
 
@@ -7827,7 +7827,7 @@ app.get('/api/analytics/products', async (req, res) => {
     }, {});
     console.log('📊 Product status breakdown:', statusCounts);
 
-    // Format response
+    // Format response to match your existing structure
     const products = result.rows.map(row => ({
       id: row.id,
       title: row.title,
@@ -7835,15 +7835,22 @@ app.get('/api/analytics/products', async (req, res) => {
       category: row.category,
       price: row.price,
       quantity: row.quantity,
-      location: row.location,
       condition: row.condition,
       materials_used: row.materials_used,
       dimensions: row.dimensions,
-      weight: row.weight,
+      location: row.location,
+      location_area: row.location_area,
+      location_landmark: row.location_landmark,
+      location_directions: row.location_directions,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      map_address: row.map_address,
+      is_map_location: row.is_map_location || false,
+      setup_required: row.setup_required || false,
       image_urls: row.image_data_base64 || [],
       image_data_base64: row.image_data_base64 || [],
-      user_id: row.user_id,
-      creator_name: row.creator_name || 'Unknown User',
+      artisan_id: row.artisan_id,
+      creator_name: row.creator_name,
       creator_email: row.creator_email,
       creator_avatar: row.creator_avatar,
       created_at: row.created_at,

@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import DashboardHome from './components/DashboardHome';
 import UserManagement from './components/UserManagement';
 import WasteListing from './components/WasteListing';
+import ProductListing from './components/ProductListing';
 
 function App() {
   return (
@@ -27,6 +28,11 @@ function App() {
         <Route path="/waste-listing" element={
           <ProtectedRoute>
             <WasteListing />
+          </ProtectedRoute>
+        } />
+        <Route path="/product-listing" element={
+          <ProtectedRoute>
+            <ProductListing/>
           </ProtectedRoute>
         } />
       </Routes>
