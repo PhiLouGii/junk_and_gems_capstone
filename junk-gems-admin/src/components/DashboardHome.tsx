@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, Recycle, Clock, Award, ExternalLink } from 'lucide-react';
 import type { PieLabelRenderProps } from 'recharts';
-import { currentAPI } from '../services/api';
 
 interface Material {
   id: string;
@@ -99,8 +98,9 @@ const DashboardHome: React.FC = () => {
       const materials: Material[] = await materialsResponse.json();
 
       // Fetch products (marketplace products)
-      const productsRes = await currentAPI.getProducts();
-      const products: Product[] = productsRes.data;
+      const productsResponse = await fetch('https://junk-and-gems-api.onrender.com/api/analytics/products');
+      const productsData = await productsResponse.json();
+      const products: Product[] = Array.isArray(productsData) ? productsData : (productsData.data || []);
       
       // Calculate waste material distribution from REAL materials
       const materialStats: { [key: string]: { listed: number; claimed: number } } = {

@@ -7801,6 +7801,65 @@ app.get('/api/analytics/summary', async (req, res) => {
   }
 });
 
+// Get Analytics Data for Products (includes ALL products regardless of status)
+app.get('/api/analytics/products', async (req, res) => {
+  try {
+    console.log('📊 Analytics: Fetching all products for dashboard...');
+
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.email as creator_email,
+        u.profile_image_url as creator_avatar
+      FROM products p
+      LEFT JOIN users u ON p.user_id = u.id
+      ORDER BY p.created_at DESC
+    `);
+
+    console.log(`✅ Analytics: Found ${result.rows.length} total products`);
+    
+    // Count by status for logging
+    const statusCounts = result.rows.reduce((acc, row) => {
+      const status = row.status || 'available';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('📊 Product status breakdown:', statusCounts);
+
+    // Format response
+    const products = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      price: row.price,
+      quantity: row.quantity,
+      location: row.location,
+      condition: row.condition,
+      materials_used: row.materials_used,
+      dimensions: row.dimensions,
+      weight: row.weight,
+      image_urls: row.image_data_base64 || [],
+      image_data_base64: row.image_data_base64 || [],
+      user_id: row.user_id,
+      creator_name: row.creator_name || 'Unknown User',
+      creator_email: row.creator_email,
+      creator_avatar: row.creator_avatar,
+      created_at: row.created_at,
+      status: row.status || 'available',
+      views: row.views || 0,
+      inquiries: row.inquiries || 0
+    }));
+
+    res.json(products);
+
+  } catch (error) {
+    console.error('❌ Products analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch products analytics data' });
+  }
+});
+
 // Get Points/Gems Leaderboard
 app.get('/admin/points/leaderboard', authenticateToken, isAdmin, async (req, res) => {
   try {
