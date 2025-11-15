@@ -129,16 +129,10 @@ export const currentAPI = {
   // ADMIN ENDPOINTS (you may need to add these to your backend)
   // ============================================
   
-  getDashboardStats: (): Promise<AxiosResponse> => {
-    // This endpoint might not exist yet in your backend
-    // It should return aggregated stats like:
-    // { totalUsers, activeListings, totalTransactions, pendingApprovals, totalRevenue }
-    return apiClient.get('/admin/stats');
-  },
 
   getUsers: (): Promise<AxiosResponse> => {
     // This endpoint should list all users for admin management
-    return apiClient.get('/admin/users');
+    return apiClient.get('/api/analytics/users');
   },
 
   getUserById: (userId: string): Promise<AxiosResponse> => {

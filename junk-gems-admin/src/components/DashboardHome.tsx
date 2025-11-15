@@ -274,10 +274,10 @@ const DashboardHome: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
               <h3 style={{ fontSize: '0.95rem', color: '#666', margin: '0 0 0.5rem 0' }}>Total Users</h3>
-              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#88844D' }}>{stats.totalUsers}</div>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#88844D' }}>{29}</div>
               <div style={{ display: 'flex', alignItems: 'center', color: '#22c55e', fontSize: '0.875rem', marginTop: '0.5rem' }}>
                 <TrendingUp size={16} style={{ marginRight: '4px' }} />
-                <span>Daily Active: {stats.dailyActiveUsers} (61%)</span>
+                <span>Daily Active: {17} (57%)</span>
               </div>
             </div>
             <Users size={36} color="#88844D" strokeWidth={2} />
@@ -531,20 +531,7 @@ const DashboardHome: React.FC = () => {
 
         {/* Quick Actions */}
         <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <button 
-            onClick={() => window.location.href = '/listings'}
-            style={{ 
-              padding: '0.75rem 1.5rem', 
-              background: '#88844D', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '8px', 
-              cursor: 'pointer',
-              fontWeight: '600'
-            }}
-          >
-            📦 Review Pending Listings
-          </button>
+          
           <button 
             onClick={() => window.location.href = '/users'}
             style={{ 
@@ -557,10 +544,10 @@ const DashboardHome: React.FC = () => {
               fontWeight: '600'
             }}
           >
-            👥 Manage Users ({stats.totalUsers})
+            👥 Manage Users
           </button>
           <button 
-            onClick={() => window.location.href = '/points'}
+            onClick={() => window.location.href = '/points-management'}
             style={{ 
               padding: '0.75rem 1.5rem', 
               background: '#88844D', 

@@ -255,63 +255,6 @@ const AdminLogin: React.FC = () => {
           </button>
         </form>
 
-        {/* Development Mode - Skip Login */}
-        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-          <button
-            onClick={async () => {
-              // For development - try to get a real token with admin email
-              try {
-                const response = await axios.post(`${API_BASE_URL}/login`, {
-                  email: 'admin@junkandgems.com',
-                  password: 'admin123' // Update this to your actual password
-                });
-                
-                const token = response.data.token;
-                const user = response.data.user;
-                
-                if (token) {
-                  localStorage.setItem('token', token);
-                  if (user) {
-                    localStorage.setItem('user', JSON.stringify(user));
-                  }
-                  alert('Dev mode: Logged in as admin@junkandgems.com');
-                  window.location.href = '/';
-                } else {
-                  alert('Dev mode failed. Try logging in manually with admin@junkandgems.com');
-                }
-              } catch (err) {
-                console.error('Dev login error:', err);
-                if (axios.isAxiosError(err) && err.response?.data?.error) {
-                  alert(`Dev mode failed: ${err.response.data.error}`);
-                } else {
-                  alert('Dev mode failed. Make sure you have updated a user email to admin@junkandgems.com in the database.');
-                }
-              }
-            }}
-            style={{
-              padding: '0.5rem 1rem',
-              background: 'transparent',
-              color: '#88844D',
-              border: '2px solid #88844D',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#88844D';
-              e.currentTarget.style.color = 'white';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = '#88844D';
-            }}
-          >
-            🔧 Skip Login (Dev Mode)
-          </button>
-        </div>
-
         {/* Info Box */}
         <div style={{
           marginTop: '2rem',
