@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { ShoppingCart, TrendingUp, Package, AlertCircle, DollarSign, Eye } from 'lucide-react';
-import type { PieLabelRenderProps } from 'recharts';
 
 interface Product {
   id: string;
@@ -12,6 +11,7 @@ interface Product {
   created_at: string;
   views?: number;
   inquiries?: number;
+  creator_name?: string;
 }
 
 interface ProductStats {
@@ -25,6 +25,7 @@ interface ProductStats {
 
 const ProductListing: React.FC = () => {
   const [productStats, setProductStats] = useState<ProductStats[]>([]);
+  const [recentProducts, setRecentProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -60,15 +61,18 @@ const ProductListing: React.FC = () => {
       
       if (productsArray.length === 0) {
         setError('No products data available from API yet.');
+        setRecentProducts([]);
         processProductData([]);
       } else {
         console.log('Processing products...');
+        setRecentProducts(productsArray.slice(0, 10));
         processProductData(productsArray);
         setError('');
       }
     } catch (err) {
       console.error('Error fetching products:', err);
       setError(`Failed to connect to API: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setRecentProducts([]);
       processProductData([]);
     } finally {
       setLoading(false);
@@ -86,6 +90,7 @@ const ProductListing: React.FC = () => {
       'Accessories': { listed: 0, sold: 0, available: 0, revenue: 0 },
       'Lighting': { listed: 0, sold: 0, available: 0, revenue: 0 },
       'Storage': { listed: 0, sold: 0, available: 0, revenue: 0 },
+      'Crafts': { listed: 0, sold: 0, available: 0, revenue: 0 },
       'Other': { listed: 0, sold: 0, available: 0, revenue: 0 }
     };
 
@@ -101,20 +106,23 @@ const ProductListing: React.FC = () => {
       const category = product.category || 'Other';
       const price = parseFloat(String(product.price)) || 0;
       
-      if (categoryMap[category]) {
-        categoryMap[category].listed += 1;
-        totalListed += 1;
-        priceSum += price;
-        
-        if (product.status === 'sold') {
-          categoryMap[category].sold += 1;
-          categoryMap[category].revenue += price;
-          totalSold += 1;
-          totalRevenue += price;
-        } else if (product.status === 'available' || product.status === 'pending') {
-          categoryMap[category].available += 1;
-          totalAvailable += 1;
-        }
+      // Initialize category if it doesn't exist
+      if (!categoryMap[category]) {
+        categoryMap[category] = { listed: 0, sold: 0, available: 0, revenue: 0 };
+      }
+      
+      categoryMap[category].listed += 1;
+      totalListed += 1;
+      priceSum += price;
+      
+      if (product.status === 'sold') {
+        categoryMap[category].sold += 1;
+        categoryMap[category].revenue += price;
+        totalSold += 1;
+        totalRevenue += price;
+      } else if (product.status === 'available' || product.status === 'pending') {
+        categoryMap[category].available += 1;
+        totalAvailable += 1;
       }
       
       totalViews += product.views || 0;
@@ -146,8 +154,6 @@ const ProductListing: React.FC = () => {
       totalInquiries
     });
   };
-
-  const COLORS = ['#88844D', '#BEC092', '#E4E5C2', '#6d6a3d', '#a5a26b', '#d4d2a8', '#8a8662'];
 
   if (loading) {
     return (
@@ -303,43 +309,82 @@ const ProductListing: React.FC = () => {
           </ResponsiveContainer>
         </div>
 
-        {/* Pie Chart */}
+        {/* Recent Products List */}
         <div style={{ 
           background: '#F7F2E4', 
           borderRadius: '12px', 
           padding: '2rem', 
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' 
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          maxHeight: '450px',
+          overflowY: 'auto'
         }}>
           <h2 style={{ color: '#88844D', marginBottom: '1rem' }}>
-            💰 Revenue Distribution
+            🛍️ Recent Products
           </h2>
           
-          {productStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={350}>
-              <PieChart>
-                <Pie
-                  data={productStats.filter(s => s.revenue > 0)}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={(props: PieLabelRenderProps) => {
-                    const entry = productStats.find((s) => s.category === props.name);
-                    return entry ? `${entry.category}: M${entry.revenue}` : '';
+          {recentProducts.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {recentProducts.map((product) => (
+                <div 
+                  key={product.id} 
+                  style={{ 
+                    background: 'white', 
+                    borderRadius: '8px', 
+                    padding: '1rem',
+                    borderLeft: '4px solid #88844D'
                   }}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="revenue"
                 >
-                  {productStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start',
+                    marginBottom: '0.5rem'
+                  }}>
+                    <h3 style={{ 
+                      margin: 0, 
+                      color: '#88844D', 
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}>
+                      {product.title}
+                    </h3>
+                    <span style={{
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      background: product.status === 'sold' ? '#d1fae5' : 
+                                 product.status === 'pending' ? '#fef3c7' : '#dbeafe',
+                      color: product.status === 'sold' ? '#065f46' : 
+                             product.status === 'pending' ? '#92400e' : '#1e40af'
+                    }}>
+                      {product.status || 'available'}
+                    </span>
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.875rem', 
+                    color: '#666',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div>Category: <strong>{product.category}</strong></div>
+                      <div>Price: <strong style={{ color: '#88844D' }}>M{product.price}</strong></div>
+                      {product.creator_name && (
+                        <div>By: <strong>{product.creator_name}</strong></div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#888', textAlign: 'right' }}>
+                      {new Date(product.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '350px', color: '#888' }}>
-              No revenue data available
+              No products available
             </div>
           )}
         </div>
@@ -371,7 +416,7 @@ const ProductListing: React.FC = () => {
                 <th style={{ padding: '1rem', textAlign: 'center' }}>Listed</th>
                 <th style={{ padding: '1rem', textAlign: 'center' }}>Sold</th>
                 <th style={{ padding: '1rem', textAlign: 'center' }}>Available</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Revenue</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>Revenue (M)</th>
                 <th style={{ padding: '1rem', textAlign: 'center' }}>Sell Rate</th>
               </tr>
             </thead>
