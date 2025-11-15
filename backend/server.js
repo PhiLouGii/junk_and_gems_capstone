@@ -660,6 +660,12 @@ app.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Incorrect password" });
     }
 
+    // Update last_login timestamp
+    await pool.query(
+      "UPDATE users SET last_login = NOW() WHERE id = $1",
+      [user.id]
+    );
+
     const token = jwt.sign(
       { 
         id: user.id, 
@@ -7961,66 +7967,68 @@ app.get('/api/analytics/gems', async (req, res) => {
 });
 
 // Get Analytics Data for Users (public dashboard data)
-app.get('/api/analytics/users', async (req, res) => {
+app.get("/api/analytics/users", async (req, res) => {
   try {
-    console.log('📊 Analytics: Fetching all users data for dashboard...');
-
     const result = await pool.query(`
       SELECT 
-        id, 
-        name, 
-        email, 
+        id,
+        name,
+        email,
         username,
-        user_type, 
+        user_type,
         available_gems,
         donation_count,
         created_at,
+        last_login,
         profile_image_url,
         phone_number,
         banned,
         ban_reason
-      FROM users 
+      FROM users
       ORDER BY created_at DESC
     `);
 
-    console.log(`✅ Analytics: Found ${result.rows.length} users`);
-    
-    // Calculate summary stats
-    const totalUsers = result.rows.length;
-    const activeUsers = result.rows.filter(u => !u.banned).length;
-    const bannedUsers = result.rows.filter(u => u.banned).length;
-    const verifiedUsers = result.rows.filter(u => u.email).length; // All with emails are "verified"
-    const totalGems = result.rows.reduce((sum, user) => sum + (parseInt(user.available_gems) || 0), 0);
-    const totalDonations = result.rows.reduce((sum, user) => sum + (parseInt(user.donation_count) || 0), 0);
-    
-    console.log('📊 Users summary:', { 
-      totalUsers, 
-      activeUsers, 
-      bannedUsers,
-      verifiedUsers,
-      totalGems,
-      totalDonations 
-    });
+    const summary = await pool.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN last_login >= NOW() - INTERVAL '1 day' THEN 1 END) as daily_active_users,
+        COUNT(CASE WHEN last_login >= NOW() - INTERVAL '7 days' THEN 1 END) as weekly_active_users,
+        COUNT(CASE WHEN banned = true THEN 1 END) as banned_users
+      FROM users
+    `);
 
     res.json({
       success: true,
       users: result.rows,
-      summary: {
-        totalUsers,
-        activeUsers,
-        bannedUsers,
-        verifiedUsers,
-        totalGems,
-        totalDonations
-      }
+      summary: summary.rows[0]
     });
+  } catch (err) {
+    console.error("Get users error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
 
-  } catch (error) {
-    console.error('❌ Users analytics error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch users analytics data' 
+// Analytics endpoint for daily active users
+app.get("/api/analytics/daily-active-users", async (req, res) => {
+  try {
+    // Get daily active users for the past 7 days
+    const result = await pool.query(`
+      SELECT 
+        DATE(last_login) as login_date,
+        COUNT(DISTINCT id) as active_users
+      FROM users
+      WHERE last_login >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(last_login)
+      ORDER BY login_date ASC
+    `);
+
+    res.json({
+      success: true,
+      data: result.rows
     });
+  } catch (err) {
+    console.error("Daily active users error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
   }
 });
 

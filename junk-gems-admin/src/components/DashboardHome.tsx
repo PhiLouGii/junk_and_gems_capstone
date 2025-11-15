@@ -18,6 +18,11 @@ interface WasteStats {
   claimRate: number;
 }
 
+interface DailyActiveUser {
+  login_date: string;
+  active_users: string | number;
+}
+
 interface DailyEngagement {
   date: string;
   activeUsers: number;
@@ -101,6 +106,11 @@ const DashboardHome: React.FC = () => {
       const productsResponse = await fetch('https://junk-and-gems-api.onrender.com/api/analytics/products');
       const productsData = await productsResponse.json();
       const products: Product[] = Array.isArray(productsData) ? productsData : (productsData.data || []);
+
+      // Fetch daily active users data
+const dailyActiveResponse = await fetch('https://junk-and-gems-api.onrender.com/api/analytics/daily-active-users');
+const dailyActiveData = await dailyActiveResponse.json();
+const dailyActiveUsers: DailyActiveUser[] = dailyActiveData.success ? dailyActiveData.data : [];
       
       // Calculate waste material distribution from REAL materials
       const materialStats: { [key: string]: { listed: number; claimed: number } } = {
@@ -161,7 +171,7 @@ const DashboardHome: React.FC = () => {
       }));
 
       // Generate daily engagement data
-      const dailyEngagement = generateDailyEngagement(materials, products);
+      const dailyEngagement = generateDailyEngagement(materials, products, dailyActiveUsers);
 
       // Get recent activity from products
       const recentActivity: Activity[] = products
@@ -231,7 +241,7 @@ const DashboardHome: React.FC = () => {
     }
   };
 
-  const generateDailyEngagement = (materials: Material[], products: Product[]): DailyEngagement[] => {
+   const generateDailyEngagement = (materials: Material[], products: Product[], dailyActiveUsersData: DailyActiveUser[]): DailyEngagement[] => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const today = new Date();
     const startOfWeek = new Date(today);
@@ -258,18 +268,16 @@ const DashboardHome: React.FC = () => {
       // Count claims (materials with confirmed status created on this day)
       const dayClaims = dayMaterials.filter(m => m.claim_status === 'confirmed').length;
       
-      // Calculate active users (unique creators from materials and products)
-      const uniqueCreators = new Set<string>();
-      dayMaterials.forEach(m => {
-        if (m.created_at) uniqueCreators.add(m.created_at.split('T')[0]);
-      });
-      dayProducts.forEach(p => {
-        if (p.creator_name) uniqueCreators.add(p.creator_name);
+      // Get active users from daily active users data
+      const dayDateStr = dayDate.toISOString().split('T')[0];
+      const activeUsersForDay = dailyActiveUsersData.find(d => {
+        const loginDate = new Date(d.login_date).toISOString().split('T')[0];
+        return loginDate === dayDateStr;
       });
       
       return {
         date: dayName,
-        activeUsers: uniqueCreators.size || 0,
+        activeUsers: activeUsersForDay ? parseInt(String(activeUsersForDay.active_users)) : 0,
         listings: dayMaterials.length + dayProducts.length,
         claims: dayClaims,
       };
