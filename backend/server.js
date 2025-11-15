@@ -7676,6 +7676,131 @@ app.get('/admin/transactions', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Get Analytics Data (for dashboard - includes ALL materials regardless of status)
+app.get('/api/analytics/materials', async (req, res) => {
+  try {
+    console.log('📊 Analytics: Fetching all materials for dashboard...');
+
+    const result = await pool.query(`
+      SELECT 
+        m.*,
+        u.name as uploader_name,
+        u.email as uploader_email,
+        u.profile_image_url as uploader_avatar
+      FROM materials m
+      LEFT JOIN users u ON m.uploader_id = u.id
+      ORDER BY m.created_at DESC
+    `);
+
+    console.log(`✅ Analytics: Found ${result.rows.length} total materials`);
+    
+    // Count by status for logging
+    const statusCounts = result.rows.reduce((acc, row) => {
+      const status = row.claim_status || 'available';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('📊 Status breakdown:', statusCounts);
+
+    // Format response to match expected structure
+    const materials = result.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      quantity: row.quantity,
+      location: row.location,
+      location_area: row.location_area,
+      location_landmark: row.location_landmark,
+      location_directions: row.location_directions,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      map_address: row.map_address,
+      is_map_location: row.is_map_location || false,
+      delivery_option: row.delivery_option,
+      available_from: row.available_from,
+      available_until: row.available_until,
+      is_fragile: row.is_fragile,
+      contact_preferences: row.contact_preferences,
+      image_urls: row.image_data_base64 || [], 
+      image_data_base64: row.image_data_base64 || [],
+      uploader_id: row.uploader_id,
+      uploader: row.uploader_name || 'Unknown User',
+      uploader_name: row.uploader_name || 'Unknown User',
+      uploader_email: row.uploader_email,
+      uploader_avatar: row.uploader_avatar,
+      created_at: row.created_at,
+      claim_status: row.claim_status || 'available',
+      is_claimed: row.claim_status === 'confirmed',
+      claimed_by: row.claimed_by,
+      claim_requested_at: row.claim_requested_at,
+      claim_confirmed_at: row.claim_confirmed_at
+    }));
+
+    res.json(materials);
+
+  } catch (error) {
+    console.error('❌ Analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics data' });
+  }
+});
+
+// Optional: Get analytics summary (counts by status, category, etc.)
+app.get('/api/analytics/summary', async (req, res) => {
+  try {
+    console.log('📊 Analytics: Fetching summary statistics...');
+
+    // Get material counts by status
+    const statusResult = await pool.query(`
+      SELECT 
+        COALESCE(claim_status, 'available') as status,
+        COUNT(*) as count
+      FROM materials
+      GROUP BY claim_status
+    `);
+
+    // Get material counts by category
+    const categoryResult = await pool.query(`
+      SELECT 
+        category,
+        COUNT(*) as count
+      FROM materials
+      GROUP BY category
+      ORDER BY count DESC
+    `);
+
+    // Get recent activity (last 30 days)
+    const activityResult = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM materials
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+    `);
+
+    const summary = {
+      by_status: statusResult.rows,
+      by_category: categoryResult.rows,
+      recent_activity: activityResult.rows,
+      totals: {
+        available: statusResult.rows.find(r => r.status === 'available')?.count || 0,
+        pending: statusResult.rows.find(r => r.status === 'pending')?.count || 0,
+        confirmed: statusResult.rows.find(r => r.status === 'confirmed')?.count || 0,
+        total: statusResult.rows.reduce((sum, r) => sum + parseInt(r.count), 0)
+      }
+    };
+
+    console.log('✅ Analytics summary:', summary.totals);
+    res.json(summary);
+
+  } catch (error) {
+    console.error('❌ Analytics summary error:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics summary' });
+  }
+});
+
 // Get Points/Gems Leaderboard
 app.get('/admin/points/leaderboard', authenticateToken, isAdmin, async (req, res) => {
   try {
