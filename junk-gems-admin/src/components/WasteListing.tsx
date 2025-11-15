@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Recycle, TrendingUp, Package, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
@@ -23,6 +24,8 @@ interface WasteStats {
 }
 
 const WasteListing: React.FC = () => {
+  const navigate = useNavigate();
+
   const [wasteStats, setWasteStats] = useState<WasteStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -182,6 +185,29 @@ const WasteListing: React.FC = () => {
   }
 
   return (
+    
+     <div style={{ padding: '2rem', maxWidth: '1400px', margin: '6rem auto 0 auto', background: '#f9f9f9', minHeight: '100vh' }}>
+      
+      {/* Back Button */}
+      <div style={{ marginBottom: '1rem' }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            padding: '0.5rem 1rem',
+            background: '#88844D',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          ← Back
+        </button>
+      </div>
     <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', background: '#f9f9f9', minHeight: '100vh' }}>
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
@@ -480,6 +506,8 @@ const WasteListing: React.FC = () => {
         </button>
       </div>
     </div>
+  </div>
+
   );
 };
 

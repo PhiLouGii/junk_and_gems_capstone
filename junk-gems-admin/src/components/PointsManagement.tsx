@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Award, TrendingUp, Users, Gift, AlertCircle } from 'lucide-react';
 
 interface User {
@@ -23,6 +24,7 @@ interface GemsData {
 }
 
 const PointsManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [gemsData, setGemsData] = useState<GemsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -100,8 +102,29 @@ const PointsManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '1.2rem', color: '#88844D' }}>Loading gems data...</div>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <div style={{ 
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #88844D',
+          borderRadius: '50%',
+          width: '50px',
+          height: '50px',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <p>Loading products from database...</p>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -115,14 +138,50 @@ const PointsManagement: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', background: '#f9f9f9', minHeight: '100vh' }}>
-      {/* Header */}
+    <div style={{ 
+      minHeight: '100vh',
+      background: '#ECE8D6',
+      display: 'flex',
+      margin: '2rem 8rem', 
+      justifyContent: 'center',
+      alignItems: 'flex-start',
+      padding: '2rem',
+      boxSizing: 'border-box'
+    }}>
+    <div style={{
+        maxWidth: '1400px',
+        width: '100%',
+        background: '#fff',
+        padding: '2rem',
+        borderRadius: '12px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        boxSizing: 'border-box'
+      }}>
+
+      {/* Back Button */}
+      <div style={{ marginBottom: '1rem' }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            padding: '0.5rem 1rem',
+            background: '#88844D',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          ← Back
+        </button>
+      </div>
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', color: '#88844D', marginBottom: '0.5rem' }}>
-          💎 Gems & Points Management
-        </h1>
-        <p style={{ color: '#666', fontSize: '1rem' }}>
-          Monitor and manage the platform's rewards system
+        <h1>💎Gems Management</h1>
+        <p style={{ color: '#666', fontSize: '0.95rem' }}>
+          Manage platform users, monitor activity, and moderate accounts
         </p>
       </div>
 
@@ -422,6 +481,7 @@ const PointsManagement: React.FC = () => {
         </button>
       </div>
     </div>
+  </div>
   );
 };
 

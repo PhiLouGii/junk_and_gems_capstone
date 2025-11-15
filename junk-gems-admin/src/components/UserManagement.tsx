@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, Search, Filter, Mail, Calendar, Award, Ban, CheckCircle, XCircle, Eye, Trash2, UserCheck, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
@@ -17,6 +18,8 @@ interface User {
 }
 
 const UserManagement: React.FC = () => {
+  const navigate = useNavigate();
+
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -326,7 +329,46 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ 
+      minHeight: '100vh',
+      background: '#ECE8D6',
+      display: 'flex',
+      margin: '6rem 6rem', 
+      justifyContent: 'center',
+      alignItems: 'flex-start',
+      padding: '2rem',
+      boxSizing: 'border-box'
+    }}>
+    <div style={{
+        maxWidth: '1400px',
+        width: '100%',
+        background: '#fff',
+        padding: '2rem',
+        borderRadius: '12px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        boxSizing: 'border-box'
+      }}>
+
+      {/* Back Button */}
+      <div style={{ marginBottom: '1rem' }}>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            padding: '0.5rem 1rem',
+            background: '#88844D',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          ← Back
+        </button>
+      </div>
       <div style={{ marginBottom: '2rem' }}>
         <h1>👥 User Management</h1>
         <p style={{ color: '#666', fontSize: '0.95rem' }}>
@@ -893,6 +935,7 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 };
