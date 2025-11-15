@@ -8,6 +8,7 @@ interface Material {
   quantity: string | number;
   claim_status: 'available' | 'pending' | 'confirmed';
   created_at: string;
+  claimed_at?: string;
   title: string;
 }
 
@@ -266,7 +267,11 @@ const dailyActiveUsers: DailyActiveUser[] = dailyActiveData.success ? dailyActiv
       });
       
       // Count claims (materials with confirmed status created on this day)
-      const dayClaims = dayMaterials.filter(m => m.claim_status === 'confirmed').length;
+      const dayClaims = materials.filter(m => {
+        if (m.claim_status !== 'confirmed' || !m.claimed_at) return false;
+        const claimedDate = new Date(m.claimed_at);
+        return claimedDate >= dayStart && claimedDate <= dayEnd;
+      }).length;
       
       // Get active users from daily active users data
       const dayDateStr = dayDate.toISOString().split('T')[0];
