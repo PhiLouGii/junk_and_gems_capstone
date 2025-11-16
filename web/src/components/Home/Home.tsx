@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Recycle, Sparkles, Star, Users, Package, BarChart } from 'lucide-react';
+
 
 const EnhancedLandingPage = () => {
   const [scrollY, setScrollY] = useState(0);
@@ -39,40 +41,40 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
   const features = [
     {
-      icon: '♻️',
+      icon: Recycle,
       title: 'Donate Materials',
-      description: 'Share unwanted items with artisans who need them',
-      gradient: 'linear-gradient(135deg, #4ade80 0%, #059669 100%)'
+      description: 'Share unwanted items with users who need them',
+      gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: '✨',
+      icon: Sparkles,
       title: 'Shop Upcycled Art',
       description: 'Discover unique creations from local artisans',
-      gradient: 'linear-gradient(135deg, #c084fc 0%, #db2777 100%)'
+      gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: '⭐',
+      icon: Star,
       title: 'Earn Gems',
       description: 'Get rewarded for every sustainable action',
-      gradient: 'linear-gradient(135deg, #fbbf24 0%, #ea580c 100%)'
+      gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: '👥',
+      icon: Users,
       title: 'Build Community',
       description: 'Connect with like-minded eco-warriors',
-      gradient: 'linear-gradient(135deg, #60a5fa 0%, #06b6d4 100%)'
+      gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: '📦',
+      icon: Package,
       title: 'Local Exchanges',
-      description: 'Find materials and artisans near you',
-      gradient: 'linear-gradient(135deg, #f87171 0%, #fb7185 100%)'
+      description: 'Find usable materials near you',
+      gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: '📈',
+      icon: BarChart,
       title: 'Track Impact',
       description: 'See your environmental contribution grow',
-      gradient: 'linear-gradient(135deg, #818cf8 0%, #a855f7 100%)'
+      gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     }
   ];
 
@@ -131,7 +133,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               <span style={{
                 fontSize: '20px',
                 fontWeight: 'bold',
-                background: 'linear-gradient(90deg, #059669 0%, #10b981 100%)',
+                background: 'linear-gradient(90deg, #88844d 0%, #66633a 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
               }}>
@@ -228,7 +230,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               <span style={{
                 width: '8px',
                 height: '8px',
-                background: '#10b981',
+                background: '#88844d',
                 borderRadius: '50%',
                 animation: 'pulse 2s infinite'
               }} />
@@ -272,7 +274,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               <button
                 onClick={() => setShowDownloadModal(true)}
                 style={{
-                  background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                  background: 'linear-gradient(90deg, #bec092 0%, #88844d 100%)',
                   color: 'white',
                   padding: '16px 32px',
                   borderRadius: '12px',
@@ -283,7 +285,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  boxShadow: hoveredButton === 'main' ? '0 20px 40px rgba(16, 185, 129, 0.4)' : '0 10px 25px rgba(16, 185, 129, 0.3)',
+                  boxShadow: hoveredButton === 'main' ? '0 20px 40px rgba(168, 185, 16, 0.4)' : '0 10px 25px rgba(168, 185, 16, 0.3)',
                   transform: hoveredButton === 'main' ? 'scale(1.05)' : 'scale(1)',
                   transition: 'all 0.3s'
                 }}
@@ -296,7 +298,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               </button>
               
               <a
-                href="/upcycled-gallery"
+                href="/upcycled-products"
                 style={{
                   background: 'white',
                   color: '#374151',
@@ -308,7 +310,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   border: '2px solid #e5e7eb',
                   boxShadow: hoveredButton === 'learn' ? '0 10px 25px rgba(0,0,0,0.15)' : '0 4px 6px rgba(0,0,0,0.1)',
                   transition: 'all 0.3s',
-                  borderColor: hoveredButton === 'learn' ? '#10b981' : '#e5e7eb'
+                  borderColor: hoveredButton === 'learn' ? '#88844d' : '#e5e7eb'
                 }}
                 onMouseEnter={() => setHoveredButton('learn')}
                 onMouseLeave={() => setHoveredButton(null)}
@@ -320,15 +322,15 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             {/* Trust Indicators */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', paddingTop: '32px', fontSize: '14px', color: '#6b7280', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#10b981', fontSize: '20px' }}>✓</span>
+                <span style={{ color: '#88844d', fontSize: '20px' }}>✓</span>
                 <span>100% Free</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#10b981', fontSize: '20px' }}>✓</span>
+                <span style={{ color: '#88844d', fontSize: '20px' }}>✓</span>
                 <span>No Ads</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#10b981', fontSize: '20px' }}>✓</span>
+                <span style={{ color: '#88844d', fontSize: '20px' }}>✓</span>
                 <span>Secure</span>
               </div>
             </div>
@@ -337,7 +339,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
       </section>
 
       {/* Live Impact Stats */}
-      <section style={{ padding: '64px 16px', background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)' }}>
+      <section style={{ padding: '64px 16px', background: 'linear-gradient(90deg, #bec092 0%, #88844d 100%)' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '32px' }}>
             {impactMetrics.map((metric, index) => (
@@ -398,7 +400,6 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   transform: hoveredFeature === index ? 'scale(1.1)' : 'scale(1)',
                   transition: 'transform 0.3s'
                 }}>
-                  {feature.icon}
                 </div>
                 <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', marginBottom: '12px' }}>
                   {feature.title}
@@ -423,9 +424,9 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
             {[
-              { num: '1', title: 'Download & Sign Up', desc: 'Get the app and create your free account in seconds', color: 'linear-gradient(135deg, #4ade80 0%, #10b981 100%)' },
-              { num: '2', title: 'Explore or List', desc: 'Browse available materials or list items you want to donate', color: 'linear-gradient(135deg, #10b981 0%, #14b8a6 100%)' },
-              { num: '3', title: 'Connect & Exchange', desc: 'Arrange pickup, earn gems, and make an impact!', color: 'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)' }
+              { num: '1', title: 'Download & Sign Up', desc: 'Get the app and create your free account in seconds', color: 'linear-gradient(135deg, #bec092 0%, #88844d 100%)' },
+              { num: '2', title: 'Explore or List', desc: 'Browse available materials or list items you want to donate', color: 'linear-gradient(135deg, #88844d 0%, #66633aff 100%)' },
+              { num: '3', title: 'Connect & Exchange', desc: 'Arrange pickup, earn gems, and make an impact!', color: 'linear-gradient(135deg, #66633aff 0%, #4d4a29ff 100%)' }
             ].map((step, index) => (
               <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' }}>
                 <div style={{
@@ -484,7 +485,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
       </section>
 
       {/* Final CTA */}
-      <section style={{ padding: '80px 16px', background: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #10b981 100%)', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '80px 16px', background: 'linear-gradient(135deg, #bec092 0%, #88844d 50%, #bec092 100%)', position: 'relative', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute',
           inset: 0,
@@ -493,7 +494,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
         }} />
         
         <div style={{ maxWidth: '896px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: '64px', marginBottom: '24px' }}>🚀</div>
+          <div style={{ fontSize: '64px', marginBottom: '24px' }}></div>
           <h2 style={{ fontSize: 'clamp(2rem, 5vw, 2.5rem)', fontWeight: 'bold', color: 'white', marginBottom: '24px' }}>
             Ready to Join the Movement?
           </h2>
@@ -505,7 +506,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             onClick={() => setShowDownloadModal(true)}
             style={{
               background: 'white',
-              color: '#059669',
+              color: '#88844d',
               padding: '20px 40px',
               borderRadius: '12px',
               fontWeight: '700',
@@ -527,7 +528,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
           </button>
 
           <p style={{ color: 'rgba(255,255,255,0.8)', marginTop: '24px', fontSize: '14px' }}>
-            🍎 iOS version coming soon!
+            iOS version coming soon!
           </p>
         </div>
       </section>
@@ -592,7 +593,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   marginBottom: '24px'
                 }}>
                   <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
-                    Version 1.0.0 • 25 MB
+                    Version 1.0.0 • 90 MB
                   </div>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <span style={{
@@ -620,7 +621,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   style={{
                     display: 'block',
                     width: '100%',
-                    background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                    background: 'linear-gradient(90deg, #bec092 0%, #88844d 100%)',
                     color: 'white',
                     padding: '16px',
                     borderRadius: '12px',
@@ -632,7 +633,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                     marginBottom: '24px'
                   }}
                 >
-                  ⬇️ Download APK Now
+                  Download APK Now
                 </a>
 
                 <div style={{
@@ -643,7 +644,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   textAlign: 'left'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                    <span style={{ fontSize: '20px' }}>📌</span>
+                    <span style={{ fontSize: '20px' }}>❕</span>
                     <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
                       <strong>Installation Note:</strong> You may need to enable "Install from Unknown Sources" in your Android settings.
                     </div>
@@ -663,7 +664,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               <div style={{
                 width: '48px',
                 height: '48px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(135deg, #bec092 0%, #88844d 100%)',
                 borderRadius: '12px',
                 padding: '8px',
                 display: 'flex',
