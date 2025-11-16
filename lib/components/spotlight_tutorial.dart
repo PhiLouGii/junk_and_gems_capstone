@@ -61,13 +61,57 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
       children: [
         // Dark overlay
         GestureDetector(
-          onTap: () {}, // Prevent background interaction
+          onTap: () {},
           child: Container(
             color: Colors.black.withOpacity(0.8),
           ),
         ),
         
-        // Spotlight hole (transparent circle)
+        // Skip button - ALWAYS VISIBLE
+        Positioned(
+          top: 50,
+          right: 20,
+          child: SafeArea(
+            child: GestureDetector(
+              onTap: widget.onComplete,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Text(
+                      'Skip Tutorial',
+                      style: TextStyle(
+                        color: Color(0xFF88844D),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.close,
+                      color: Color(0xFF88844D),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        
+        // Spotlight hole
         CustomPaint(
           painter: SpotlightPainter(
             targetKey: step.targetKey,
@@ -86,20 +130,18 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
       builder: (context, constraints) {
         final targetPosition = _getTargetPosition(step.targetKey);
         
-        if (targetPosition == null) {
-          // If target not found, show in center
-          return Center(
-            child: _buildCard(step),
-          );
-        }
-
         double top = 0;
         double? bottom;
         
-        if (step.position == TutorialPosition.bottom) {
-          top = targetPosition.bottom + 20;
+        if (targetPosition != null) {
+          if (step.position == TutorialPosition.bottom) {
+            top = targetPosition.bottom + 20;
+          } else {
+            bottom = constraints.maxHeight - targetPosition.top + 20;
+          }
         } else {
-          bottom = constraints.maxHeight - targetPosition.top + 20;
+          // Center if target not found
+          top = constraints.maxHeight / 2 - 150;
         }
 
         return Positioned(
@@ -259,16 +301,7 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
     }
   }
 
-  // Global map to store widget keys
   static final Map<String, BuildContext> _contextMap = {};
-  
-  void registerContext(String key, BuildContext context) {
-    _contextMap[key] = context;
-  }
-  
-  void unregisterContext(String key) {
-    _contextMap.remove(key);
-  }
 }
 
 class TutorialStep {
@@ -307,7 +340,6 @@ class SpotlightPainter extends CustomPainter {
       final path = Path()
         ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
       
-      // Create spotlight circle
       final center = Offset(
         targetPosition.left + targetPosition.width / 2,
         targetPosition.top + targetPosition.height / 2,
@@ -350,12 +382,11 @@ class SpotlightPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-// Helper widget to register context
 class TutorialTarget extends StatefulWidget {
   final String targetKey;
   final Widget child;
 
-  TutorialTarget({
+  const TutorialTarget({
     super.key,
     required this.targetKey,
     required this.child,

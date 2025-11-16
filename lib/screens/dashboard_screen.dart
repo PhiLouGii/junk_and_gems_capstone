@@ -87,10 +87,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final hasSeenTutorial = prefs.getBool('has_seen_dashboard_tutorial') ?? false;
   
   if (!hasSeenTutorial) {
-    // Wait for the widget tree to be fully built and contexts registered
-    await Future.delayed(const Duration(milliseconds: 2000)); // Increased delay
+    // Wait for everything to load
+    await Future.delayed(const Duration(seconds: 3));
     
-    // Only show if still mounted and contexts are registered
     if (mounted) {
       setState(() {
         showTutorial = true;
