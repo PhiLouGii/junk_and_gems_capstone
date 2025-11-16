@@ -43,6 +43,7 @@ dependencies:
   provider: ^6.0.5
   qr_flutter: ^4.0.0
   shared_preferences: ^2.1.1
+  share_plus: ^12.0.1
   url_launcher: 6.3.2
   url_launcher_android: 6.3.20
   webview_flutter: 4.13.0

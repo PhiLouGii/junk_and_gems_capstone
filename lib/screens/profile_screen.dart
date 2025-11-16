@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:junk_and_gems/providers/auth_provider.dart';
-import 'package:junk_and_gems/screens/buy_gems_screen.dart';
+import 'package:junk_and_gems/screens/refer_friends_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -696,59 +696,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildGemsCounter(User user) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    return GestureDetector(
-      onTap: () async {
-        final newBalance = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BuyGemsScreen(
-              userId: user.id.toString(),
-              currentGems: user.availableGems,
-            ),
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  
+  return GestureDetector(
+    onTap: () async {
+      // Navigate to Refer Friends screen instead of Buy Gems
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ReferFriendsScreen(
+            userId: user.id.toString(),
+            userName: user.name,
+            currentGems: user.availableGems,
           ),
-        );
-        
-        if (newBalance != null) {
-          await authProvider.updateGems(newBalance);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+        ),
+      );
+         // Refresh gems after returning
+      await authProvider.refresh();
+    },
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88844D).withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF88844D).withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.diamond, color: Colors.white, size: 24),
-            const SizedBox(width: 10),
-            Text(
-              "${user.availableGems} Gems", 
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
-          ],
-        ),
+        ],
       ),
-    );
-  }
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.diamond, color: Colors.white, size: 24),
+          const SizedBox(width: 10),
+          Text(
+            "${user.availableGems} Gems", 
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.people_outline, color: Colors.white, size: 20),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _buildBioSection(User user) {
     return Container(
