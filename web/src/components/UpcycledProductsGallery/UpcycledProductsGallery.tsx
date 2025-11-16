@@ -1,33 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './UpcycledProductsGallery.module.css';
 
-// Import category images from src/assets
+// Import category images from src/assets (keep these as fallbacks)
 import homeDecorImage from '../../assets/home_decor.jpg';
 import homeFurnitureImage from '../../assets/home_furniture.jpg';
 import craftsImage from '../../assets/crafts.jpg';
 import jewelryImage from '../../assets/jewelry.jpg';
 import fashionImage from '../../assets/fashion.jpg';
 
-// Import product images from src/assets
-import featured1 from '../../assets/featured1.jpg';
-import featured2 from '../../assets/featured2.jpg';
-import featured3 from '../../assets/featured3.png';
-import featured4 from '../../assets/featured4.jpg';
-import featured5 from '../../assets/featured5.jpg';
-import featured6 from '../../assets/featured6.jpg';
-import featured7 from '../../assets/featured7.jpg';
-import featured8 from '../../assets/featured8.jpg';   
-
-
 interface Product {
-  id: string;
+  _id: string;
   title: string;
-  artisan: string;
-  price: string;
-  image: string;
   description: string;
+  price: number;
   category: string;
+  images: string[];
+  artisanId?: {
+    name?: string;
+    _id?: string;
+  };
+  createdAt?: string;
 }
 
 const UpcycledProductsGallery: React.FC = () => {
@@ -35,102 +28,99 @@ const UpcycledProductsGallery: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [clickedItem, setClickedItem] = useState<{ type: 'product' | 'category'; name: string } | null>(null);
+  
+  // Dynamic state
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Sample product data - in real app, this would come from an API
-  const featuredProducts: Product[] = [
-    {
-      id: '1',
-      title: 'Denim Patchwork Jacket',
-      artisan: 'Lexie Grey',
-      price: 'M450',
-      image: featured1,
-      description: 'Unique jacket made from upcycled denim pieces',
-      category: 'Fashion'
-    },
-    {
-      id: '2',
-      title: 'Skateboard Shelf',
-      artisan: 'Philippa Giibwa',
-      price: 'M350',
-      image: featured2,
-      description: 'Creative shelf to hold your books and DVDs, made from a skateboard',
-      category: 'Home Furniture'
-    },
-    {
-      id: '3',
-      title: 'Plastic bags',
-      artisan: 'Cristina Yang',
-      price: 'M200',
-      image: featured3,
-      description: 'Plastic bags weaved into a beautiful and usable bags',
-      category: 'Home Decor'
-    },
-    {
-      id: '4',
-      title: 'Tin can sculpture',
-      artisan: 'Mark Sloan',
-      price: 'M150',
-      image: featured4,
-      description: 'A stunning sculpture made from recycled tin cans',
-      category: 'Home Decor'
+  const API_BASE_URL = 'https://junk-and-gems-api.onrender.com';
+
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_BASE_URL}/api/products`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+
+        const data = await response.json();
+        setProducts(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching products:', err);
+        setError('Unable to load products. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Calculate categories dynamically from products
+  const categories = React.useMemo(() => {
+    const categoryMap = new Map<string, number>();
+    
+    products.forEach(product => {
+      const cat = product.category || 'Other';
+      categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+    });
+
+    const categoryImages: Record<string, string> = {
+      'Home Decor': homeDecorImage,
+      'Furniture': homeFurnitureImage,
+      'Crafts': craftsImage,
+      'Jewelry': jewelryImage,
+      'Fashion': fashionImage,
+    };
+
+    return Array.from(categoryMap.entries()).map(([name, count]) => ({
+      name,
+      count,
+      image: categoryImages[name] || homeDecorImage
+    }));
+  }, [products]);
+
+  // Filter products based on search and category
+  const filteredProducts = React.useMemo(() => {
+    let filtered = products;
+
+    if (selectedCategory) {
+      filtered = filtered.filter(p => p.category === selectedCategory);
     }
-  ];
 
-  const categories = [
-    { name: 'Home Decor', image: homeDecorImage, count: 12 },
-    { name: 'Furniture', image: homeFurnitureImage, count: 8 },
-    { name: 'Crafts', image: craftsImage, count: 15 },
-    { name: 'Jewelry', image: jewelryImage, count: 20 },
-    { name: 'Fashion', image: fashionImage, count: 10 }
-  ];
-
-  const allProducts: Product[] = [
-    ...featuredProducts,
-    {
-      id: '5',
-      title: 'Belt Patchwork Bag',
-      artisan: 'Maya Bishop',
-      price: 'M300',
-      image: featured8,
-      description: 'Stylish bag made from upcycled belts',
-      category: 'Fashion'
-    },
-    {
-      id: '6',
-      title: 'Key Stationary Holder',
-      artisan: 'Arizona Robbins',
-      price: 'M150',
-      image: featured6,
-      description: 'A cup to keep your pens and pencils, made from recycled keys',
-      category: 'Home Decor'
-    },
-    {
-      id: '7',
-      title: 'Shrek Bottle Cap Wall Art',
-      artisan: 'Jackson Avery',
-      price: 'M520',
-      image: featured5,
-      description: 'Colourful wall art of Shrek made from recycled bottle caps',
-      category: 'Home Decor'
-    },
-    {
-      id: '8',
-      title: 'Tyre Couch',
-      artisan: 'April Kepner',
-      price: 'M1500',
-      image: featured7,
-      description: 'Comfortable living room chair made from upcycled tires',
-      category: 'Furniture'
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.title.toLowerCase().includes(query) ||
+        p.description.toLowerCase().includes(query) ||
+        (p.artisanId?.name && p.artisanId.name.toLowerCase().includes(query))
+      );
     }
-  ];
+
+    return filtered;
+  }, [products, searchQuery, selectedCategory]);
+
+  // Featured products (latest 4)
+  const featuredProducts = React.useMemo(() => {
+    return [...products]
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .slice(0, 4);
+  }, [products]);
 
   const handleProductClick = (product: Product) => {
     if (!isLoggedIn) {
       setClickedItem({ type: 'product', name: product.title });
       setShowSignUpModal(true);
     } else {
-      // Navigate to product detail page
       console.log('View product:', product.title);
+      // Navigate to product detail page
     }
   };
 
@@ -139,15 +129,14 @@ const UpcycledProductsGallery: React.FC = () => {
       setClickedItem({ type: 'category', name: category });
       setShowSignUpModal(true);
     } else {
-      // Filter products by category
-      console.log('Filter by category:', category);
+      setSelectedCategory(selectedCategory === category ? null : category);
+      window.scrollTo({ top: 600, behavior: 'smooth' });
     }
   };
 
   const handleSignUp = () => {
     setIsLoggedIn(true);
     setShowSignUpModal(false);
-    // In real app, this would redirect to signup page
   };
 
   const getModalMessage = () => {
@@ -158,6 +147,10 @@ const UpcycledProductsGallery: React.FC = () => {
     } else {
       return `Sign up to explore all products in "${clickedItem.name}" and discover amazing upcycled creations!`;
     }
+  };
+
+  const formatPrice = (price: number) => {
+    return `M${price.toFixed(2)}`;
   };
 
   return (
@@ -183,109 +176,195 @@ const UpcycledProductsGallery: React.FC = () => {
           type="text"
           placeholder="Search upcycled products, artisans..."
           className={styles.searchInput}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
       {/* Stats Bar */}
       <div className={styles.statsBar}>
         <div className={styles.statItem}>
-          <span className={styles.statNumber}>150+</span>
+          <span className={styles.statNumber}>{products.length}+</span>
           <span className={styles.statLabel}>Upcycled Products</span>
         </div>
         <div className={styles.statItem}>
-          <span className={styles.statNumber}>50+</span>
+          <span className={styles.statNumber}>{new Set(products.map(p => p.artisanId?._id).filter(Boolean)).size}+</span>
           <span className={styles.statLabel}>Talented Artisans</span>
         </div>
         <div className={styles.statItem}>
-          <span className={styles.statNumber}>5+</span>
+          <span className={styles.statNumber}>{categories.length}+</span>
           <span className={styles.statLabel}>Categories</span>
         </div>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
+          <p style={{ color: '#666', fontSize: '18px' }}>Loading amazing upcycled creations...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '40px 20px', 
+          margin: '20px',
+          background: '#fff3cd',
+          borderRadius: '12px',
+          border: '1px solid #ffeaa7'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <p style={{ color: '#856404', fontSize: '16px' }}>{error}</p>
+        </div>
+      )}
+
       {/* Featured Products */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Featured Upcycled Creations</h2>
-        <p className={styles.sectionSubtitle}>Discover unique items crafted from recycled materials</p>
-        
-        <div className={styles.featuredGrid}>
-          {featuredProducts.map((product) => (
-            <div 
-              key={product.id} 
-              className={styles.productCard}
-              onClick={() => handleProductClick(product)}
-            >
-              <div className={styles.productImage}>
-                <img src={product.image} alt={product.title} />
-              </div>
-              <div className={styles.productInfo}>
-                <h3 className={styles.productTitle}>{product.title}</h3>
-                <p className={styles.productArtisan}>By {product.artisan}</p>
-                <div className={styles.productPrice}>{product.price}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Categories */}
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Browse Categories</h2>
-        <div className={styles.categoriesGrid}>
-          {categories.map((category) => (
-            <div 
-              key={category.name}
-              className={styles.categoryCard}
-              onClick={() => handleCategoryClick(category.name)}
-            >
-              <div className={styles.categoryImage}>
-                <img src={category.image} alt={category.name} />
-              </div>
-              <div className={styles.categoryInfo}>
-                <h3 className={styles.categoryName}>{category.name}</h3>
-                <p className={styles.categoryCount}>{category.count} products</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* All Products Grid */}
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>All Upcycled Products</h2>
-          {!isLoggedIn && (
-            <div className={styles.signUpPrompt}>
-              <span className="material-symbols-outlined">info</span>
-              <span>Sign up to connect with artisans</span>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.productsGrid}>
-          {allProducts.map((product) => (
-            <div 
-              key={product.id}
-              className={styles.productCard}
-              onClick={() => handleProductClick(product)}
-            >
-              <div className={styles.productImage}>
-                <img src={product.image} alt={product.title} />
-              </div>
-              <div className={styles.productInfo}>
-                <h3 className={styles.productTitle}>{product.title}</h3>
-                <p className={styles.productArtisan}>By {product.artisan}</p>
-                <div className={styles.productMeta}>
-                  <span className={styles.productCategory}>{product.category}</span>
-                  <span className={styles.productPrice}>{product.price}</span>
+      {!loading && !error && featuredProducts.length > 0 && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Featured Upcycled Creations</h2>
+          <p className={styles.sectionSubtitle}>Discover our latest unique items crafted from recycled materials</p>
+          
+          <div className={styles.featuredGrid}>
+            {featuredProducts.map((product) => (
+              <div 
+                key={product._id} 
+                className={styles.productCard}
+                onClick={() => handleProductClick(product)}
+              >
+                <div className={styles.productImage}>
+                  {product.images && product.images.length > 0 ? (
+                    <img src={product.images[0]} alt={product.title} onError={(e) => {
+                      e.currentTarget.src = homeDecorImage;
+                    }} />
+                  ) : (
+                    <img src={homeDecorImage} alt={product.title} />
+                  )}
+                </div>
+                <div className={styles.productInfo}>
+                  <h3 className={styles.productTitle}>{product.title}</h3>
+                  <p className={styles.productArtisan}>
+                    By {product.artisanId?.name || 'Local Artisan'}
+                  </p>
+                  <div className={styles.productPrice}>{formatPrice(product.price)}</div>
                 </div>
               </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Categories */}
+      {!loading && !error && categories.length > 0 && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Browse Categories</h2>
+          <div className={styles.categoriesGrid}>
+            {categories.map((category) => (
+              <div 
+                key={category.name}
+                className={styles.categoryCard}
+                onClick={() => handleCategoryClick(category.name)}
+                style={{
+                  border: selectedCategory === category.name ? '2px solid #88844D' : 'none',
+                  transform: selectedCategory === category.name ? 'scale(1.05)' : 'scale(1)'
+                }}
+              >
+                <div className={styles.categoryImage}>
+                  <img src={category.image} alt={category.name} />
+                </div>
+                <div className={styles.categoryInfo}>
+                  <h3 className={styles.categoryName}>{category.name}</h3>
+                  <p className={styles.categoryCount}>{category.count} products</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* All Products Grid */}
+      {!loading && !error && (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              {selectedCategory 
+                ? `${selectedCategory} Products` 
+                : searchQuery 
+                  ? `Search Results` 
+                  : 'All Upcycled Products'}
+            </h2>
+            {!isLoggedIn && (
+              <div className={styles.signUpPrompt}>
+                <span className="material-symbols-outlined">info</span>
+                <span>Sign up to connect with artisans</span>
+              </div>
+            )}
+          </div>
+
+          {selectedCategory && (
+            <button 
+              onClick={() => setSelectedCategory(null)}
+              style={{
+                background: '#88844D',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                marginBottom: '16px',
+                fontSize: '14px'
+              }}
+            >
+              ← Show All Categories
+            </button>
+          )}
+
+          {filteredProducts.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔍</div>
+              <p style={{ color: '#666', fontSize: '18px' }}>
+                {searchQuery 
+                  ? `No products found for "${searchQuery}"` 
+                  : 'No products available yet'}
+              </p>
             </div>
-          ))}
-        </div>
-      </section>
+          ) : (
+            <div className={styles.productsGrid}>
+              {filteredProducts.map((product) => (
+                <div 
+                  key={product._id}
+                  className={styles.productCard}
+                  onClick={() => handleProductClick(product)}
+                >
+                  <div className={styles.productImage}>
+                    {product.images && product.images.length > 0 ? (
+                      <img src={product.images[0]} alt={product.title} onError={(e) => {
+                        e.currentTarget.src = homeDecorImage;
+                      }} />
+                    ) : (
+                      <img src={homeDecorImage} alt={product.title} />
+                    )}
+                  </div>
+                  <div className={styles.productInfo}>
+                    <h3 className={styles.productTitle}>{product.title}</h3>
+                    <p className={styles.productArtisan}>
+                      By {product.artisanId?.name || 'Local Artisan'}
+                    </p>
+                    <div className={styles.productMeta}>
+                      <span className={styles.productCategory}>{product.category}</span>
+                      <span className={styles.productPrice}>{formatPrice(product.price)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Sign Up CTA Section */}
-      {!isLoggedIn && (
+      {!isLoggedIn && !loading && (
         <section className={styles.ctaSection}>
           <div className={styles.ctaContent}>
             <div className={styles.ctaIcon}>

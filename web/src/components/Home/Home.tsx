@@ -95,8 +95,8 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   ];
 
   const impactMetrics = [
-    { value: stats.tons, label: 'Tons Saved', icon: '♻️', suffix: '+' },
-    { value: stats.exchanges, label: 'Exchanges', icon: '🤝', suffix: '+' },
+    { value: stats.tons, label: 'Kgs Saved', icon: '♻️', suffix: '+' },
+    { value: stats.exchanges, label: 'Exchanges', icon: '🫱🏻‍🫲🏾', suffix: '+' },
     { value: stats.artisans, label: 'Artisans', icon: '🎨', suffix: '+' },
     { value: 50, label: 'Communities', icon: '🌍', suffix: '+' }
   ];
@@ -119,7 +119,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               <div style={{
                 width: '40px',
                 height: '40px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(135deg, #BEC092 0%, #88844D 100%)',
                 borderRadius: '12px',
                 padding: '8px',
                 display: 'flex',
@@ -141,7 +141,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             <button
               onClick={() => setShowDownloadModal(true)}
               style={{
-                background: 'linear-gradient(90deg, #10b981 0%, #059669 100%)',
+                background: 'linear-gradient(90deg, #BEC092 0%, #88844D 100%)',
                 color: 'white',
                 padding: '8px 24px',
                 borderRadius: '8px',
@@ -158,7 +158,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               onMouseEnter={() => setHoveredButton('nav')}
               onMouseLeave={() => setHoveredButton(null)}
             >
-              <span>📱</span>
+              <span></span>
               <span>Download</span>
             </button>
           </div>
@@ -232,7 +232,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                 borderRadius: '50%',
                 animation: 'pulse 2s infinite'
               }} />
-              <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>🌍 Turning Waste Into Opportunity</span>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>🌍 Turn Trash Into Treasures, together</span>
             </div>
 
             {/* Main Heading */}
@@ -243,10 +243,10 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               lineHeight: '1.1',
               marginBottom: '24px'
             }}>
-              Transform Waste Into
+              Turn Trash Into
               <span style={{
                 display: 'block',
-                background: 'linear-gradient(90deg, #10b981 0%, #059669 50%, #10b981 100%)',
+                background: 'linear-gradient(90deg, #a8aa7dff 0%, #999b6fff 50%, #8b8853ff 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundSize: '200% 200%',
@@ -290,13 +290,13 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                 onMouseEnter={() => setHoveredButton('main')}
                 onMouseLeave={() => setHoveredButton(null)}
               >
-                <span style={{ fontSize: '24px' }}>📱</span>
+                <span style={{ fontSize: '24px' }}>⬇️</span>
                 <span>Download for Android</span>
                 <span style={{ transform: hoveredButton === 'main' ? 'translateX(4px)' : 'translateX(0)', transition: 'transform 0.3s' }}>→</span>
               </button>
               
               <a
-                href="/learn-more"
+                href="/upcycled-gallery"
                 style={{
                   background: 'white',
                   color: '#374151',
@@ -313,7 +313,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                 onMouseEnter={() => setHoveredButton('learn')}
                 onMouseLeave={() => setHoveredButton(null)}
               >
-                Learn More
+                View Upcycled Gallery
               </a>
             </div>
 
