@@ -1,51 +1,53 @@
+// Replace your entire spotlight_tutorial.dart with this simple version:
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SpotlightTutorial extends StatefulWidget {
+class SimpleTutorial extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const SpotlightTutorial({
+  const SimpleTutorial({
     super.key,
     required this.onComplete,
   });
 
   @override
-  State<SpotlightTutorial> createState() => _SpotlightTutorialState();
+  State<SimpleTutorial> createState() => _SimpleTutorialState();
 }
 
-class _SpotlightTutorialState extends State<SpotlightTutorial> {
+class _SimpleTutorialState extends State<SimpleTutorial> {
   int currentStep = 0;
   
   final List<TutorialStep> steps = [
     TutorialStep(
-      targetKey: 'gems_circle',
-      title: 'Your Gems',
-      description: 'Earn gems by checking in daily, donating materials, or claiming materials. Those gems can be used later for price discounts on upcycled products!',
-      position: TutorialPosition.bottom,
+      icon: Icons.diamond,
+      title: 'Welcome to Junk & Gems!',
+      description: 'Let\'s take a quick tour of the app to help you get started.',
     ),
     TutorialStep(
-      targetKey: 'nav_browse',
+      icon: Icons.star,
+      title: 'Earn Gems',
+      description: 'Collect gems by checking in daily, donating materials, or claiming materials. Use gems for discounts on upcycled products!',
+    ),
+    TutorialStep(
+      icon: Icons.inventory_2,
       title: 'Browse Materials',
-      description: 'Browse materials here or donate your materials to help the community.',
-      position: TutorialPosition.top,
+      description: 'Find recyclable materials donated by others. Tap "Browse" in the bottom menu to explore available materials.',
     ),
     TutorialStep(
-      targetKey: 'nav_shop',
-      title: 'Marketplace',
-      description: 'Buy something uniquely designed and upcycled or sell your own creations.',
-      position: TutorialPosition.top,
+      icon: Icons.add_circle_outline,
+      title: 'Donate Materials',
+      description: 'Have materials to share? Donate them to the community and earn gems while helping others!',
     ),
     TutorialStep(
-      targetKey: 'nav_alerts',
-      title: 'Notifications',
-      description: 'Find notifications and messages here to stay updated.',
-      position: TutorialPosition.top,
+      icon: Icons.shopping_bag,
+      title: 'Shop Marketplace',
+      description: 'Buy unique upcycled products or sell your own creations. Tap "Shop" to browse the marketplace.',
     ),
     TutorialStep(
-      targetKey: 'nav_profile',
-      title: 'Your Profile',
-      description: 'Your profile and settings are here. Customise your experience!',
-      position: TutorialPosition.top,
+      icon: Icons.notifications,
+      title: 'Stay Updated',
+      description: 'Check "Alerts" for notifications and messages about your donations, claims, and sales.',
     ),
   ];
 
@@ -57,238 +59,148 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
 
     final step = steps[currentStep];
     
-    return Stack(
-      children: [
-        // Dark overlay
-        GestureDetector(
-          onTap: () {},
-          child: Container(
-            color: Colors.black.withOpacity(0.8),
-          ),
-        ),
-        
-        // Skip button - ALWAYS VISIBLE
-        Positioned(
-          top: 50,
-          right: 20,
-          child: SafeArea(
-            child: GestureDetector(
-              onTap: widget.onComplete,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(25),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text(
-                      'Skip Tutorial',
-                      style: TextStyle(
-                        color: Color(0xFF88844D),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Icon(
-                      Icons.close,
-                      color: Color(0xFF88844D),
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        
-        // Spotlight hole
-        CustomPaint(
-          painter: SpotlightPainter(
-            targetKey: step.targetKey,
-          ),
-          child: Container(),
-        ),
-        
-        // Tutorial card
-        _buildTutorialCard(step),
-      ],
-    );
-  }
-
-  Widget _buildTutorialCard(TutorialStep step) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final targetPosition = _getTargetPosition(step.targetKey);
-        
-        double top = 0;
-        double? bottom;
-        
-        if (targetPosition != null) {
-          if (step.position == TutorialPosition.bottom) {
-            top = targetPosition.bottom + 20;
-          } else {
-            bottom = constraints.maxHeight - targetPosition.top + 20;
-          }
-        } else {
-          // Center if target not found
-          top = constraints.maxHeight / 2 - 150;
-        }
-
-        return Positioned(
-          top: step.position == TutorialPosition.bottom ? top : null,
-          bottom: step.position == TutorialPosition.top ? bottom : null,
-          left: 20,
-          right: 20,
-          child: _buildCard(step),
-        );
-      },
-    );
-  }
-
-  Widget _buildCard(TutorialStep step) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF88844D).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF88844D), Color(0xFFBEC092)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  _getIconForStep(step.targetKey),
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  step.title,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF88844D),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            step.description,
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.grey[700],
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${currentStep + 1} of ${steps.length}',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              ElevatedButton(
-                onPressed: _nextStep,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF88844D),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  currentStep == steps.length - 1 ? 'Got it!' : 'Next',
-                  style: const TextStyle(
+    return Material(
+      color: Colors.black.withOpacity(0.85),
+      child: SafeArea(
+        child: Stack(
+          children: [
+            // Skip button
+            Positioned(
+              top: 20,
+              right: 20,
+              child: TextButton.icon(
+                onPressed: widget.onComplete,
+                icon: const Icon(Icons.close, color: Colors.white),
+                label: const Text(
+                  'Skip',
+                  style: TextStyle(
+                    color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
               ),
-            ],
-          ),
-        ],
+            ),
+            
+            // Tutorial content
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Icon
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF88844D), Color(0xFFBEC092)],
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF88844D).withOpacity(0.5),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        step.icon,
+                        size: 64,
+                        color: Colors.white,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 40),
+                    
+                    // Title
+                    Text(
+                      step.title,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Description
+                    Text(
+                      step.description,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.9),
+                        height: 1.6,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    
+                    const SizedBox(height: 60),
+                    
+                    // Progress dots
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        steps.length,
+                        (index) => Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: index == currentStep ? 24 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: index == currentStep
+                                ? const Color(0xFFBEC092)
+                                : Colors.white.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 40),
+                    
+                    // Next button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _nextStep,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFBEC092),
+                          foregroundColor: const Color(0xFF88844D),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 8,
+                        ),
+                        child: Text(
+                          currentStep == steps.length - 1
+                              ? 'Get Started!'
+                              : 'Next',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  IconData _getIconForStep(String targetKey) {
-    switch (targetKey) {
-      case 'gems_circle':
-        return Icons.diamond;
-      case 'nav_browse':
-        return Icons.inventory_2;
-      case 'nav_shop':
-        return Icons.shopping_bag;
-      case 'nav_alerts':
-        return Icons.notifications;
-      case 'nav_profile':
-        return Icons.person;
-      default:
-        return Icons.help_outline;
-    }
-  }
-
-  Rect? _getTargetPosition(String key) {
-    final RenderBox? renderBox = _findRenderBox(key);
-    if (renderBox == null) return null;
-    
-    final position = renderBox.localToGlobal(Offset.zero);
-    return Rect.fromLTWH(
-      position.dx,
-      position.dy,
-      renderBox.size.width,
-      renderBox.size.height,
-    );
-  }
-
-  RenderBox? _findRenderBox(String key) {
-    try {
-      final BuildContext? targetContext = _contextMap[key];
-      if (targetContext == null) return null;
-      return targetContext.findRenderObject() as RenderBox?;
-    } catch (e) {
-      return null;
-    }
   }
 
   void _nextStep() {
@@ -300,89 +212,48 @@ class _SpotlightTutorialState extends State<SpotlightTutorial> {
       widget.onComplete();
     }
   }
-
-  static final Map<String, BuildContext> _contextMap = {};
 }
 
 class TutorialStep {
-  final String targetKey;
+  final IconData icon;
   final String title;
   final String description;
-  final TutorialPosition position;
 
   TutorialStep({
-    required this.targetKey,
+    required this.icon,
     required this.title,
     required this.description,
-    required this.position,
   });
 }
 
-enum TutorialPosition {
-  top,
-  bottom,
+// Also export this for backward compatibility
+class SpotlightTutorial extends SimpleTutorial {
+  const SpotlightTutorial({
+    super.key,
+    required super.onComplete,
+  });
 }
 
-class SpotlightPainter extends CustomPainter {
-  final String targetKey;
-
-  SpotlightPainter({required this.targetKey});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withOpacity(0.8)
-      ..style = PaintingStyle.fill;
-
-    final targetPosition = _getTargetPosition(targetKey);
+// Update your dashboard_screen.dart _checkFirstTime to:
+/*
+Future<void> _checkFirstTime() async {
+  final prefs = await SharedPreferences.getInstance();
+  final hasSeenTutorial = prefs.getBool('has_seen_dashboard_tutorial') ?? false;
+  
+  if (!hasSeenTutorial) {
+    // Simple 1 second delay
+    await Future.delayed(const Duration(seconds: 1));
     
-    if (targetPosition != null) {
-      final path = Path()
-        ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-      
-      final center = Offset(
-        targetPosition.left + targetPosition.width / 2,
-        targetPosition.top + targetPosition.height / 2,
-      );
-      
-      final radius = (targetPosition.width > targetPosition.height 
-          ? targetPosition.width 
-          : targetPosition.height) / 2 + 15;
-      
-      path.addOval(Rect.fromCircle(center: center, radius: radius));
-      path.fillType = PathFillType.evenOdd;
-      
-      canvas.drawPath(path, paint);
-    } else {
-      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+    if (mounted) {
+      setState(() {
+        showTutorial = true;
+      });
     }
   }
-
-  Rect? _getTargetPosition(String key) {
-    final BuildContext? targetContext = _SpotlightTutorialState._contextMap[key];
-    if (targetContext == null) return null;
-    
-    try {
-      final RenderBox? renderBox = targetContext.findRenderObject() as RenderBox?;
-      if (renderBox == null) return null;
-      
-      final position = renderBox.localToGlobal(Offset.zero);
-      return Rect.fromLTWH(
-        position.dx,
-        position.dy,
-        renderBox.size.width,
-        renderBox.size.height,
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
+*/
 
-class TutorialTarget extends StatefulWidget {
+class TutorialTarget extends StatelessWidget {
   final String targetKey;
   final Widget child;
 
@@ -393,29 +264,7 @@ class TutorialTarget extends StatefulWidget {
   });
 
   @override
-  State<TutorialTarget> createState() => _TutorialTargetState();
-}
-
-class _TutorialTargetState extends State<TutorialTarget> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) { 
-      _SpotlightTutorialState._contextMap[widget.targetKey] = context;
-    });
-  }
-
-  @override
-  void dispose() {
-    _SpotlightTutorialState._contextMap.remove(widget.targetKey);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _SpotlightTutorialState._contextMap[widget.targetKey] = context;
-    });
-    return widget.child;
+    return child; 
   }
 }

@@ -87,8 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final hasSeenTutorial = prefs.getBool('has_seen_dashboard_tutorial') ?? false;
   
   if (!hasSeenTutorial) {
-    // Wait for everything to load
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 1));
     
     if (mounted) {
       setState(() {
