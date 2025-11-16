@@ -62,12 +62,12 @@ class _ReferFriendsScreenState extends State<ReferFriendsScreen> {
     final message = '''
 🌟 Join me on Junk & Gems! 🌟
 
-Transform waste into treasures! Donate recyclable materials, shop unique upcycled products, and earn gems.
+Transform trash into treasures! Donate recyclable materials, shop unique upcycled products, and earn gems.
 
 Use my referral code: $referralCode
 We both get 50 gems when you sign up! 💎
 
-Download: https://junkandgems.app
+Visit: https://junk-and-gems-web.vercel.app/
     '''.trim();
 
     try {
@@ -83,7 +83,7 @@ Download: https://junkandgems.app
     if (referralCode == null) return;
     
     await Clipboard.setData(ClipboardData(text: referralCode!));
-    _showSnackBar('Referral code copied! 📋');
+    _showSnackBar('Referral code copied! ');
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
