@@ -133,48 +133,39 @@ class _StructuredLocationWidgetState extends State<StructuredLocationWidget> {
   }
 
   Future<void> _openMapPicker() async {
-    LatLng? initialLocation;
-    if (_latitude != null && _longitude != null) {
-      initialLocation = LatLng(_latitude!, _longitude!);
-    }
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MapLocationPicker(
-          onLocationSelected: (locationData) {
-            setState(() {
-              _latitude = locationData['latitude'];
-              _longitude = locationData['longitude'];
-              _mapAddress = locationData['address'];
-              _isUsingMapLocation = true;
-              
-              // Auto-fill area if nearest area was found
-              if (locationData['nearest_area'] != null) {
-                final nearestArea = locationData['nearest_area'] as String;
-                if (_areas.contains(nearestArea)) {
-                  _selectedArea = nearestArea;
-                  _isCustomArea = false;
-                }
-              }
-            });
-            _notifyLocationChange();
-          },
-          initialLocation: initialLocation,
-        ),
-      ),
-    );
+  LatLng? initialLocation;
+  if (_latitude != null && _longitude != null) {
+    initialLocation = LatLng(_latitude!, _longitude!);
   }
+
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => MapLocationPicker(
+        onLocationSelected: (locationData) {
+          setState(() {
+            _latitude = locationData['latitude'];
+            _longitude = locationData['longitude'];
+            _mapAddress = locationData['address'];
+            _isUsingMapLocation = true;
+          });
+          _notifyLocationChange();
+        },
+        initialLocation: initialLocation,
+      ),
+    ),
+  );
+}
 
   void _clearMapLocation() {
-    setState(() {
-      _latitude = null;
-      _longitude = null;
-      _mapAddress = null;
-      _isUsingMapLocation = false;
-    });
-    _notifyLocationChange();
-  }
+  setState(() {
+    _latitude = null;
+    _longitude = null;
+    _mapAddress = null;
+    _isUsingMapLocation = false;
+  });
+  _notifyLocationChange();
+}
 
   @override
   Widget build(BuildContext context) {

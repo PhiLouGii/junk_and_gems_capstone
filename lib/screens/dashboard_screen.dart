@@ -87,11 +87,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final hasSeenTutorial = prefs.getBool('has_seen_dashboard_tutorial') ?? false;
   
   if (!hasSeenTutorial) {
-    // Delay to ensure widgets are rendered
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() {
-      showTutorial = true;
-    });
+    // Wait for the widget tree to be fully built and contexts registered
+    await Future.delayed(const Duration(milliseconds: 2000)); // Increased delay
+    
+    // Only show if still mounted and contexts are registered
+    if (mounted) {
+      setState(() {
+        showTutorial = true;
+      });
+    }
   }
 }
 
@@ -226,13 +230,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       await authProvider.refresh();
                     },
                   ),
-                  if (showTutorial)
-                    SpotlightTutorial(
-                      onComplete: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool('has_seen_dashboard_tutorial', true);
-                        setState(() {
-                          showTutorial = false;
+                  if (showTutorial && !isLoading) // Add isLoading check
+  SpotlightTutorial(
+    onComplete: () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_dashboard_tutorial', true);
+      setState(() {
+        showTutorial = false;
       });
     },
   ),
