@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Recycle, Sparkles, Star, Users, Package, BarChart } from 'lucide-react';
+import { Recycle, Sparkles, Star, Users, Package, BarChart, ShoppingBag, Paintbrush, Globe, Share } from 'lucide-react';
 
 
 const EnhancedLandingPage = () => {
@@ -47,13 +47,13 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
       gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: Sparkles,
+      icon: ShoppingBag,
       title: 'Shop Upcycled Art',
       description: 'Discover unique creations from local artisans',
       gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
     },
     {
-      icon: Star,
+      icon: Sparkles,
       title: 'Earn Gems',
       description: 'Get rewarded for every sustainable action',
       gradient: 'linear-gradient(135deg, #5a5733ff 0%, #88844d 100%)'
@@ -97,10 +97,10 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   ];
 
   const impactMetrics = [
-    { value: stats.tons, label: 'Kgs Saved', icon: '♻️', suffix: '+' },
-    { value: stats.exchanges, label: 'Exchanges', icon: '🫱🏻‍🫲🏾', suffix: '+' },
-    { value: stats.artisans, label: 'Artisans', icon: '🎨', suffix: '+' },
-    { value: 50, label: 'Communities', icon: '🌍', suffix: '+' }
+    { value: stats.tons, label: 'Kgs Saved', icon: Recycle, suffix: '+' },
+    { value: stats.exchanges, label: 'Exchanges', icon: Share, suffix: '+' },
+    { value: stats.artisans, label: 'Artisans', icon: Paintbrush, suffix: '+' },
+    { value: 50, label: 'Communities', icon: Globe, suffix: '+' }
   ];
 
   return (
@@ -133,7 +133,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               <span style={{
                 fontSize: '20px',
                 fontWeight: 'bold',
-                background: 'linear-gradient(90deg, #88844d 0%, #66633a 100%)',
+                background: 'linear-gradient(90deg, #bec092 0%, #88844d 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent'
               }}>
@@ -177,7 +177,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             left: '40px',
             width: '288px',
             height: '288px',
-            background: '#bbf7d0',
+            background: '#e4e5c2',
             borderRadius: '50%',
             filter: 'blur(64px)',
             opacity: 0.3,
@@ -190,7 +190,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             right: '40px',
             width: '288px',
             height: '288px',
-            background: '#a7f3d0',
+            background: '#e4e5c2',
             borderRadius: '50%',
             filter: 'blur(64px)',
             opacity: 0.3,
@@ -203,7 +203,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             left: '50%',
             width: '288px',
             height: '288px',
-            background: '#86efac',
+            background: '#e4e5c2',
             borderRadius: '50%',
             filter: 'blur(64px)',
             opacity: 0.3,
@@ -224,7 +224,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
               padding: '8px 16px',
               borderRadius: '20px',
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              border: '1px solid #d1fae5',
+              border: '1px solid #e4e5c2',
               marginBottom: '24px'
             }}>
               <span style={{
@@ -234,7 +234,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                 borderRadius: '50%',
                 animation: 'pulse 2s infinite'
               }} />
-              <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>🌍 Turn Trash Into Treasures, together</span>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>Turn Trash Into Treasures, together</span>
             </div>
 
             {/* Main Heading */}
@@ -344,7 +344,6 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '32px' }}>
             {impactMetrics.map((metric, index) => (
               <div key={index} style={{ textAlign: 'center', color: 'white' }}>
-                <div style={{ fontSize: '48px', marginBottom: '8px' }}>{metric.icon}</div>
                 <div style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 'bold', marginBottom: '8px' }}>
                   {metric.value}{metric.suffix}
                 </div>
@@ -400,6 +399,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   transform: hoveredFeature === index ? 'scale(1.1)' : 'scale(1)',
                   transition: 'transform 0.3s'
                 }}>
+                  <feature.icon size={28} color="#fff" />
                 </div>
                 <h3 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', marginBottom: '12px' }}>
                   {feature.title}
