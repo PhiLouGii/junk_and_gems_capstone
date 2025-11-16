@@ -682,8 +682,8 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
             <div style={{ display: 'flex', gap: '32px', fontSize: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <a href="#" style={{ color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}>About</a>
               <a href="#" style={{ color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}>Contact</a>
-              <a href="#" style={{ color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}>Privacy</a>
-              <a href="#" style={{ color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}>Terms</a>
+              <a href="/privacy" style={{ color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}>Privacy</a>
+              <a href="/terms" style={{ color: '#9ca3af', textDecoration: 'none', transition: 'color 0.2s' }}>Terms</a>
             </div>
             
             <div style={{ color: '#6b7280', fontSize: '14px', paddingTop: '24px', borderTop: '1px solid #374151', width: '100%' }}>
