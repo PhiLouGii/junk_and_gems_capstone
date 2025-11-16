@@ -129,14 +129,23 @@ const UpcycledProductsGallery: React.FC = () => {
 
   const API_BASE_URL = 'https://junk-and-gems-api.onrender.com';
 
-  // Fetch products from API
+  // Fetch products from API with timeout
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         console.log('Fetching products from API...');
         setLoading(true);
         
-        const response = await fetch(`${API_BASE_URL}/api/products`);
+        // Create timeout promise
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 5000)
+        );
+        
+        // Race between fetch and timeout
+        const response = await Promise.race([
+          fetch(`${API_BASE_URL}/api/products`),
+          timeoutPromise
+        ]) as Response;
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -249,8 +258,9 @@ const UpcycledProductsGallery: React.FC = () => {
     }
   };
 
-  const formatPrice = (price: number) => {
-    return `M${price.toFixed(2)}`;
+  const formatPrice = (price: number | string) => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+    return `M${numPrice.toFixed(2)}`;
   };
 
   return (
@@ -259,7 +269,7 @@ const UpcycledProductsGallery: React.FC = () => {
       <header className={styles.header}>
         <button 
           className={styles.backButton}
-          onClick={() => navigate('/')}
+          onClick={() => navigate(-1)}
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
