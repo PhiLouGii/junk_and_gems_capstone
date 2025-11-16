@@ -149,7 +149,7 @@ const PrivacyPolicy: React.FC = () => {
         <div className={styles.section}>
           <h2 className={styles.sectionTitle}>6. Children's Privacy</h2>
           <p className={styles.paragraph}>
-            Junk & Gems is not intended for children under 13 years of age. We do not knowingly collect personal information from children. If we discover that a child has provided us with personal information, we will delete it promptly.
+            Junk & Gems is not intended for persons under 18 years of age. We do not knowingly collect personal information from children. If we discover that a child has provided us with personal information, we will delete it promptly.
           </p>
         </div>
 

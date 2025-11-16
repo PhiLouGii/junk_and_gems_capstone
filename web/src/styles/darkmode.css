@@ -1,0 +1,120 @@
+/* Light mode (default) */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #F7F2E4;
+  --bg-gradient-start: #f9fafb;
+  --bg-gradient-end: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --accent-primary: #10b981;
+  --accent-secondary: #059669;
+  --accent-tertiary: #88844D;
+  --accent-light: #BEC092;
+}
+
+/* Dark mode */
+.dark-mode {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-gradient-start: #1a1a1a;
+  --bg-gradient-end: #0f0f0f;
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --border-color: #374151;
+  --card-bg: #2d2d2d;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --accent-primary: #10b981;
+  --accent-secondary: #059669;
+  --accent-tertiary: #a8a47e;
+  --accent-light: #d4d1b0;
+}
+
+/* Apply to body */
+body {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Override specific styles for dark mode */
+.dark-mode {
+  /* Headers */
+  header {
+    background-color: var(--card-bg) !important;
+    border-bottom-color: var(--border-color) !important;
+  }
+
+  /* Cards */
+  .dark-mode [class*="Card"],
+  .dark-mode [class*="card"],
+  .dark-mode [class*="section"] {
+    background-color: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+  }
+
+  /* Text */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+  }
+
+  p, span, div {
+    color: var(--text-secondary);
+  }
+
+  /* Inputs */
+  input, textarea, select {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+  }
+
+  input::placeholder {
+    color: var(--text-tertiary) !important;
+  }
+
+  /* Buttons - preserve green accent */
+  button {
+    color: inherit;
+  }
+
+  /* Links */
+  a {
+    color: var(--accent-primary);
+  }
+
+  /* Shadows */
+  [class*="shadow"] {
+    box-shadow: 0 4px 20px var(--shadow) !important;
+  }
+
+  /* Stats bar - keep gradient visible */
+  [class*="statsBar"] {
+    background: linear-gradient(90deg, #0f7a54 0%, #047857 100%) !important;
+  }
+
+  /* Footer */
+  footer {
+    background-color: #0f0f0f !important;
+  }
+
+  /* Images - add slight brightness adjustment */
+  img {
+    filter: brightness(0.9);
+  }
+
+  /* Search bars */
+  [class*="search"] {
+    background-color: var(--card-bg) !important;
+    border-color: var(--border-color) !important;
+  }
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
