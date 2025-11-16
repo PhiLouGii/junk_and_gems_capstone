@@ -376,7 +376,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   background: 'white',
                   borderRadius: '16px',
                   padding: '32px',
-                  boxShadow: hoveredFeature === index ? '0 20px 40px rgba(16, 185, 129, 0.2)' : '0 4px 20px rgba(0,0,0,0.08)',
+                  boxShadow: hoveredFeature === index ? '0 20px 40px rgba(160, 185, 16, 0.3)' : '0 4px 20px rgba(0,0,0,0.08)',
                   transition: 'all 0.3s',
                   transform: hoveredFeature === index ? 'translateY(-8px)' : 'translateY(0)',
                   border: '1px solid #f3f4f6',
@@ -440,7 +440,7 @@ const [hoveredButton, setHoveredButton] = useState<string | null>(null);
                   fontSize: '32px',
                   fontWeight: '800',
                   color: 'white',
-                  boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)',
+                  boxShadow: '0 8px 24px rgba(160, 185, 16, 0.3)',
                   flexShrink: 0
                 }}>
                   {step.num}

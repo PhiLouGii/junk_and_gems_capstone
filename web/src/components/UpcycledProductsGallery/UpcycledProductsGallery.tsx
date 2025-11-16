@@ -2,12 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './UpcycledProductsGallery.module.css';
 
-// Import category images from src/assets (keep these as fallbacks)
+// Import category images and product images as fallbacks
 import homeDecorImage from '../../assets/home_decor.jpg';
 import homeFurnitureImage from '../../assets/home_furniture.jpg';
 import craftsImage from '../../assets/crafts.jpg';
 import jewelryImage from '../../assets/jewelry.jpg';
 import fashionImage from '../../assets/fashion.jpg';
+import featured1 from '../../assets/featured1.jpg';
+import featured2 from '../../assets/featured2.jpg';
+import featured3 from '../../assets/featured3.png';
+import featured4 from '../../assets/featured4.jpg';
+import featured5 from '../../assets/featured5.jpg';
+import featured6 from '../../assets/featured6.jpg';
+import featured7 from '../../assets/featured7.jpg';
+import featured8 from '../../assets/featured8.jpg';
 
 interface Product {
   _id: string;
@@ -23,6 +31,90 @@ interface Product {
   createdAt?: string;
 }
 
+// Fallback products if API fails
+const fallbackProducts: Product[] = [
+  {
+    _id: '1',
+    title: 'Denim Patchwork Jacket',
+    description: 'Unique jacket made from upcycled denim pieces',
+    price: 450,
+    category: 'Fashion',
+    images: [featured1],
+    artisanId: { name: 'Lexie Grey', _id: '1' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '2',
+    title: 'Skateboard Shelf',
+    description: 'Creative shelf to hold your books and DVDs',
+    price: 350,
+    category: 'Furniture',
+    images: [featured2],
+    artisanId: { name: 'Philippa Giibwa', _id: '2' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '3',
+    title: 'Plastic Bags Art',
+    description: 'Plastic bags weaved into beautiful usable bags',
+    price: 200,
+    category: 'Home Decor',
+    images: [featured3],
+    artisanId: { name: 'Cristina Yang', _id: '3' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '4',
+    title: 'Tin Can Sculpture',
+    description: 'Stunning sculpture made from recycled tin cans',
+    price: 150,
+    category: 'Home Decor',
+    images: [featured4],
+    artisanId: { name: 'Mark Sloan', _id: '4' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '5',
+    title: 'Belt Patchwork Bag',
+    description: 'Stylish bag made from upcycled belts',
+    price: 300,
+    category: 'Fashion',
+    images: [featured8],
+    artisanId: { name: 'Maya Bishop', _id: '5' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '6',
+    title: 'Key Stationary Holder',
+    description: 'Pen holder made from recycled keys',
+    price: 150,
+    category: 'Home Decor',
+    images: [featured6],
+    artisanId: { name: 'Arizona Robbins', _id: '6' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '7',
+    title: 'Shrek Bottle Cap Wall Art',
+    description: 'Colorful wall art made from recycled bottle caps',
+    price: 520,
+    category: 'Crafts',
+    images: [featured5],
+    artisanId: { name: 'Jackson Avery', _id: '7' },
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: '8',
+    title: 'Tyre Couch',
+    description: 'Comfortable chair made from upcycled tires',
+    price: 1500,
+    category: 'Furniture',
+    images: [featured7],
+    artisanId: { name: 'April Kepner', _id: '8' },
+    createdAt: new Date().toISOString()
+  }
+];
+
 const UpcycledProductsGallery: React.FC = () => {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -30,9 +122,8 @@ const UpcycledProductsGallery: React.FC = () => {
   const [clickedItem, setClickedItem] = useState<{ type: 'product' | 'category'; name: string } | null>(null);
   
   // Dynamic state
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(fallbackProducts);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -42,19 +133,29 @@ const UpcycledProductsGallery: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        console.log('Fetching products from API...');
         setLoading(true);
+        
         const response = await fetch(`${API_BASE_URL}/api/products`);
         
         if (!response.ok) {
-          throw new Error('Failed to fetch products');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        setProducts(data);
-        setError(null);
+        console.log('API Response:', data);
+        
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+          console.log('Products loaded from API:', data.length);
+        } else {
+          console.log('API returned empty array, using fallback products');
+          setProducts(fallbackProducts);
+        }
       } catch (err) {
         console.error('Error fetching products:', err);
-        setError('Unable to load products. Please try again later.');
+        console.log('Using fallback products due to error');
+        setProducts(fallbackProducts);
       } finally {
         setLoading(false);
       }
@@ -120,7 +221,6 @@ const UpcycledProductsGallery: React.FC = () => {
       setShowSignUpModal(true);
     } else {
       console.log('View product:', product.title);
-      // Navigate to product detail page
     }
   };
 
@@ -155,11 +255,11 @@ const UpcycledProductsGallery: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      {/* Header */}
+      {/* Header - Always visible */}
       <header className={styles.header}>
         <button 
           className={styles.backButton}
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/')}
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
@@ -169,7 +269,7 @@ const UpcycledProductsGallery: React.FC = () => {
         <div className={styles.headerSpacer}></div>
       </header>
 
-      {/* Search Bar */}
+      {/* Search Bar - Always visible */}
       <div className={styles.searchBar}>
         <span className="material-symbols-outlined">search</span>
         <input
@@ -181,18 +281,20 @@ const UpcycledProductsGallery: React.FC = () => {
         />
       </div>
 
-      {/* Stats Bar */}
+      {/* Stats Bar - Always visible */}
       <div className={styles.statsBar}>
         <div className={styles.statItem}>
-          <span className={styles.statNumber}>{products.length}+</span>
+          <span className={styles.statNumber}>{loading ? '...' : `${products.length}+`}</span>
           <span className={styles.statLabel}>Upcycled Products</span>
         </div>
         <div className={styles.statItem}>
-          <span className={styles.statNumber}>{new Set(products.map(p => p.artisanId?._id).filter(Boolean)).size}+</span>
+          <span className={styles.statNumber}>
+            {loading ? '...' : `${new Set(products.map(p => p.artisanId?._id).filter(Boolean)).size}+`}
+          </span>
           <span className={styles.statLabel}>Talented Artisans</span>
         </div>
         <div className={styles.statItem}>
-          <span className={styles.statNumber}>{categories.length}+</span>
+          <span className={styles.statNumber}>{loading ? '...' : `${categories.length}+`}</span>
           <span className={styles.statLabel}>Categories</span>
         </div>
       </div>
@@ -205,23 +307,8 @@ const UpcycledProductsGallery: React.FC = () => {
         </div>
       )}
 
-      {/* Error State */}
-      {error && (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px 20px', 
-          margin: '20px',
-          background: '#fff3cd',
-          borderRadius: '12px',
-          border: '1px solid #ffeaa7'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-          <p style={{ color: '#856404', fontSize: '16px' }}>{error}</p>
-        </div>
-      )}
-
       {/* Featured Products */}
-      {!loading && !error && featuredProducts.length > 0 && (
+      {!loading && featuredProducts.length > 0 && (
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Featured Upcycled Creations</h2>
           <p className={styles.sectionSubtitle}>Discover our latest unique items crafted from recycled materials</p>
@@ -256,7 +343,7 @@ const UpcycledProductsGallery: React.FC = () => {
       )}
 
       {/* Categories */}
-      {!loading && !error && categories.length > 0 && (
+      {!loading && categories.length > 0 && (
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Browse Categories</h2>
           <div className={styles.categoriesGrid}>
@@ -267,7 +354,8 @@ const UpcycledProductsGallery: React.FC = () => {
                 onClick={() => handleCategoryClick(category.name)}
                 style={{
                   border: selectedCategory === category.name ? '2px solid #88844D' : 'none',
-                  transform: selectedCategory === category.name ? 'scale(1.05)' : 'scale(1)'
+                  transform: selectedCategory === category.name ? 'scale(1.05)' : 'scale(1)',
+                  transition: 'all 0.3s'
                 }}
               >
                 <div className={styles.categoryImage}>
@@ -284,7 +372,7 @@ const UpcycledProductsGallery: React.FC = () => {
       )}
 
       {/* All Products Grid */}
-      {!loading && !error && (
+      {!loading && (
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>
