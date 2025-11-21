@@ -9,7 +9,7 @@ import jwt from "jsonwebtoken";
 import { OAuth2Client } from 'google-auth-library';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,25 +20,40 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Configure SendGrid
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Configure Brevo SMTP transporter
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.BREVO_USER,
+    pass: process.env.BREVO_SMTP_KEY 
+  }
+});
 
 // Email sending helper function
 async function sendEmail({ to, subject, text, html }) {
   try {
-    const result = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+    const mailOptions = {
+      from: {
+        name: 'Junk & Gems',
+        address: process.env.BREVO_USER
+      },
       to: to,
-      replyTo: 'junkandgems.ls@gmail.com', 
+      replyTo: process.env.BREVO_USER,
       subject: subject,
       text: text,
       html: html || text
-    });
+    };
+
+    const result = await transporter.sendMail(mailOptions);
 
     console.log(` Email sent to ${to}: ${subject}`);
-    return { success: true, id: result.id };
+    console.log(` Message ID: ${result.messageId}`);
+    
+    return { success: true, messageId: result.messageId };
   } catch (error) {
-    console.error(' Resend error:', error);
+    console.error(' Email error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -49,64 +64,98 @@ function getWelcomeEmailHtml(name) {
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         body {
           font-family: Arial, sans-serif;
           line-height: 1.6;
           color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f4f4f4;
+        }
+        .email-container {
           max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
+          margin: 20px auto;
+          background-color: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .header {
-          background-color: #88844D;
+          background: linear-gradient(135deg, #88844D, #BEC092);
           color: white;
-          padding: 30px;
+          padding: 40px 30px;
           text-align: center;
-          border-radius: 10px 10px 0 0;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 28px;
         }
         .content {
+          padding: 40px 30px;
           background-color: #F7F2E4;
-          padding: 30px;
-          border-radius: 0 0 10px 10px;
         }
-        .button {
-          display: inline-block;
-          padding: 12px 30px;
+        .content h2 {
+          color: #88844D;
+          margin-top: 0;
+        }
+        .content ul {
+          padding-left: 20px;
+        }
+        .content li {
+          margin: 10px 0;
+        }
+        .highlight-box {
           background-color: #88844D;
           color: white;
-          text-decoration: none;
-          border-radius: 5px;
+          padding: 15px;
+          border-radius: 8px;
+          text-align: center;
           margin: 20px 0;
+          font-weight: bold;
         }
         .footer {
+          background-color: #333;
+          color: #fff;
           text-align: center;
-          margin-top: 30px;
-          color: #666;
+          padding: 20px;
           font-size: 12px;
+        }
+        .footer p {
+          margin: 5px 0;
         }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Welcome to Junk & Gems! 🎉</h1>
-      </div>
-      <div class="content">
-        <h2>Hi ${name}!</h2>
-        <p>Thank you for joining our community of eco-conscious creators and contributors.</p>
-        <p><strong>What you can do now:</strong></p>
-        <ul>
-          <li>🎁 Donate materials you no longer need</li>
-          <li>🔍 Browse available materials for your projects</li>
-          <li>💎 Earn gems for your contributions</li>
-          <li>🛍️ Shop unique upcycled products from artisans</li>
-          <li>💬 Connect with other community members</li>
-        </ul>
-        <p><strong>Welcome bonus:</strong> You've received 5 gems to get started!</p>
-        <p>Start exploring and making a difference today!</p>
+      <div class="email-container">
+        <div class="header">
+          <h1>🎉 Welcome to Junk & Gems!</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${name}!</h2>
+          <p>Thank you for joining our community of eco-conscious creators and contributors.</p>
+          
+          <div class="highlight-box">
+            🎁 Welcome Bonus: 5 Gems Added to Your Account!
+          </div>
+          
+          <p><strong>What you can do now:</strong></p>
+          <ul>
+            <li>🎁 Donate materials you no longer need</li>
+            <li>🔍 Browse available materials for your projects</li>
+            <li>💎 Earn gems for your contributions</li>
+            <li>🛍️ Shop unique upcycled products from artisans</li>
+            <li>💬 Connect with other community members</li>
+          </ul>
+          
+          <p>Start exploring and making a difference today!</p>
+        </div>
         <div class="footer">
-          <p>Junk & Gems - Turn trash into treasure, together</p>
-          <p>If you have any questions, feel free to reach out to our support team.</p>
+          <p><strong>Junk & Gems</strong></p>
+          <p>Turn trash into treasure, together ♻️</p>
+          <p>If you have any questions, reply to this email.</p>
         </div>
       </div>
     </body>
@@ -239,6 +288,385 @@ function getDonationConfirmationEmailHtml(name, materialTitle, gemsEarned) {
     </html>
   `;
 }
+
+// Claim rejected email (for claimer)
+function getClaimRejectedEmailHtml(claimerName, materialTitle, reason) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f4f4f4;
+        }
+        .email-container {
+          max-width: 600px;
+          margin: 20px auto;
+          background-color: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #FF6B6B, #FFA07A);
+          color: white;
+          padding: 40px 30px;
+          text-align: center;
+        }
+        .content {
+          padding: 40px 30px;
+          background-color: #F7F2E4;
+        }
+        .info-box {
+          background-color: #fff3cd;
+          border-left: 4px solid #ffc107;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .footer {
+          background-color: #333;
+          color: #fff;
+          text-align: center;
+          padding: 20px;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="header">
+          <h1>Claim Not Approved</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${claimerName},</h2>
+          <p>Unfortunately, your claim for "${materialTitle}" was not approved by the donor.</p>
+          ${reason ? `<div class="info-box"><strong>Reason:</strong> ${reason}</div>` : ''}
+          <p><strong>Don't worry!</strong> There are many other materials available in the community. Keep browsing and you'll find something perfect for your project! 🎨</p>
+          <p>The material is now available again for others to claim.</p>
+        </div>
+        <div class="footer">
+          <p><strong>Junk & Gems</strong></p>
+          <p>Keep creating, keep inspiring ✨</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function getMaterialClaimedEmailHtml(uploaderName, materialTitle, claimerName) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+        .button { display: inline-block; background: #88844D; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 Material Claimed!</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${uploaderName},</p>
+          <p>Great news! <strong>${claimerName}</strong> has claimed your material:</p>
+          <p style="font-size: 18px; font-weight: bold; color: #88844D;">"${materialTitle}"</p>
+          <p>They'll be in touch soon to arrange pickup or delivery. Thank you for contributing to our recycling community! 🌍♻️</p>
+          <a href="https://junkandgems.com" class="button">View Your Materials</a>
+        </div>
+        <div class="footer">
+          <p>Junk & Gems - Turning Waste into Treasure</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function getMaterialClaimRequestEmailHtml(donorName, materialTitle, claimerName, conversationId) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f4f4f4;
+        }
+        .email-container {
+          max-width: 600px;
+          margin: 20px auto;
+          background-color: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #88844D, #BEC092);
+          color: white;
+          padding: 40px 30px;
+          text-align: center;
+        }
+        .content {
+          padding: 40px 30px;
+          background-color: #F7F2E4;
+        }
+        .material-info {
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+          border-left: 4px solid #88844D;
+        }
+        .alert-box {
+          background-color: #fff3cd;
+          border-left: 4px solid #ffc107;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .footer {
+          background-color: #333;
+          color: #fff;
+          text-align: center;
+          padding: 20px;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="header">
+          <h1>🤝 Material Claim Request</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${donorName},</h2>
+          <p><strong>${claimerName}</strong> is interested in claiming your material:</p>
+          
+          <div class="material-info">
+            <h3 style="margin-top: 0; color: #88844D;">${materialTitle}</h3>
+          </div>
+          
+          <div class="alert-box">
+            <strong> Action Required:</strong> Please check your in-app messages to discuss pickup/delivery details with ${claimerName}. Once you've arranged everything, confirm the claim in the app.
+          </div>
+          
+          <p><strong>Next Steps:</strong></p>
+          <ol>
+            <li>Open the Junk & Gems app</li>
+            <li>Check your messages from ${claimerName}</li>
+            <li>Discuss pickup/delivery details</li>
+            <li>Confirm or reject the claim</li>
+          </ol>
+        </div>
+        <div class="footer">
+          <p><strong>Junk & Gems</strong></p>
+          <p>Connecting donors with creators 🔗</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+function getClaimConfirmedEmailHtml(claimerName, materialTitle) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          margin: 0;
+          padding: 0;
+          background-color: #f4f4f4;
+        }
+        .email-container {
+          max-width: 600px;
+          margin: 20px auto;
+          background-color: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+          background: linear-gradient(135deg, #88844D, #BEC092);
+          color: white;
+          padding: 40px 30px;
+          text-align: center;
+        }
+        .content {
+          padding: 40px 30px;
+          background-color: #F7F2E4;
+        }
+        .success-box {
+          background-color: #d4edda;
+          border-left: 4px solid #28a745;
+          padding: 20px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .footer {
+          background-color: #333;
+          color: #fff;
+          text-align: center;
+          padding: 20px;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-container">
+        <div class="header">
+          <h1>✅ Claim Confirmed!</h1>
+        </div>
+        <div class="content">
+          <h2>Hi ${claimerName},</h2>
+          
+          <div class="success-box">
+            <strong>🎉 Great news!</strong> Your claim for "${materialTitle}" has been confirmed by the donor.
+          </div>
+          
+          <p>Check your messages in the app to finalize pickup/delivery arrangements.</p>
+          
+          <p>Thank you for contributing to a circular economy! 🌍♻️</p>
+        </div>
+        <div class="footer">
+          <p><strong>Junk & Gems</strong></p>
+          <p>Creating value from waste together 💚</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// Email template for gem purchases
+function getGemPurchaseEmailHtml(name, gemsAmount, price, newBalance) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .header {
+          background-color: #88844D;
+          color: white;
+          padding: 30px;
+          text-align: center;
+          border-radius: 10px 10px 0 0;
+        }
+        .content {
+          background-color: #F7F2E4;
+          padding: 30px;
+          border-radius: 0 0 10px 10px;
+        }
+        .gems-badge {
+          background-color: #88844D;
+          color: white;
+          padding: 15px 25px;
+          border-radius: 50px;
+          display: inline-block;
+          margin: 20px 0;
+          font-size: 24px;
+          font-weight: bold;
+        }
+        .balance {
+          background-color: #BEC092;
+          color: white;
+          padding: 15px;
+          border-radius: 10px;
+          text-align: center;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>💎 Gem Purchase Successful!</h1>
+      </div>
+      <div class="content">
+        <h2>Hi ${name}!</h2>
+        <p>Your gem purchase has been processed successfully.</p>
+        
+        <div class="gems-badge">
+          +${gemsAmount} Gems
+        </div>
+        
+        <p><strong>Purchase Details:</strong></p>
+        <ul>
+          <li>Gems Purchased: ${gemsAmount}</li>
+          <li>Amount Paid: M${price.toFixed(2)}</li>
+          <li>Payment Method: Card</li>
+        </ul>
+        
+        <div class="balance">
+          <h3 style="margin: 0;">New Balance</h3>
+          <h2 style="margin: 10px 0;">${newBalance} Gems</h2>
+        </div>
+        
+        <p><strong>What you can do with your gems:</strong></p>
+        <ul>
+          <li>💰 Get discounts on marketplace purchases (1 Gem = M1)</li>
+          <li>🎁 Unlock exclusive rewards</li>
+          <li>⭐ Support artisan communities</li>
+        </ul>
+        
+        <p>Thank you for your purchase!</p>
+        
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+          <p style="font-size: 12px; color: #666;">
+            Junk & Gems - Turning waste into wonder<br>
+            If you have any questions about your purchase, please contact our support team.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log(' Brevo SMTP connection failed:', error);
+    console.log('   Check your BREVO_USER and BREVO_SMTP_KEY in .env');
+  } else {
+    console.log(' Brevo SMTP server is ready to send emails');
+    console.log(' Emails will be sent from:', process.env.BREVO_USER);
+  }
+});
+
 
 app.use(cors({
   origin: '*', // Allow all origins for mobile app
@@ -1153,45 +1581,6 @@ app.post('/api/notifications/create', async (req, res) => {
 });
 
 console.log('User notification endpoints initialized');
-
-// ========================================
-// EMAIL TEMPLATES (Add these helper functions)
-// ========================================
-
-function getMaterialClaimedEmailHtml(uploaderName, materialTitle, claimerName) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .button { display: inline-block; background: #88844D; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>🎉 Material Claimed!</h1>
-        </div>
-        <div class="content">
-          <p>Hi ${uploaderName},</p>
-          <p>Great news! <strong>${claimerName}</strong> has claimed your material:</p>
-          <p style="font-size: 18px; font-weight: bold; color: #88844D;">"${materialTitle}"</p>
-          <p>They'll be in touch soon to arrange pickup or delivery. Thank you for contributing to our recycling community! 🌍♻️</p>
-          <a href="https://junkandgems.com" class="button">View Your Materials</a>
-        </div>
-        <div class="footer">
-          <p>Junk & Gems - Turning Waste into Treasure</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-}
 
 console.log(' Notification system initialized');
 
@@ -2159,37 +2548,7 @@ app.put('/materials/:id/reject-claim', authenticateToken, async (req, res) => {
   }
 });
 
-// Add email template for rejection
-function getClaimRejectedEmailHtml(claimerName, materialTitle, reason) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #FF6B6B, #FFA07A); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .info-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Claim Not Approved</h1>
-        </div>
-        <div class="content">
-          <p>Hi ${claimerName},</p>
-          <p>Unfortunately, your claim for "${materialTitle}" was not approved by the donor.</p>
-          ${reason ? `<div class="info-box"><strong>Reason:</strong> ${reason}</div>` : ''}
-          <p><strong>Don't worry!</strong> There are many other materials available in the community. Keep browsing and you'll find something perfect for your project! 🎨</p>
-          <p>The material is now available again for others to claim.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-}
+
 // Get user's posted materials
 app.get("/users/:userId/materials", authenticateToken, async (req, res) => {
   const { userId } = req.params;
@@ -2303,78 +2662,6 @@ app.post("/api/setup-material-claiming-workflow", async (req, res) => {
     res.status(500).json({ error: "Setup failed: " + err.message });
   }
 });
-
-function getMaterialClaimRequestEmailHtml(donorName, materialTitle, claimerName, conversationId) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .button { display: inline-block; background: #88844D; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-        .alert-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1> Material Claim Request</h1>
-        </div>
-        <div class="content">
-          <p>Hi ${donorName},</p>
-          <p><strong>${claimerName}</strong> is interested in claiming your material:</p>
-          <p style="font-size: 18px; font-weight: bold; color: #88844D;">"${materialTitle}"</p>
-          <div class="alert-box">
-            <strong> Action Required:</strong> Please check your in-app messages to discuss pickup/delivery details with ${claimerName}. Once you've arranged everything, confirm the claim in the app.
-          </div>
-          <p><strong>Next Steps:</strong></p>
-          <ol>
-            <li>Open the app and check your messages</li>
-            <li>Discuss pickup/delivery details with ${claimerName}</li>
-            <li>Confirm or reject the claim</li>
-          </ol>
-          <a href="https://junkandgems.com/messages/${conversationId}" class="button">Open Messages</a>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-}
-
-function getClaimConfirmedEmailHtml(claimerName, materialTitle) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #88844D, #BEC092); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .success-box { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1> Claim Confirmed!</h1>
-        </div>
-        <div class="content">
-          <p>Hi ${claimerName},</p>
-          <div class="success-box">
-            <strong> Great news!</strong> Your claim for "${materialTitle}" has been confirmed by the donor.
-          </div>
-          <p>Check your messages in the app to finalize pickup/delivery arrangements.</p>
-          <p>Thank you for contributing to a circular economy! 🌍♻️</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-}
 
 // Cleanup job: Remove confirmed materials after 1 day
 app.post('/api/cleanup-confirmed-materials', async (req, res) => {
@@ -7157,98 +7444,6 @@ app.post("/api/users/:userId/purchase-gems", authenticateToken, async (req, res)
     });
   }
 });
-
-// Email template for gem purchases
-function getGemPurchaseEmailHtml(name, gemsAmount, price, newBalance) {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        .header {
-          background-color: #88844D;
-          color: white;
-          padding: 30px;
-          text-align: center;
-          border-radius: 10px 10px 0 0;
-        }
-        .content {
-          background-color: #F7F2E4;
-          padding: 30px;
-          border-radius: 0 0 10px 10px;
-        }
-        .gems-badge {
-          background-color: #88844D;
-          color: white;
-          padding: 15px 25px;
-          border-radius: 50px;
-          display: inline-block;
-          margin: 20px 0;
-          font-size: 24px;
-          font-weight: bold;
-        }
-        .balance {
-          background-color: #BEC092;
-          color: white;
-          padding: 15px;
-          border-radius: 10px;
-          text-align: center;
-          margin: 20px 0;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>💎 Gem Purchase Successful!</h1>
-      </div>
-      <div class="content">
-        <h2>Hi ${name}!</h2>
-        <p>Your gem purchase has been processed successfully.</p>
-        
-        <div class="gems-badge">
-          +${gemsAmount} Gems
-        </div>
-        
-        <p><strong>Purchase Details:</strong></p>
-        <ul>
-          <li>Gems Purchased: ${gemsAmount}</li>
-          <li>Amount Paid: M${price.toFixed(2)}</li>
-          <li>Payment Method: Card</li>
-        </ul>
-        
-        <div class="balance">
-          <h3 style="margin: 0;">New Balance</h3>
-          <h2 style="margin: 10px 0;">${newBalance} Gems</h2>
-        </div>
-        
-        <p><strong>What you can do with your gems:</strong></p>
-        <ul>
-          <li>💰 Get discounts on marketplace purchases (1 Gem = M1)</li>
-          <li>🎁 Unlock exclusive rewards</li>
-          <li>⭐ Support artisan communities</li>
-        </ul>
-        
-        <p>Thank you for your purchase!</p>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-          <p style="font-size: 12px; color: #666;">
-            Junk & Gems - Turning waste into wonder<br>
-            If you have any questions about your purchase, please contact our support team.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-}
 
 app.post("/api/fix-gem-transactions-constraint", async (req, res) => {
   try {
