@@ -1064,7 +1064,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            'To: ${widget.sellerName}',
+                            'To: Seller',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.white,
@@ -1115,7 +1115,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         _buildPaymentStep(
                           number: '3',
                           title: 'Send Money to Seller',
-                          description: 'Send to ${widget.sellerName}: $recipientNumber',
+                          description: 'Send to Seller',
                           action: recipientNumber,
                           canCopy: true,
                           brandColor: brandColor,

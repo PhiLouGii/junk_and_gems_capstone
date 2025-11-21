@@ -82,7 +82,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
  Future<void> _loadMessages() async {
   if (_token == null) {
-    print('❌ Token not available');
+    print(' Token not available');
     setState(() {
       _error = 'Authentication token not available. Please log in again.';
       _isLoading = false;
@@ -91,8 +91,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   try {
-    print('📨 Loading messages for conversation: ${widget.conversationId}');
-    print('🔑 Using token: ${_token!.substring(0, 20)}...');
+    print(' Loading messages for conversation: ${widget.conversationId}');
+    print(' Using token: ${_token!.substring(0, 20)}...');
     
     final response = await http.get(
       Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/${widget.conversationId}/messages'),
@@ -102,8 +102,8 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
 
-    print('📨 Response status: ${response.statusCode}');
-    print('📨 Response body: ${response.body}');
+    print(' Response status: ${response.statusCode}');
+    print(' Response body: ${response.body}');
     
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);

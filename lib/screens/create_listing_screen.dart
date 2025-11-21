@@ -1380,14 +1380,14 @@ class ImageUploadWidget extends StatelessWidget {
     for (int i = 0; i < pickedFiles.length; i++) {
       try {
         final XFile pickedFile = pickedFiles[i];
-        print('📁 Processing image ${i + 1}/${pickedFiles.length}...');
+        print(' Processing image ${i + 1}/${pickedFiles.length}...');
         print('   Original path: ${pickedFile.path}');
         
-        // ✅ FIX: Read bytes directly from XFile (works for both gallery and camera)
+        // Read bytes directly from XFile (works for both gallery and camera)
         final Uint8List fileBytes = await pickedFile.readAsBytes();
         
         if (fileBytes.isEmpty) {
-          print('   ⚠️ File is empty, skipping');
+          print('    File is empty, skipping');
           continue;
         }
 

@@ -9,7 +9,7 @@ import jwt from "jsonwebtoken";
 import { OAuth2Client } from 'google-auth-library';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -21,30 +21,24 @@ const __dirname = path.dirname(__filename);
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Configure SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Email sending helper function
 async function sendEmail({ to, subject, text, html }) {
   try {
-    const msg = {
-      to,
-      from: {
-        email: process.env.SENDGRID_FROM_EMAIL,
-        name: process.env.SENDGRID_FROM_NAME || 'Junk & Gems CEO'
-      },
-      subject,
-      text,
+    const result = await resend.emails.send({
+      from: 'Junk & Gems <onboarding@resend.dev>',
+      to: to,
+      replyTo: 'junkandgems.ls@gmail.com', 
+      subject: subject,
+      text: text,
       html: html || text
-    };
+    });
 
-    await sgMail.send(msg);
-    console.log(`✅ Email sent to ${to}: ${subject}`);
-    return { success: true };
+    console.log(` Email sent to ${to}: ${subject}`);
+    return { success: true, id: result.id };
   } catch (error) {
-    console.error('❌ SendGrid error:', error);
-    if (error.response) {
-      console.error('Error details:', error.response.body);
-    }
+    console.error(' Resend error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -111,7 +105,7 @@ function getWelcomeEmailHtml(name) {
         <p><strong>Welcome bonus:</strong> You've received 5 gems to get started!</p>
         <p>Start exploring and making a difference today!</p>
         <div class="footer">
-          <p>Junk & Gems - Turning waste into wonder</p>
+          <p>Junk & Gems - Turn trash into treasure, together</p>
           <p>If you have any questions, feel free to reach out to our support team.</p>
         </div>
       </div>
@@ -239,7 +233,7 @@ function getDonationConfirmationEmailHtml(name, materialTitle, gemsEarned) {
           <li>Interested users can message you to arrange pickup</li>
           <li>You'll be notified when someone claims your item</li>
         </ul>
-        <p>Thank you for contributing to a more sustainable future! 🌍</p>
+        <p>Thank you for contributing to a more sustainable future! </p>
       </div>
     </body>
     </html>
@@ -1201,7 +1195,7 @@ function getMaterialClaimedEmailHtml(uploaderName, materialTitle, claimerName) {
 
 console.log(' Notification system initialized');
 
-// Get all materials with real data
+// Get all materials 
 app.get("/materials", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -1745,7 +1739,7 @@ app.get("/materials/search", async (req, res) => {
       return res.status(400).json({ error: "Search query required" });
     }
 
-    console.log(`🔍 Searching materials for: "${query}"`);
+    console.log(` Searching materials for: "${query}"`);
 
     const result = await pool.query(`
       SELECT 
@@ -1805,7 +1799,7 @@ app.put('/materials/:id/claim', authenticateToken, async (req, res) => {
   const { claimed_by } = req.body;
 
   try {
-    console.log(`📋 Claim request for material ${id} by user ${claimed_by}`);
+    console.log(` Claim request for material ${id} by user ${claimed_by}`);
 
     if (!claimed_by) {
       return res.status(400).json({ error: 'claimed_by is required' });
@@ -2648,17 +2642,17 @@ app.post("/api/fix-user-profile-pictures", async (req, res) => {
 app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) => {
   const { userId } = req.params;
   
-  console.log(`📨 Loading conversations for user: ${userId}`);
+  console.log(` Loading conversations for user: ${userId}`);
   
   try {
     // Verify the user exists
     const userCheck = await pool.query('SELECT id, name FROM users WHERE id = $1', [userId]);
     if (userCheck.rows.length === 0) {
-      console.log(`❌ User ${userId} not found`);
+      console.log(` User ${userId} not found`);
       return res.status(404).json({ error: "User not found" });
     }
 
-    console.log(`✅ User found: ${userCheck.rows[0].name}`);
+    console.log(` User found: ${userCheck.rows[0].name}`);
 
     const result = await pool.query(`
       SELECT 
@@ -2710,7 +2704,7 @@ app.get("/api/users/:userId/conversations", authenticateToken, async (req, res) 
   }
 });
 
-// 2. Get messages for a conversation (MUST come before the dynamic route)
+// 2. Get messages for a conversation 
 app.get("/api/conversations/:conversationId/messages", authenticateToken, async (req, res) => {
   const { conversationId } = req.params;
   
@@ -2988,7 +2982,6 @@ app.post("/api/conversations/start", async (req, res) => {
 });
 
 // 6. LAST: Dynamic route (catches /api/conversations/NUMBER/NUMBER)
-// This should be at the END so it doesn't catch other routes
 app.get("/api/conversations/:userId1/:userId2", authenticateToken, async (req, res) => {
   const { userId1, userId2 } = req.params;
   
@@ -7685,7 +7678,7 @@ app.get('/admin/transactions', authenticateToken, isAdmin, async (req, res) => {
 // Get Analytics Data (for dashboard - includes ALL materials regardless of status)
 app.get('/api/analytics/materials', async (req, res) => {
   try {
-    console.log('📊 Analytics: Fetching all materials for dashboard...');
+    console.log(' Analytics: Fetching all materials for dashboard...');
 
     const result = await pool.query(`
       SELECT 
@@ -7698,7 +7691,7 @@ app.get('/api/analytics/materials', async (req, res) => {
       ORDER BY m.created_at DESC
     `);
 
-    console.log(`✅ Analytics: Found ${result.rows.length} total materials`);
+    console.log(` Analytics: Found ${result.rows.length} total materials`);
     
     // Count by status for logging
     const statusCounts = result.rows.reduce((acc, row) => {
@@ -7706,7 +7699,7 @@ app.get('/api/analytics/materials', async (req, res) => {
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {});
-    console.log('📊 Status breakdown:', statusCounts);
+    console.log(' Status breakdown:', statusCounts);
 
     // Format response to match expected structure
     const materials = result.rows.map(row => ({
