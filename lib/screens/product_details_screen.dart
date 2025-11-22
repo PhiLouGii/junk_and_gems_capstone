@@ -168,166 +168,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 }
 
-
-  void _messageArtisan(BuildContext context) async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Starting conversation...'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-        ),
-      );
-
-      if (_currentUserId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Please log in to message artisans.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final String artisanId = widget.product['artisan_id'] ?? '2';
-      final String productId = widget.product['id'] ?? '1';
-
-      print('=== MESSAGE ARTISAN DEBUG ===');
-      print('🔍 Current User ID: $_currentUserId');
-      print('🎯 Artisan ID: $artisanId');
-      print('📦 Product ID: $productId');
-      print('=============================');
-
-      final response = await http.post(
-        Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/start'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'currentUserId': _currentUserId,
-          'otherUserId': artisanId,
-          'productId': productId,
-          'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final conversation = json.decode(response.body);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              userName: widget.product['artisan'] ?? 'Artisan',
-              otherUserId: artisanId,
-              currentUserId: _currentUserId!,
-              conversationId: conversation['id'].toString(),
-              product: widget.product,
-            ),
-          ),
-        );
-      } else {
-        final errorResponse = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to start conversation: ${errorResponse['error']}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (error) {
-      print('Message artisan error: $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error starting conversation: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _addToCart(BuildContext context) async {
-    if (_currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please log in to add items to cart'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    try {
-      print('🛒 Adding to cart...');
-      print('User ID: $_currentUserId');
-      print('Product ID: ${widget.product['id']}');
-      print('Product Title: ${widget.product['title']}');
-      print('Quantity: $_quantity');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(width: 16),
-              Text('Adding to cart...'),
-            ],
-          ),
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      final result = await CartService.addToCart(
-        _currentUserId!,
-        widget.product['id']!,
-        quantity: _quantity,
-      );
-
-      print('✅ Add to cart result: $result');
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${widget.product['title']} added to cart!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-            action: SnackBarAction(
-              label: 'View Cart',
-              textColor: Colors.white,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ShoppingCartScreen(userId: _currentUserId!),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      print('❌ Add to cart error: $e');
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildInfoChips(bool isDarkMode) {
+Widget _buildInfoChips(bool isDarkMode) {
   final category = widget.product['category'];
   final condition = widget.product['condition'];
   
@@ -641,6 +482,164 @@ Widget _buildDimensionsSection(bool isDarkMode) {
   );
 }
 
+  void _messageArtisan(BuildContext context) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Starting conversation...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
+        ),
+      );
+
+      if (_currentUserId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Please log in to message artisans.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final String artisanId = widget.product['artisan_id'] ?? '2';
+      final String productId = widget.product['id'] ?? '1';
+
+      print('=== MESSAGE ARTISAN DEBUG ===');
+      print('🔍 Current User ID: $_currentUserId');
+      print('🎯 Artisan ID: $artisanId');
+      print('📦 Product ID: $productId');
+      print('=============================');
+
+      final response = await http.post(
+        Uri.parse('https://junk-and-gems-api.onrender.com/api/conversations/start'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'currentUserId': _currentUserId,
+          'otherUserId': artisanId,
+          'productId': productId,
+          'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final conversation = json.decode(response.body);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              userName: widget.product['artisan'] ?? 'Artisan',
+              otherUserId: artisanId,
+              currentUserId: _currentUserId!,
+              conversationId: conversation['id'].toString(),
+              product: widget.product,
+            ),
+          ),
+        );
+      } else {
+        final errorResponse = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start conversation: ${errorResponse['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (error) {
+      print('Message artisan error: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error starting conversation: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _addToCart(BuildContext context) async {
+    if (_currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to add items to cart'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      print('🛒 Adding to cart...');
+      print('User ID: $_currentUserId');
+      print('Product ID: ${widget.product['id']}');
+      print('Product Title: ${widget.product['title']}');
+      print('Quantity: $_quantity');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Adding to cart...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      final result = await CartService.addToCart(
+        _currentUserId!,
+        widget.product['id']!,
+        quantity: _quantity,
+      );
+
+      print('✅ Add to cart result: $result');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.product['title']} added to cart!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            action: SnackBarAction(
+              label: 'View Cart',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ShoppingCartScreen(userId: _currentUserId!),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Add to cart error: $e');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
 Widget _buildLocationSection(bool isDarkMode) {
   final location = widget.product['location'] ?? '';
   final locationArea = widget.product['location_area'] ?? '';
@@ -770,7 +769,8 @@ Widget _buildLocationSection(bool isDarkMode) {
 }
 
 Widget _buildSetupRequiredBadge(bool isDarkMode) {
-  final setupRequired = widget.product['setup_required'] == 'true';
+  final setupRequired = widget.product['setup_required'] == 'true' || 
+                        widget.product['setup_required'] == true;
   
   if (!setupRequired) {
     return const SizedBox.shrink();
@@ -936,6 +936,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      // Title and Price
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -960,6 +961,8 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
         ],
       ),
       const SizedBox(height: 8),
+      
+      // Artisan and Rating
       Row(
         children: [
           Icon(
@@ -995,8 +998,8 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
 
        _buildInfoChips(isDarkMode),
       
-      const SizedBox(height: 24),
                   const SizedBox(height: 24),
+
                   _buildSetupRequiredBadge(isDarkMode),
 
                   _buildSection(
@@ -1008,6 +1011,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
 
                    _buildMaterialsSection(isDarkMode),
                     _buildDimensionsSection(isDarkMode),
+                    const SizedBox(height: 20),
 
                   _buildLocationSection(isDarkMode),
                   const SizedBox(height: 20), 
@@ -1020,23 +1024,23 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
                   const SizedBox(height: 30),
                   
                    Row(
-        children: [
-          Icon(
-            Icons.recommend,
-            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            size: 24,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'You May Also Like',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-            ),
-          ),
-        ],
-      ),
+                      children: [
+                        Icon(
+                        Icons.recommend,
+                        color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'You May Also Like',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 16),
                   _isLoadingSimilarProducts
                       ? Center(
@@ -1074,6 +1078,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
                               ),
                             ),
                   const SizedBox(height: 20),
+                  
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
