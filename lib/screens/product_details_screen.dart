@@ -27,6 +27,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _token;
   List<dynamic> _similarProducts = [];
   bool _isLoadingSimilarProducts = false;
+   Map<String, String> _fullProductData = {};
+  bool _isLoadingDetails = true;
 
   // STATIC SIMILAR PRODUCTS WITH LOCAL ASSETS - REPLACE IMAGE PATHS WITH YOUR ACTUAL ASSET NAMES
   final List<Map<String, String>> _staticSimilarProducts = [
@@ -89,7 +91,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _fullProductData = Map.from(widget.product); 
     _loadCurrentUser();
+    _fetchFullProductDetails();
     _fetchSimilarProducts();
   }
 
@@ -99,6 +103,88 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.dispose();
   }
 
+  Future<void> _fetchFullProductDetails() async {
+  try {
+    final productId = _fullProductData['id'];
+    if (productId == null || productId.isEmpty) {
+      setState(() => _isLoadingDetails = false);
+      return;
+    }
+
+    print(' Fetching full product details for ID: $productId');
+
+    final response = await http.get(
+      Uri.parse('https://junk-and-gems-api.onrender.com/api/products/$productId'),
+      headers: {'Content-Type': 'application/json'},
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final productData = json.decode(response.body);
+      
+      print(' Full product data received');
+      print('   Category: ${productData['category']}');
+      print('   Condition: ${productData['condition']}');
+      print('   Materials: ${productData['materials_used']}');
+      print('   Dimensions: ${productData['dimensions']}');
+      print('   Location: ${productData['location']}');
+      print('   Location Area: ${productData['location_area']}');
+      print('   Setup Required: ${productData['setup_required']}');
+
+      // Helper function to get image URL
+      String getImageUrl() {
+        if (productData['image_data_base64'] != null && 
+            productData['image_data_base64'] is List &&
+            (productData['image_data_base64'] as List).isNotEmpty) {
+          return productData['image_data_base64'][0];
+        } else if (productData['image_url'] != null) {
+          return productData['image_url'].toString();
+        }
+        return widget.product['image'] ?? '';
+      }
+
+      setState(() {
+        _fullProductData = {
+          'id': productData['id']?.toString() ?? '',
+          'title': productData['title']?.toString() ?? '',
+          'price': productData['price'] != null ? 'M${productData['price']}' : 'M0',
+          'image': getImageUrl(),
+          'artisan': productData['creator_name']?.toString() ?? 'Unknown Artisan',
+          'artisan_id': productData['artisan_id']?.toString() ?? '',
+          'description': productData['description']?.toString() ?? '',
+          
+          //  Additional fields
+          'category': productData['category']?.toString() ?? '',
+          'condition': productData['condition']?.toString() ?? '',
+          'materials_used': productData['materials_used']?.toString() ?? '',
+          'dimensions': productData['dimensions']?.toString() ?? '',
+          
+          //  Location fields (both old and new formats)
+          'location': productData['location']?.toString() ?? '',
+          'location_area': productData['location_area']?.toString() ?? '',
+          'location_landmark': productData['location_landmark']?.toString() ?? '',
+          'location_directions': productData['location_directions']?.toString() ?? '',
+          'latitude': productData['latitude']?.toString() ?? '',
+          'longitude': productData['longitude']?.toString() ?? '',
+          'map_address': productData['map_address']?.toString() ?? '',
+          'is_map_location': productData['is_map_location']?.toString() ?? 'false',
+          
+          //  Setup required
+          'setup_required': productData['setup_required']?.toString() ?? 'false',
+        };
+        _isLoadingDetails = false;
+      });
+
+      print(' Product data fully loaded!');
+    } else {
+      print(' Failed to fetch product details: ${response.statusCode}');
+      setState(() => _isLoadingDetails = false);
+    }
+  } catch (error) {
+    print(' Error fetching product details: $error');
+    setState(() => _isLoadingDetails = false);
+  }
+}
+
   Future<void> _loadCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -106,8 +192,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _token = prefs.getString('token');
     });
 
-    print('🔍 CURRENT USER ID: $_currentUserId');
-    print('🔍 CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
+    print(' CURRENT USER ID: $_currentUserId');
+    print(' CURRENT USER TOKEN: ${_token != null ? "Present" : "Missing"}');
   }
 
   Future<void> _fetchSimilarProducts() async {
@@ -116,7 +202,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   });
 
   try {
-    print('🔍 Fetching similar products...');
+    print(' Fetching similar products...');
     
     final response = await http.get(
       Uri.parse('https://junk-and-gems-api.onrender.com/api/products'),
@@ -126,10 +212,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (response.statusCode == 200) {
       final List<dynamic> allProducts = json.decode(response.body);
       
-      print('📦 Total products from API: ${allProducts.length}');
+      print(' Total products from API: ${allProducts.length}');
       if (allProducts.isNotEmpty) {
-        print('📦 First product keys: ${allProducts[0].keys.toList()}');
-        print('📦 First product creator_name: ${allProducts[0]['creator_name']}');
+        print(' First product keys: ${allProducts[0].keys.toList()}');
+        print(' First product creator_name: ${allProducts[0]['creator_name']}');
       }
       
       // Filter out current product and take up to 6
@@ -142,21 +228,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         setState(() {
           _similarProducts = filtered;
         });
-        print('✅ Using ${filtered.length} API products');
+        print(' Using ${filtered.length} API products');
       } else {
         setState(() {
           _similarProducts = _staticSimilarProducts;
         });
-        print('✅ No other products available, using static products');
+        print(' No other products available, using static products');
       }
     } else {
-      print('⚠️ API returned ${response.statusCode}, using static products');
+      print(' API returned ${response.statusCode}, using static products');
       setState(() {
         _similarProducts = _staticSimilarProducts;
       });
     }
   } catch (error) {
-    print('❌ Error fetching similar products: $error');
+    print(' Error fetching similar products: $error');
     print('ℹ️ Using static products as fallback');
     setState(() {
       _similarProducts = _staticSimilarProducts;
@@ -169,10 +255,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 }
 
 Widget _buildInfoChips(bool isDarkMode) {
-  final category = widget.product['category'];
-  final condition = widget.product['condition'];
+  final category = _fullProductData['category'];  
+  final condition = _fullProductData['condition']; 
   
-  if (category == null && condition == null) {
+  if ((category == null || category.isEmpty || category == 'null') && 
+      (condition == null || condition.isEmpty || condition == 'null')) {
     return const SizedBox.shrink();
   }
   
@@ -184,13 +271,13 @@ Widget _buildInfoChips(bool isDarkMode) {
         spacing: 8,
         runSpacing: 8,
         children: [
-          if (category != null && category.isNotEmpty)
+          if (category != null && category.isNotEmpty && category != 'null')
             _buildInfoChip(
               Icons.category,
               category,
               isDarkMode,
             ),
-          if (condition != null && condition.isNotEmpty)
+          if (condition != null && condition.isNotEmpty && condition != 'null')
             _buildInfoChip(
               Icons.verified,
               condition,
@@ -240,9 +327,9 @@ Widget _buildInfoChip(IconData icon, String label, bool isDarkMode) {
 }
 
 Widget _buildMaterialsSection(bool isDarkMode) {
-  final materials = widget.product['materials_used'];
+  final materials = _fullProductData['materials_used']; // ✅ Changed
   
-  if (materials == null || materials.isEmpty) {
+  if (materials == null || materials.isEmpty || materials == 'null') {
     return const SizedBox.shrink();
   }
   
@@ -280,13 +367,26 @@ Widget _buildMaterialsSection(bool isDarkMode) {
             width: 1,
           ),
         ),
-        child: Text(
-          materials,
-          style: TextStyle(
-            fontSize: 14,
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-            height: 1.5,
-          ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.eco,
+              size: 18,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                materials,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       const SizedBox(height: 8),
@@ -299,9 +399,9 @@ Widget _buildMaterialsSection(bool isDarkMode) {
 }
 
 Widget _buildDimensionsSection(bool isDarkMode) {
-  final dimensions = widget.product['dimensions'];
+  final dimensions = _fullProductData['dimensions']; // ✅ Changed
   
-  if (dimensions == null || dimensions.isEmpty) {
+  if (dimensions == null || dimensions.isEmpty || dimensions == 'null') {
     return const SizedBox.shrink();
   }
   
@@ -339,13 +439,26 @@ Widget _buildDimensionsSection(bool isDarkMode) {
             width: 1,
           ),
         ),
-        child: Text(
-          dimensions,
-          style: TextStyle(
-            fontSize: 14,
-            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-            height: 1.5,
-          ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.aspect_ratio,
+              size: 18,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                dimensions,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       const SizedBox(height: 8),
@@ -399,7 +512,7 @@ Widget _buildDimensionsSection(bool isDarkMode) {
     }
   }
 
-  print('🖼️ Similar product: $title, Artisan: $artisanName, Image type: ${isStaticProduct ? "static" : "api"}');
+  print(' Similar product: $title, Artisan: $artisanName, Image type: ${isStaticProduct ? "static" : "api"}');
 
   return GestureDetector(
     onTap: () {
@@ -502,8 +615,8 @@ Widget _buildDimensionsSection(bool isDarkMode) {
         return;
       }
 
-      final String artisanId = widget.product['artisan_id'] ?? '2';
-      final String productId = widget.product['id'] ?? '1';
+      final String artisanId = _fullProductData['artisan_id'] ?? '2';
+      final String productId = _fullProductData['id'] ?? '1';
 
       print('=== MESSAGE ARTISAN DEBUG ===');
       print('🔍 Current User ID: $_currentUserId');
@@ -518,7 +631,7 @@ Widget _buildDimensionsSection(bool isDarkMode) {
           'currentUserId': _currentUserId,
           'otherUserId': artisanId,
           'productId': productId,
-          'initialMessage': 'Hi! I\'m interested in your ${widget.product['title']}. Can you tell me more about it?',
+          'initialMessage': 'Hi! I\'m interested in your ${_fullProductData['title']}. Can you tell me more about it?',
         }),
       ).timeout(const Duration(seconds: 10));
 
@@ -528,11 +641,11 @@ Widget _buildDimensionsSection(bool isDarkMode) {
           context,
           MaterialPageRoute(
             builder: (context) => ChatScreen(
-              userName: widget.product['artisan'] ?? 'Artisan',
+              userName: _fullProductData['artisan'] ?? 'Artisan',
               otherUserId: artisanId,
               currentUserId: _currentUserId!,
               conversationId: conversation['id'].toString(),
-              product: widget.product,
+              product: _fullProductData,
             ),
           ),
         );
@@ -570,8 +683,8 @@ Widget _buildDimensionsSection(bool isDarkMode) {
     try {
       print('🛒 Adding to cart...');
       print('User ID: $_currentUserId');
-      print('Product ID: ${widget.product['id']}');
-      print('Product Title: ${widget.product['title']}');
+      print('Product ID: ${_fullProductData['id']}');
+      print('Product Title: ${_fullProductData['title']}');
       print('Quantity: $_quantity');
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -596,7 +709,7 @@ Widget _buildDimensionsSection(bool isDarkMode) {
 
       final result = await CartService.addToCart(
         _currentUserId!,
-        widget.product['id']!,
+        _fullProductData['id']!,
         quantity: _quantity,
       );
 
@@ -606,7 +719,7 @@ Widget _buildDimensionsSection(bool isDarkMode) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${widget.product['title']} added to cart!'),
+            content: Text('${_fullProductData['title']} added to cart!'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
             action: SnackBarAction(
@@ -641,27 +754,27 @@ Widget _buildDimensionsSection(bool isDarkMode) {
   }
 
 Widget _buildLocationSection(bool isDarkMode) {
-  final location = widget.product['location'] ?? '';
-  final locationArea = widget.product['location_area'] ?? '';
-  final locationLandmark = widget.product['location_landmark'] ?? '';
-  final locationDirections = widget.product['location_directions'] ?? '';
-  final mapAddress = widget.product['map_address'] ?? '';
-  final isMapLocation = widget.product['is_map_location'] == 'true';
-  final latitude = widget.product['latitude'];
-  final longitude = widget.product['longitude'];
+  final location = _fullProductData['location'] ?? '';           // ✅ Changed
+  final locationArea = _fullProductData['location_area'] ?? '';  // ✅ Changed
+  final locationLandmark = _fullProductData['location_landmark'] ?? ''; // ✅ Changed
+  final locationDirections = _fullProductData['location_directions'] ?? ''; // ✅ Changed
+  final mapAddress = _fullProductData['map_address'] ?? '';      // ✅ Changed
+  final isMapLocation = _fullProductData['is_map_location'] == 'true'; // ✅ Changed
+  final latitude = _fullProductData['latitude'];                 // ✅ Changed
+  final longitude = _fullProductData['longitude'];               // ✅ Changed
 
   // Build location display string
   String displayLocation = '';
-  if (isMapLocation && mapAddress.isNotEmpty) {
+  if (isMapLocation && mapAddress.isNotEmpty && mapAddress != 'null') {
     displayLocation = mapAddress;
   } else {
     List<String> parts = [];
-    if (locationArea.isNotEmpty) parts.add(locationArea);
-    if (locationLandmark.isNotEmpty) parts.add(locationLandmark);
-    if (locationDirections.isNotEmpty) parts.add(locationDirections);
+    if (locationArea.isNotEmpty && locationArea != 'null') parts.add(locationArea);
+    if (locationLandmark.isNotEmpty && locationLandmark != 'null') parts.add(locationLandmark);
+    if (locationDirections.isNotEmpty && locationDirections != 'null') parts.add(locationDirections);
     displayLocation = parts.join(' • ');
     
-    if (displayLocation.isEmpty && location.isNotEmpty) {
+    if (displayLocation.isEmpty && location.isNotEmpty && location != 'null') {
       displayLocation = location;
     }
   }
@@ -745,10 +858,11 @@ Widget _buildLocationSection(bool isDarkMode) {
               ),
             ),
             if (latitude != null && longitude != null && 
-                latitude.isNotEmpty && longitude.isNotEmpty) ...[
+                latitude.isNotEmpty && longitude.isNotEmpty &&
+                latitude != 'null' && longitude != 'null') ...[
               const SizedBox(height: 8),
               Text(
-                'Coordinates: ${latitude}, ${longitude}',
+                'Coordinates: $latitude, $longitude',
                 style: TextStyle(
                   fontSize: 11,
                   color: isDarkMode ? Colors.white60 : Colors.black54,
@@ -769,8 +883,8 @@ Widget _buildLocationSection(bool isDarkMode) {
 }
 
 Widget _buildSetupRequiredBadge(bool isDarkMode) {
-  final setupRequired = widget.product['setup_required'] == 'true' || 
-                        widget.product['setup_required'] == true;
+  final setupRequired = _fullProductData['setup_required'] == 'true' ||  // ✅ Changed
+                        _fullProductData['setup_required'] == true;      // ✅ Changed
   
   if (!setupRequired) {
     return const SizedBox.shrink();
@@ -834,10 +948,11 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
 }
 
   @override
-  Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final isDarkMode = themeProvider.isDarkMode;
+Widget build(BuildContext context) {
+  final themeProvider = Provider.of<ThemeProvider>(context);
+  final isDarkMode = themeProvider.isDarkMode;
 
+    
     return Scaffold(
       backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
       appBar: AppBar(
@@ -893,7 +1008,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
                       ),
-                      child: _buildProductImage(widget.product['image']!, isDarkMode),
+                      child: _buildProductImage(_fullProductData['image']!, isDarkMode),
                     ),
                   ),
                   Positioned(
@@ -942,7 +1057,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
         children: [
           Expanded(
             child: Text(
-              widget.product['title'] ?? 'Untitled Product',
+              _fullProductData['title'] ?? 'Untitled Product',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -951,7 +1066,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
             ),
           ),
           Text(
-            widget.product['price'] ?? 'M0',
+            _fullProductData['price'] ?? 'M0',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -972,7 +1087,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
           ),
           const SizedBox(width: 4),
           Text(
-            'By ${widget.product['artisan'] ?? 'Unknown Artisan'}',
+            'By ${_fullProductData['artisan'] ?? 'Unknown Artisan'}',
             style: TextStyle(
               fontSize: 14,
               color: isDarkMode ? Colors.white70 : Colors.black.withOpacity(0.6),
@@ -1004,7 +1119,7 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
 
                   _buildSection(
                     title: 'About the Product',
-                    content: widget.product['description'] ?? 'A beautifully crafted upcycled product made with care and creativity.',
+                    content: _fullProductData['description'] ?? 'A beautifully crafted upcycled product made with care and creativity.',
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 20),
