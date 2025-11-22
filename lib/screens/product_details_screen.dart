@@ -952,7 +952,48 @@ Widget build(BuildContext context) {
   final themeProvider = Provider.of<ThemeProvider>(context);
   final isDarkMode = themeProvider.isDarkMode;
 
-    
+     if (_isLoadingDetails) {
+    return Scaffold(
+      backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
+      appBar: AppBar(
+        backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF7F2E4),
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Product Details',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading product details...',
+              style: TextStyle(
+                color: isDarkMode ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
     return Scaffold(
       backgroundColor: isDarkMode ? const Color(0xFF121212) : const Color(0xFFF7F2E4),
       appBar: AppBar(
