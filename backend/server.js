@@ -5745,6 +5745,46 @@ app.get("/api/debug/products", async (req, res) => {
   }
 });
 
+// Test endpoint to check product schema
+app.get("/api/debug/product-fields/:productId", async (req, res) => {
+  const { productId } = req.params;
+  
+  try {
+    const result = await pool.query(
+      `SELECT 
+        id, title, description, price, category, condition, 
+        materials_used, dimensions, location, location_area, 
+        location_landmark, location_directions, latitude, longitude,
+        map_address, is_map_location, setup_required, artisan_id,
+        created_at
+      FROM products 
+      WHERE id = $1`,
+      [productId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    res.json({
+      success: true,
+      product: result.rows[0],
+      fields_present: {
+        category: result.rows[0].category !== null,
+        condition: result.rows[0].condition !== null,
+        materials_used: result.rows[0].materials_used !== null,
+        dimensions: result.rows[0].dimensions !== null,
+        setup_required: result.rows[0].setup_required !== null,
+        location_area: result.rows[0].location_area !== null,
+      }
+    });
+    
+  } catch (err) {
+    console.error('Debug product fields error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/debug/test-cart/:userId", async (req, res) => {
   const { userId } = req.params;
 

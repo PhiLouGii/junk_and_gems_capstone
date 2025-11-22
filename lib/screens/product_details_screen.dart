@@ -68,21 +68,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     },
     {
       'id': '11',
-      'title': 'Tire Ottoman',
-      'artisan': 'Lisa Anderson',
+      'title': 'Sta-Soft Bottle Lamp',
+      'artisan': 'Nthati Raditapole',
       'artisan_id': '12',
       'price': 'M450',
-      'image': 'assets/images/featured3.jpg', // Replace with your actual asset name
-      'description': 'Comfortable ottoman made from recycled tire',
+      'image': 'assets/images/featured3.jpg', 
+      'description': 'Warm glowing lamp made from Sta-Soft bottle with cute and simple cutouts',
     },
     {
       'id': '12',
-      'title': 'Magazine Bowl',
-      'artisan': 'David Lee',
+      'title': 'Bottle Cap Soap Dish',
+      'artisan': 'Deborah Pholo',
       'artisan_id': '13',
       'price': 'M220',
-      'image': 'assets/images/featured7.jpg', // Replace with your actual asset name
-      'description': 'Unique bowl crafted from rolled magazines',
+      'image': 'assets/images/featured7.jpg', 
+      'description': 'Unique soap dish crafted from recycled bottle caps',
     },
   ];
 
@@ -326,6 +326,195 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
   }
+
+  Widget _buildInfoChips(bool isDarkMode) {
+  final category = widget.product['category'];
+  final condition = widget.product['condition'];
+  
+  if (category == null && condition == null) {
+    return const SizedBox.shrink();
+  }
+  
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (category != null && category.isNotEmpty)
+            _buildInfoChip(
+              Icons.category,
+              category,
+              isDarkMode,
+            ),
+          if (condition != null && condition.isNotEmpty)
+            _buildInfoChip(
+              Icons.verified,
+              condition,
+              isDarkMode,
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
+Widget _buildInfoChip(IconData icon, String label, bool isDarkMode) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: isDarkMode 
+          ? const Color(0xFF2D2D2D) 
+          : const Color(0xFFBEC092).withOpacity(0.2),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: isDarkMode 
+            ? const Color(0xFF3D3D3D) 
+            : const Color(0xFFBEC092),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildMaterialsSection(bool isDarkMode) {
+  final materials = widget.product['materials_used'];
+  
+  if (materials == null || materials.isEmpty) {
+    return const SizedBox.shrink();
+  }
+  
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          Icon(
+            Icons.recycling,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Original Materials Used',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDarkMode ? const Color(0xFF3D3D3D) : const Color(0xFFBEC092),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          materials,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            height: 1.5,
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Divider(
+        color: Theme.of(context).colorScheme.secondary,
+        thickness: 1,
+      ),
+    ],
+  );
+}
+
+Widget _buildDimensionsSection(bool isDarkMode) {
+  final dimensions = widget.product['dimensions'];
+  
+  if (dimensions == null || dimensions.isEmpty) {
+    return const SizedBox.shrink();
+  }
+  
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 20),
+      Row(
+        children: [
+          Icon(
+            Icons.straighten,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Dimensions / Size',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF2D2D2D) : const Color(0xFFE4E5C2),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDarkMode ? const Color(0xFF3D3D3D) : const Color(0xFFBEC092),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          dimensions,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            height: 1.5,
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Divider(
+        color: Theme.of(context).colorScheme.secondary,
+        thickness: 1,
+      ),
+    ],
+  );
+}
 
   Widget _buildSimilarProductCard(dynamic product, ThemeProvider themeProvider) {
   final isDarkMode = themeProvider.isDarkMode;
@@ -589,43 +778,51 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
 
   return Container(
     margin: const EdgeInsets.only(bottom: 16),
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: isDarkMode 
           ? const Color(0xFF2D2D2D) 
-          : const Color(0xFFFFE5B4).withOpacity(0.3),
+          : Colors.orange.shade50,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
-        color: isDarkMode ? const Color(0xFF3D3D3D) : Colors.orange.shade300,
-        width: 1,
+        color: isDarkMode ? Colors.orange.shade700 : Colors.orange.shade300,
+        width: 2,
       ),
     ),
     child: Row(
       children: [
-        Icon(
-          Icons.build,
-          color: isDarkMode ? Colors.orange.shade300 : Colors.orange.shade700,
-          size: 20,
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isDarkMode ? Colors.orange.shade700 : Colors.orange.shade100,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.build,
+            color: isDarkMode ? Colors.white : Colors.orange.shade700,
+            size: 24,
+          ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Setup Required',
+                '⚠️ Setup Required',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: isDarkMode ? Colors.orange.shade300 : Colors.orange.shade700,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'This product needs assembly or installation',
+                'This product requires assembly or installation. Please discuss setup details with the artisan before purchase.',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: isDarkMode ? Colors.white70 : Colors.black87,
+                  height: 1.4,
                 ),
               ),
             ],
@@ -735,66 +932,70 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.product['title'] ?? 'Untitled Product',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        widget.product['price'] ?? 'M0',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: isDarkMode ? Colors.white : const Color(0xFF88844D),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'By ${widget.product['artisan'] ?? 'Unknown Artisan'}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDarkMode ? Colors.white70 : Colors.black.withOpacity(0.6),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Icon(
-                        Icons.star,
-                        color: Colors.amber,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '4.8 (New)',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDarkMode ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
+  padding: const EdgeInsets.all(20.0),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              widget.product['title'] ?? 'Untitled Product',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+              ),
+            ),
+          ),
+          Text(
+            widget.product['price'] ?? 'M0',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : const Color(0xFF88844D),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Icon(
+            Icons.person_outline,
+            color: isDarkMode ? Colors.white70 : const Color(0xFF88844D),
+            size: 16,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'By ${widget.product['artisan'] ?? 'Unknown Artisan'}',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDarkMode ? Colors.white70 : Colors.black.withOpacity(0.6),
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Icon(
+            Icons.star,
+            color: Colors.amber,
+            size: 16,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '4.8 (New)',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDarkMode ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+
+       _buildInfoChips(isDarkMode),
+      
+      const SizedBox(height: 24),
                   const SizedBox(height: 24),
                   _buildSetupRequiredBadge(isDarkMode),
 
@@ -805,6 +1006,9 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
                   ),
                   const SizedBox(height: 20),
 
+                   _buildMaterialsSection(isDarkMode),
+                    _buildDimensionsSection(isDarkMode),
+
                   _buildLocationSection(isDarkMode),
                   const SizedBox(height: 20), 
 
@@ -814,24 +1018,25 @@ Widget _buildSetupRequiredBadge(bool isDarkMode) {
                     isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 30),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.recommend,
-                        color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'You May Also Like',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
-                        ),
-                      ),
-                    ],
-                  ),
+                  
+                   Row(
+        children: [
+          Icon(
+            Icons.recommend,
+            color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            size: 24,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'You May Also Like',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? const Color(0xFFBEC092) : const Color(0xFF88844D),
+            ),
+          ),
+        ],
+      ),
                   const SizedBox(height: 16),
                   _isLoadingSimilarProducts
                       ? Center(
