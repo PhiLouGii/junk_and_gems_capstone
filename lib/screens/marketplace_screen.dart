@@ -1302,21 +1302,34 @@ void _refreshCartCount() {
     return GestureDetector(
       onTap: () {
         Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(
-              product: {
-                'title': title,
-                'artisan': artisan,
-                'price': price,
-                'image': image,
-                'artisan_id': product['artisan_id']?.toString() ?? '',
-                'id': product['id']?.toString() ?? '',
-                'description': product['description'] ?? '',
-              },
-            ),
-          ),
-        );
+  context,
+  MaterialPageRoute(
+    builder: (context) => ProductDetailScreen(
+      product: {
+        'id': product['id'].toString(),
+        'title': product['title'] ?? '',
+        'price': 'M${product['price']}',
+        'image': product['image_data_base64']?[0] ?? product['image'] ?? '',
+        'artisan': product['creator_name'] ?? 'Unknown Artisan',
+        'artisan_id': product['artisan_id'].toString(),
+        'description': product['description'] ?? '',
+        'category': product['category'] ?? '',
+        'condition': product['condition'] ?? '',
+        'materials_used': product['materials_used'] ?? '',
+        'dimensions': product['dimensions'] ?? '',
+        'location': product['location'] ?? '',
+        'location_area': product['location_area'] ?? '',
+        'location_landmark': product['location_landmark'] ?? '',
+        'location_directions': product['location_directions'] ?? '',
+        'latitude': product['latitude']?.toString() ?? '',
+        'longitude': product['longitude']?.toString() ?? '',
+        'map_address': product['map_address'] ?? '',
+        'is_map_location': product['is_map_location'].toString(),
+        'setup_required': product['setup_required'].toString(),
+      },
+    ),
+  ),
+);
       },
       child: Container(
         decoration: BoxDecoration(
