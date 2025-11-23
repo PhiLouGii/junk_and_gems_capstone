@@ -4,7 +4,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ThemeToggle from './components/ThemeToggle/ThemeToggle';
 import Home from './components/Home/Home'; 
 import LearnMore from './components/LearnMore/LearnMore';
-import UpcycledProductsGallery from './components/UpcycledProductsGallery/UpcycledProductsGallery';
+import RealProductsGallery from './components/RealProductsGallery/RealProductsGallery'; // Add this
 import TermsAndConditions from './components/Legal/TermsAndConditions';
 import PrivacyPolicy from './components/Legal/PrivacyPolicy';
 import './App.css';
@@ -18,7 +18,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Home />} /> 
             <Route path="/learn-more" element={<LearnMore />} /> 
-            <Route path="/upcycled-products" element={<UpcycledProductsGallery />} />
+            <Route path="/upcycled-products" element={<RealProductsGallery />} /> {/* Changed this */}
             <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
           </Routes>
