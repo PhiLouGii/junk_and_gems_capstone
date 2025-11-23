@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { TrendingUp, Users, Package, Recycle, DollarSign, Award, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../contexts/useTheme';
@@ -368,9 +368,10 @@ const ModernAdminDashboard = () => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {stats.categoryBreakdown.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
+                  {stats.categoryBreakdown.map((_, index) => (
+    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+))}
+
                 </Pie>
                 <Tooltip contentStyle={{ background: colors.cardBg, border: '1px solid ' + colors.border, color: colors.text }} />
               </PieChart>

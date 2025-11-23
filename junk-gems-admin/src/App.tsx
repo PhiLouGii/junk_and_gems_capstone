@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AdminLogin from './components/AdminLogin';
 import ProtectedRoute from './components/ProtectedRoute';
-import DashboardHome from './components/DashboardHome';
+import ModernAdminDashboard from './components/DashboardHome';
 import UserManagement from './components/UserManagement';
 import WasteListing from './components/WasteListing';
 import ProductListing from './components/ProductListing';
@@ -17,7 +17,7 @@ function App() {
         {/* Protected routes - require authentication */}
         <Route path="/" element={
           <ProtectedRoute>
-            <DashboardHome />
+            <ModernAdminDashboard />
           </ProtectedRoute>
         } />
         
