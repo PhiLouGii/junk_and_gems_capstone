@@ -5,43 +5,37 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserService {
-  static const String baseUrl = 'https://junk-and-gems-api.onrender.com';
+  static const String baseUrl = "https://junk-and-gems-api.onrender.com";
 
-  // Get featured artisans
-  static Future<List<dynamic>> getArtisans() async {
+  // NEW METHOD: Get all community users (sorted by newest first)
+  static Future<List<dynamic>> getAllCommunityUsers() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/artisans')).timeout(Duration(seconds: 90));
+      print('🌐 Fetching all community users...');
       
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/community/users'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      print('Response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        final List<dynamic> artisans = json.decode(response.body);
-        print('✅ Loaded ${artisans.length} artisans');
-        return artisans;
+        final data = json.decode(response.body);
+        print('✅ Fetched ${data.length} community users');
+        return data;
       } else {
-        throw Exception('Failed to load artisans: ${response.statusCode}');
+        print('❌ Failed to fetch community users: ${response.statusCode}');
+        print('Response: ${response.body}');
+        return [];
       }
     } catch (e) {
-      print('❌ Error loading artisans: $e');
-      rethrow;
+      print('❌ Error fetching community users: $e');
+      return [];
     }
   }
 
-  // Get top contributors
-  static Future<List<dynamic>> getContributors() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/api/contributors')).timeout(Duration(seconds: 90));
-      
-      if (response.statusCode == 200) {
-        final List<dynamic> contributors = json.decode(response.body);
-        print('✅ Loaded ${contributors.length} contributors');
-        return contributors;
-      } else {
-        throw Exception('Failed to load contributors: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error loading contributors: $e');
-      rethrow;
-    }
-  }
 
   static Future<Map<String, dynamic>> getOtherUserProfile(String userId) async {
     try {

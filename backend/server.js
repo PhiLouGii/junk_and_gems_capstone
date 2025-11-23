@@ -2773,6 +2773,139 @@ app.get("/api/artisans", async (req, res) => {
   }
 });
 
+// Get ALL community users (sorted by newest first)
+app.get("/api/community/users", async (req, res) => {
+  try {
+    console.log('🌐 Fetching all community users...');
+    
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        name, 
+        username, 
+        profile_image_url, 
+        specialty, 
+        bio,
+        donation_count::integer, 
+        created_at, 
+        user_type,
+        available_gems::integer
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+    
+    console.log(`✅ Found ${result.rows.length} community users`);
+    
+    // Return users as-is - let the frontend handle missing profile pictures
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Get community users error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// OPTIONAL: Get community users with filters
+app.get("/api/community/users/filtered", async (req, res) => {
+  try {
+    const { user_type, sort_by = 'newest', limit = 50 } = req.query;
+    
+    console.log(`🌐 Fetching filtered community users (type: ${user_type}, sort: ${sort_by})`);
+    
+    let query = `
+      SELECT 
+        id, 
+        name, 
+        username, 
+        profile_image_url, 
+        specialty, 
+        bio,
+        donation_count::integer, 
+        created_at, 
+        user_type,
+        available_gems::integer
+      FROM users 
+    `;
+    
+    const queryParams = [];
+    
+    // Add user_type filter if specified
+    if (user_type && user_type !== 'all') {
+      query += ` WHERE user_type = $1`;
+      queryParams.push(user_type);
+    }
+    
+    // Add sorting
+    switch (sort_by) {
+      case 'oldest':
+        query += ` ORDER BY created_at ASC`;
+        break;
+      case 'most_active':
+        query += ` ORDER BY donation_count DESC, available_gems DESC`;
+        break;
+      case 'top_gems':
+        query += ` ORDER BY available_gems DESC`;
+        break;
+      case 'newest':
+      default:
+        query += ` ORDER BY created_at DESC`;
+        break;
+    }
+    
+    // Add limit
+    queryParams.push(limit);
+    query += ` LIMIT $${queryParams.length}`;
+    
+    const result = await pool.query(query, queryParams);
+    
+    console.log(`✅ Found ${result.rows.length} filtered community users`);
+    
+    // Return users as-is - let the frontend handle missing profile pictures
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Get filtered community users error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+// OPTIONAL: Get community stats
+app.get("/api/community/stats", async (req, res) => {
+  try {
+    console.log('📊 Fetching community stats...');
+    
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_members,
+        COUNT(CASE WHEN user_type = 'artisan' OR user_type = 'both' THEN 1 END) as artisans,
+        COUNT(CASE WHEN user_type = 'contributor' OR user_type = 'both' THEN 1 END) as contributors,
+        SUM(donation_count)::integer as total_donations,
+        SUM(available_gems)::integer as total_gems
+      FROM users
+    `);
+    
+    const recentMembers = await pool.query(`
+      SELECT COUNT(*) as new_this_week
+      FROM users
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+    `);
+    
+    const stats = {
+      ...result.rows[0],
+      new_members_this_week: parseInt(recentMembers.rows[0].new_this_week)
+    };
+    
+    console.log('✅ Community stats:', stats);
+    res.json(stats);
+  } catch (err) {
+    console.error("❌ Get community stats error:", err);
+    res.status(500).json({ error: "Server error: " + err.message });
+  }
+});
+
+console.log('🌐 Community endpoints configured:');
+console.log('   GET  /api/community/users');
+console.log('   GET  /api/community/users/filtered');
+console.log('   GET  /api/community/stats');
+
 // Get top contributors
 app.get("/api/contributors", async (req, res) => {
   try {

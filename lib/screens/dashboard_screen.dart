@@ -30,8 +30,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  List<dynamic> artisans = [];
-  List<dynamic> contributors = [];
+   List<dynamic> allCommunityUsers = [];
   bool isLoading = true;
   bool showDailyReward = false;
   bool showTutorial = false;
@@ -97,21 +96,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-  Future<void> _loadData() async {
+   Future<void> _loadData() async {
     try {
       print('Loading dashboard data...');
       
-      // Load artisans and contributors (these don't need auth)
-      final futures = await Future.wait([
-        UserService.getArtisans(),
-        UserService.getContributors(),
-      ]);
+      // Load ALL community users (no separate artisan/contributor calls)
+      final communityUsers = await UserService.getAllCommunityUsers();
 
       setState(() {
-        artisans = futures[0] as List<dynamic>;
-        contributors = futures[1] as List<dynamic>;
+        allCommunityUsers = communityUsers;
         isLoading = false;
       });
+      
+      print('✅ Loaded ${allCommunityUsers.length} community users');
       
     } catch (e) {
       print('Error loading dashboard data: $e');
@@ -120,6 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
   }
+
   
   @override
   Widget build(BuildContext context) {
@@ -247,95 +245,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
-  Future<void> _loadCachedData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      final cachedArtisans = prefs.getString('cachedArtisans');
-      final cachedContributors = prefs.getString('cachedContributors');
-      final cachedImpact = prefs.getString('cachedImpact');
-      
-      if (cachedArtisans != null && cachedContributors != null && cachedImpact != null) {
-        setState(() {
-          artisans = List<dynamic>.from(json.decode(cachedArtisans));
-          contributors = List<dynamic>.from(json.decode(cachedContributors));
-        });
-      }
-    } catch (e) {
-      print('Error loading cached data: $e');
-    }
-  }
-
-  Future<void> _saveDataToCache(List<dynamic> artisansData, List<dynamic> contributorsData, Map<String, dynamic> impactData) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      await prefs.setString('cachedArtisans', json.encode(artisansData));
-      await prefs.setString('cachedContributors', json.encode(contributorsData));
-      await prefs.setString('cachedImpact', json.encode(impactData));
-    } catch (e) {
-      print('❌ Error saving data to cache: $e');
-    }
-  }
-
-  Widget _buildContent(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: _loadData,
-              color: const Color(0xFF88844D),
-              child: OrientationBuilder(
-                builder: (context, orientation) {
-                  return LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isLandscape = orientation == Orientation.landscape;
-                      final maxWidth = constraints.maxWidth;
-                      
-                      return SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: maxWidth > 600 ? 24.0 : 16.0,
-                            vertical: 16.0,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildHeader(maxWidth),
-                              const SizedBox(height: 16),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            
-            if (showDailyReward && dailyRewardData != null)
-              DailyRewardPopup(
-                gemsEarned: dailyRewardData!['gems_earned'] ?? 5,
-                currentStreak: dailyRewardData!['streak'] ?? 1,
-                streakBonus: dailyRewardData!['streak_bonus'] ?? 0,
-                onClose: () {
-                  setState(() {
-                    showDailyReward = false;
-                  });
-                  _loadData();
-                },
-              ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavBar(context),
-    );
-  }
-
   Widget _buildHeader(double maxWidth) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
@@ -385,54 +294,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPortraitLayout(double maxWidth, User user) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildWelcomeCard(maxWidth, user),
-        const SizedBox(height: 24),
-        _buildActionButtons(maxWidth),
-        const SizedBox(height: 24),
-        _buildProductItems(maxWidth),
-        const SizedBox(height: 24),
-        _buildArtisanHighlights(maxWidth),
-        const SizedBox(height: 24),
-        _buildFrequentContributors(maxWidth),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildWelcomeCard(maxWidth, user),
+      const SizedBox(height: 24),
+      _buildActionButtons(maxWidth),
+      const SizedBox(height: 24),
+      _buildProductItems(maxWidth),
+      const SizedBox(height: 24),
+      // NEW: Single community section instead of two separate sections
+      _buildCommunitySection(maxWidth),
+      const SizedBox(height: 20),
+    ],
+  );
+}
 
   Widget _buildLandscapeLayout(double maxWidth, User user) {
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 1,
-              child: Column(
-                children: [
-                  _buildWelcomeCard(maxWidth, user),
-                  const SizedBox(height: 16),
-                  _buildActionButtons(maxWidth),
-                ],
-              ),
+  return Column(
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 1,
+            child: Column(
+              children: [
+                _buildWelcomeCard(maxWidth, user),
+                const SizedBox(height: 16),
+                _buildActionButtons(maxWidth),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 1,
-              child: _buildProductItems(maxWidth),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _buildArtisanHighlights(maxWidth),
-        const SizedBox(height: 24),
-        _buildFrequentContributors(maxWidth),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 1,
+            child: _buildProductItems(maxWidth),
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      // NEW: Single community section
+      _buildCommunitySection(maxWidth),
+      const SizedBox(height: 20),
+    ],
+  );
+}
 
    Widget _buildWelcomeCard(double maxWidth, User user) {
     final gemsEarned = user.availableGems.toString();
@@ -823,106 +730,176 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildArtisanHighlights(double maxWidth) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFBEC092),
-                borderRadius: BorderRadius.circular(10),
+  Widget _buildCommunitySection(double maxWidth) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFBEC092),
+                      const Color(0xFF88844D),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.people,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
-              child: const Icon(
-                Icons.palette,
-                color: Colors.white,
-                size: 20,
+              const SizedBox(width: 12),
+              Text(
+                'Community',
+                style: TextStyle(
+                  fontSize: maxWidth > 600 ? 20 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Artisan Highlights',
-              style: TextStyle(
-                fontSize: maxWidth > 600 ? 20 : 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        if (isLoading)
-          _buildLoadingSection()
-        else if (artisans.isEmpty)
-          _buildEmptySection('No artisans available')
-        else
-          SizedBox(
-            height: maxWidth > 600 ? 160 : 145,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: artisans.length,
-              itemBuilder: (context, index) {
-                return _buildUserCard(artisans[index], true, maxWidth);
-              },
+            ],
+          ),
+          TextButton(
+            onPressed: () {
+              // Navigate to full community page (optional)
+              // You can implement a dedicated community page later
+            },
+            child: Row(
+              children: [
+                Text(
+                  'See All',
+                  style: TextStyle(
+                    color: const Color(0xFF88844D),
+                    fontSize: maxWidth > 600 ? 14 : 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_forward,
+                  color: const Color(0xFF88844D),
+                  size: 16,
+                ),
+              ],
             ),
           ),
-      ],
-    );
+        ],
+      ),
+      const SizedBox(height: 16),
+      
+      if (isLoading)
+        _buildLoadingSection()
+      else if (allCommunityUsers.isEmpty)
+        _buildEmptySection('No community members yet')
+      else
+        SizedBox(
+          height: maxWidth > 600 ? 140 : 130,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: allCommunityUsers.length,
+            itemBuilder: (context, index) {
+              return _buildCommunityUserCard(allCommunityUsers[index], maxWidth);
+            },
+          ),
+        ),
+    ],
+  );
+}
+
+Widget _buildCommunityUserCard(Map<String, dynamic> user, double maxWidth) {
+  final name = user['name'] ?? 'Unknown User';
+  final profileImage = user['profile_image_url'];
+  final userId = user['id']?.toString() ?? '0';
+  final isLargeScreen = maxWidth > 600;
+
+  String getImageUrlWithCacheBust(String url) {
+    if (url.contains('?')) {
+      return '$url&t=${DateTime.now().millisecondsSinceEpoch}';
+    } else {
+      return '$url?t=${DateTime.now().millisecondsSinceEpoch}';
+    }
   }
 
-  Widget _buildFrequentContributors(double maxWidth) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF88844D),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.volunteer_activism,
-                color: Colors.white,
-                size: 20,
-              ),
+  return GestureDetector(
+    onTap: () {
+      _showUserProfileModal(context, name, userId);
+    },
+    child: Container(
+      width: isLargeScreen ? 90 : 80,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Square profile card with subtle shadow
+          Container(
+            width: isLargeScreen ? 70 : 60,
+            height: isLargeScreen ? 70 : 60,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF88844D).withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Text(
-              'Frequent Contributors',
-              style: TextStyle(
-                fontSize: maxWidth > 600 ? 20 : 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        if (isLoading)
-          _buildLoadingSection()
-        else if (contributors.isEmpty)
-          _buildEmptySection('No contributors available')
-        else
-          SizedBox(
-            height: maxWidth > 600 ? 160 : 145,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: contributors.length,
-              itemBuilder: (context, index) {
-                return _buildUserCard(contributors[index], false, maxWidth);
-              },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: profileImage != null && profileImage.isNotEmpty
+                  ? Image.network(
+                      getImageUrlWithCacheBust(profileImage),
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: const Color(0xFFF7F2E4),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: const Color(0xFF88844D),
+                              strokeWidth: 2,
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / 
+                                    loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildProfilePlaceholder(isLargeScreen);
+                      },
+                    )
+                  : _buildProfilePlaceholder(isLargeScreen),
             ),
           ),
-      ],
-    );
-  }
-
+          const SizedBox(height: 8),
+          
+          // First name only - centered
+          Text(
+            _getFirstName(name),
+            style: TextStyle(
+              fontSize: isLargeScreen ? 13 : 12,
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    ),
+  );
+}
    Widget _buildUserCard(Map<String, dynamic> user, bool isArtisan, double maxWidth) {
     final name = user['name'] ?? 'Unknown User';
     final profileImage = user['profile_image_url'];
