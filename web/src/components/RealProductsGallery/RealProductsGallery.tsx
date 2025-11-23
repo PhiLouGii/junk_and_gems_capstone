@@ -22,6 +22,7 @@ const RealProductsGallery = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const API_BASE_URL = 'https://junk-and-gems-api.onrender.com';
 
@@ -34,7 +35,7 @@ const RealProductsGallery = () => {
       setLoading(true);
       setError('');
       
-      console.log('🔄 Fetching products from API...');
+      console.log('Fetching products from API...');
       const response = await fetch(`${API_BASE_URL}/api/products`);
       
       if (!response.ok) {
@@ -42,18 +43,17 @@ const RealProductsGallery = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Products loaded:', data.length);
+      console.log('Products loaded:', data.length);
       
       setProducts(data);
     } catch (err) {
-      console.error('❌ Error fetching products:', err);
+      console.error('Error fetching products:', err);
       setError('Unable to load products. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate categories from real products
   const categories = React.useMemo(() => {
     const categoryMap = new Map<string, number>();
     
@@ -67,7 +67,6 @@ const RealProductsGallery = () => {
       .sort((a, b) => b.count - a.count);
   }, [products]);
 
-  // Filter products
   const filteredProducts = React.useMemo(() => {
     let filtered = products;
 
@@ -88,7 +87,6 @@ const RealProductsGallery = () => {
     return filtered;
   }, [products, searchQuery, selectedCategory]);
 
-  // Featured products (newest 4)
   const featuredProducts = React.useMemo(() => {
     return [...products]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -96,8 +94,8 @@ const RealProductsGallery = () => {
   }, [products]);
 
   const formatPrice = (price: string) => {
-  return `M${parseFloat(price).toFixed(2)}`;
-};
+    return `M${parseFloat(price).toFixed(2)}`;
+  };
 
   const getProductImage = (product: Product) => {
     if (product.image_data_base64 && product.image_data_base64.length > 0) {
@@ -154,7 +152,6 @@ const RealProductsGallery = () => {
       background: 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
-      {/* Header */}
       <header style={{
         background: 'white',
         boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
@@ -176,7 +173,7 @@ const RealProductsGallery = () => {
             fontWeight: '700',
             color: '#88844D'
           }}>
-            🌍 Upcycled Products Gallery
+            Upcycled Products Gallery
           </h1>
           <button
             onClick={fetchProducts}
@@ -191,14 +188,13 @@ const RealProductsGallery = () => {
               fontSize: '0.875rem'
             }}
           >
-            🔄 Refresh
+            Refresh
           </button>
         </div>
       </header>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
         
-        {/* Error Message */}
         {error && (
           <div style={{
             background: '#fee2e2',
@@ -212,7 +208,6 @@ const RealProductsGallery = () => {
           </div>
         )}
 
-        {/* Search Bar */}
         <div style={{
           background: 'white',
           borderRadius: '12px',
@@ -239,7 +234,6 @@ const RealProductsGallery = () => {
           />
         </div>
 
-        {/* Stats Bar */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -263,7 +257,7 @@ const RealProductsGallery = () => {
           </div>
           
           <div style={{
-            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+            background: 'linear-gradient(135deg, #88844D 0%, #BEC092 100%)',
             borderRadius: '16px',
             padding: '2rem',
             color: 'white',
@@ -279,7 +273,7 @@ const RealProductsGallery = () => {
           </div>
           
           <div style={{
-            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            background: 'linear-gradient(135deg, #88844D 0%, #BEC092 100%)',
             borderRadius: '16px',
             padding: '2rem',
             color: 'white',
@@ -295,7 +289,6 @@ const RealProductsGallery = () => {
           </div>
         </div>
 
-        {/* Categories */}
         {categories.length > 0 && (
           <div style={{ marginBottom: '3rem' }}>
             <h2 style={{
@@ -304,7 +297,7 @@ const RealProductsGallery = () => {
               color: '#88844D',
               marginBottom: '1.5rem'
             }}>
-              📂 Browse by Category
+              Browse by Category
             </h2>
             <div style={{
               display: 'flex',
@@ -367,14 +360,13 @@ const RealProductsGallery = () => {
                     fontSize: '0.875rem'
                   }}
                 >
-                  ✕ Clear Filter
+                  Clear Filter
                 </button>
               )}
             </div>
           </div>
         )}
 
-        {/* Featured Products */}
         {featuredProducts.length > 0 && !selectedCategory && !searchQuery && (
           <div style={{ marginBottom: '3rem' }}>
             <h2 style={{
@@ -383,7 +375,7 @@ const RealProductsGallery = () => {
               color: '#88844D',
               marginBottom: '1rem'
             }}>
-              ⭐ Featured Products
+              Featured Products
             </h2>
             <p style={{ color: '#666', marginBottom: '1.5rem' }}>
               Discover our latest unique items crafted from recycled materials
@@ -481,7 +473,6 @@ const RealProductsGallery = () => {
           </div>
         )}
 
-        {/* All Products */}
         <div>
           <h2 style={{
             fontSize: '1.5rem',
@@ -611,7 +602,6 @@ const RealProductsGallery = () => {
         </div>
       </div>
 
-      {/* Product Detail Modal */}
       {showProductModal && selectedProduct && (
         <div
           onClick={() => setShowProductModal(false)}
@@ -673,7 +663,7 @@ const RealProductsGallery = () => {
                   boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
                 }}
               >
-                ✕
+                ×
               </button>
             </div>
             <div style={{ padding: '2rem' }}>
@@ -789,6 +779,10 @@ const RealProductsGallery = () => {
               </div>
 
               <button
+                onClick={() => {
+                  setShowProductModal(false);
+                  setShowDownloadModal(true);
+                }}
                 style={{
                   width: '100%',
                   padding: '1rem',
@@ -804,7 +798,122 @@ const RealProductsGallery = () => {
                 onMouseOver={(e) => e.currentTarget.style.background = '#6d6a3d'}
                 onMouseOut={(e) => e.currentTarget.style.background = '#88844D'}
               >
-                💬 Contact Artisan
+                Contact Artisan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDownloadModal && (
+        <div
+          onClick={() => setShowDownloadModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001,
+            padding: '2rem'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '24px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '2.5rem',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.3)',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{
+              width: '80px',
+              height: '80px',
+              margin: '0 auto 1.5rem',
+              background: 'linear-gradient(135deg, #88844D 0%, #BEC092 100%)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2.5rem',
+              color: 'white'
+            }}>
+              📱
+            </div>
+            
+            <h2 style={{
+              margin: '0 0 1rem 0',
+              fontSize: '1.75rem',
+              fontWeight: '700',
+              color: '#1f2937'
+            }}>
+              Download the App
+            </h2>
+            
+            <p style={{
+              margin: '0 0 2rem 0',
+              fontSize: '1rem',
+              color: '#6b7280',
+              lineHeight: '1.6'
+            }}>
+              Download the app right now and be able to buy some of your favourite pieces and contact other users
+            </p>
+
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              flexDirection: 'column'
+            }}>
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                style={{
+                  padding: '1rem 2rem',
+                  background: '#88844D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#6d6a3d'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#88844D'}
+              >
+                Get the App
+              </button>
+              
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                style={{
+                  padding: '1rem 2rem',
+                  background: 'transparent',
+                  color: '#6b7280',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.borderColor = '#9ca3af';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = '#d1d5db';
+                }}
+              >
+                Maybe Later
               </button>
             </div>
           </div>
