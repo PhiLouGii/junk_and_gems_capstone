@@ -4,7 +4,7 @@ interface Product {
   id: string;
   title: string;
   description: string;
-  price: number;
+  price: string;
   category: string;
   image_data_base64: string[];
   creator_name: string;
@@ -95,9 +95,9 @@ const RealProductsGallery = () => {
       .slice(0, 4);
   }, [products]);
 
-  const formatPrice = (price: number) => {
-    return `M${price.toFixed(2)}`;
-  };
+  const formatPrice = (price: string) => {
+  return `M${parseFloat(price).toFixed(2)}`;
+};
 
   const getProductImage = (product: Product) => {
     if (product.image_data_base64 && product.image_data_base64.length > 0) {
