@@ -1,179 +1,59 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import styles from './UpcycledProductsGallery.module.css';
-
-// Import category images and product images as fallbacks
-import homeDecorImage from '../../assets/home_decor.jpg';
-import homeFurnitureImage from '../../assets/home_furniture.jpg';
-import craftsImage from '../../assets/crafts.jpg';
-import jewelryImage from '../../assets/jewelry.jpg';
-import fashionImage from '../../assets/fashion.jpg';
-import featured1 from '../../assets/featured1.jpg';
-import featured2 from '../../assets/featured2.jpg';
-import featured3 from '../../assets/featured3.png';
-import featured4 from '../../assets/featured4.jpg';
-import featured5 from '../../assets/featured5.jpg';
-import featured6 from '../../assets/featured6.jpg';
-import featured7 from '../../assets/featured7.jpg';
-import featured8 from '../../assets/featured8.jpg';
 
 interface Product {
-  _id: string;
+  id: string;
   title: string;
   description: string;
   price: number;
   category: string;
-  images: string[];
-  artisanId?: {
-    name?: string;
-    _id?: string;
-  };
-  createdAt?: string;
+  image_data_base64: string[];
+  creator_name: string;
+  creator_avatar?: string;
+  created_at: string;
+  condition?: string;
+  materials_used?: string;
 }
 
-// Fallback products if API fails
-const fallbackProducts: Product[] = [
-  {
-    _id: '1',
-    title: 'Denim Patchwork Jacket',
-    description: 'Unique jacket made from upcycled denim pieces',
-    price: 450,
-    category: 'Fashion',
-    images: [featured1],
-    artisanId: { name: 'Lexie Grey', _id: '1' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '2',
-    title: 'Skateboard Shelf',
-    description: 'Creative shelf to hold your books and DVDs',
-    price: 350,
-    category: 'Furniture',
-    images: [featured2],
-    artisanId: { name: 'Philippa Giibwa', _id: '2' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '3',
-    title: 'Plastic Bags Art',
-    description: 'Plastic bags weaved into beautiful usable bags',
-    price: 200,
-    category: 'Home Decor',
-    images: [featured3],
-    artisanId: { name: 'Cristina Yang', _id: '3' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '4',
-    title: 'Tin Can Sculpture',
-    description: 'Stunning sculpture made from recycled tin cans',
-    price: 150,
-    category: 'Home Decor',
-    images: [featured4],
-    artisanId: { name: 'Mark Sloan', _id: '4' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '5',
-    title: 'Belt Patchwork Bag',
-    description: 'Stylish bag made from upcycled belts',
-    price: 300,
-    category: 'Fashion',
-    images: [featured8],
-    artisanId: { name: 'Maya Bishop', _id: '5' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '6',
-    title: 'Key Stationary Holder',
-    description: 'Pen holder made from recycled keys',
-    price: 150,
-    category: 'Home Decor',
-    images: [featured6],
-    artisanId: { name: 'Arizona Robbins', _id: '6' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '7',
-    title: 'Shrek Bottle Cap Wall Art',
-    description: 'Colorful wall art made from recycled bottle caps',
-    price: 520,
-    category: 'Crafts',
-    images: [featured5],
-    artisanId: { name: 'Jackson Avery', _id: '7' },
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: '8',
-    title: 'Tyre Couch',
-    description: 'Comfortable chair made from upcycled tires',
-    price: 1500,
-    category: 'Furniture',
-    images: [featured7],
-    artisanId: { name: 'April Kepner', _id: '8' },
-    createdAt: new Date().toISOString()
-  }
-];
-
-const UpcycledProductsGallery: React.FC = () => {
-  const navigate = useNavigate();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showSignUpModal, setShowSignUpModal] = useState(false);
-  const [clickedItem, setClickedItem] = useState<{ type: 'product' | 'category'; name: string } | null>(null);
-  
-  // Dynamic state
-  const [products, setProducts] = useState<Product[]>(fallbackProducts);
+const RealProductsGallery = () => {
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const API_BASE_URL = 'https://junk-and-gems-api.onrender.com';
 
-  // Fetch products from API with timeout
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        console.log('Fetching products from API...');
-        setLoading(true);
-        
-        // Create timeout promise
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout')), 5000)
-        );
-        
-        // Race between fetch and timeout
-        const response = await Promise.race([
-          fetch(`${API_BASE_URL}/api/products`),
-          timeoutPromise
-        ]) as Response;
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('API Response:', data);
-        
-        if (Array.isArray(data) && data.length > 0) {
-          setProducts(data);
-          console.log('Products loaded from API:', data.length);
-        } else {
-          console.log('API returned empty array, using fallback products');
-          setProducts(fallbackProducts);
-        }
-      } catch (err) {
-        console.error('Error fetching products:', err);
-        console.log('Using fallback products due to error');
-        setProducts(fallbackProducts);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProducts();
   }, []);
 
-  // Calculate categories dynamically from products
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      console.log('🔄 Fetching products from API...');
+      const response = await fetch(`${API_BASE_URL}/api/products`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch products: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Products loaded:', data.length);
+      
+      setProducts(data);
+    } catch (err) {
+      console.error('❌ Error fetching products:', err);
+      setError('Unable to load products. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate categories from real products
   const categories = React.useMemo(() => {
     const categoryMap = new Map<string, number>();
     
@@ -182,22 +62,12 @@ const UpcycledProductsGallery: React.FC = () => {
       categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
     });
 
-    const categoryImages: Record<string, string> = {
-      'Home Decor': homeDecorImage,
-      'Furniture': homeFurnitureImage,
-      'Crafts': craftsImage,
-      'Jewelry': jewelryImage,
-      'Fashion': fashionImage,
-    };
-
-    return Array.from(categoryMap.entries()).map(([name, count]) => ({
-      name,
-      count,
-      image: categoryImages[name] || homeDecorImage
-    }));
+    return Array.from(categoryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
   }, [products]);
 
-  // Filter products based on search and category
+  // Filter products
   const filteredProducts = React.useMemo(() => {
     let filtered = products;
 
@@ -210,319 +80,731 @@ const UpcycledProductsGallery: React.FC = () => {
       filtered = filtered.filter(p => 
         p.title.toLowerCase().includes(query) ||
         p.description.toLowerCase().includes(query) ||
-        (p.artisanId?.name && p.artisanId.name.toLowerCase().includes(query))
+        p.creator_name?.toLowerCase().includes(query) ||
+        p.category?.toLowerCase().includes(query)
       );
     }
 
     return filtered;
   }, [products, searchQuery, selectedCategory]);
 
-  // Featured products (latest 4)
+  // Featured products (newest 4)
   const featuredProducts = React.useMemo(() => {
     return [...products]
-      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 4);
   }, [products]);
 
-  const handleProductClick = (product: Product) => {
-    if (!isLoggedIn) {
-      setClickedItem({ type: 'product', name: product.title });
-      setShowSignUpModal(true);
-    } else {
-      console.log('View product:', product.title);
+  const formatPrice = (price: number) => {
+    return `M${price.toFixed(2)}`;
+  };
+
+  const getProductImage = (product: Product) => {
+    if (product.image_data_base64 && product.image_data_base64.length > 0) {
+      return product.image_data_base64[0];
     }
+    return 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400';
+  };
+
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    setShowProductModal(true);
   };
 
   const handleCategoryClick = (category: string) => {
-    if (!isLoggedIn) {
-      setClickedItem({ type: 'category', name: category });
-      setShowSignUpModal(true);
-    } else {
-      setSelectedCategory(selectedCategory === category ? null : category);
-      window.scrollTo({ top: 600, behavior: 'smooth' });
-    }
+    setSelectedCategory(selectedCategory === category ? null : category);
+    window.scrollTo({ top: 400, behavior: 'smooth' });
   };
 
-  const handleSignUp = () => {
-    setIsLoggedIn(true);
-    setShowSignUpModal(false);
-  };
-
-  const getModalMessage = () => {
-    if (!clickedItem) return '';
-    
-    if (clickedItem.type === 'product') {
-      return `Sign up to get detailed information about "${clickedItem.name}" and connect with the artisan!`;
-    } else {
-      return `Sign up to explore all products in "${clickedItem.name}" and discover amazing upcycled creations!`;
-    }
-  };
-
-  const formatPrice = (price: number | string) => {
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return `M${numPrice.toFixed(2)}`;
-  };
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <div style={{
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #88844D',
+          borderRadius: '50%',
+          width: '60px',
+          height: '60px',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <p style={{ color: '#666', fontSize: '1.125rem', fontWeight: '500' }}>
+          Loading products from database...
+        </p>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
-    <div className={styles.container}>
-      {/* Header - Always visible */}
-      <header className={styles.header}>
-        <button 
-          className={styles.backButton}
-          onClick={() => navigate(-1)}
-        >
-          <span className="material-symbols-outlined">arrow_back</span>
-        </button>
-        <div className={styles.titleSection}>
-          <h1 className={styles.title}>Upcycled Products Gallery</h1>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      {/* Header */}
+      <header style={{
+        background: 'white',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100
+      }}>
+        <div style={{
+          maxWidth: '1400px',
+          margin: '0 auto',
+          padding: '1.5rem 2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: '1.75rem',
+            fontWeight: '700',
+            color: '#88844D'
+          }}>
+            🌍 Upcycled Products Gallery
+          </h1>
+          <button
+            onClick={fetchProducts}
+            style={{
+              padding: '0.625rem 1.25rem',
+              background: '#88844D',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '0.875rem'
+            }}
+          >
+            🔄 Refresh
+          </button>
         </div>
-        <div className={styles.headerSpacer}></div>
       </header>
 
-      {/* Search Bar - Always visible */}
-      <div className={styles.searchBar}>
-        <span className="material-symbols-outlined">search</span>
-        <input
-          type="text"
-          placeholder="Search upcycled products, artisans..."
-          className={styles.searchInput}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: '#fee2e2',
+            border: '1px solid #ef4444',
+            borderRadius: '12px',
+            padding: '1rem 1.5rem',
+            marginBottom: '2rem',
+            color: '#991b1b'
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
 
-      {/* Stats Bar - Always visible */}
-      <div className={styles.statsBar}>
-        <div className={styles.statItem}>
-          <span className={styles.statNumber}>{loading ? '...' : `${products.length}+`}</span>
-          <span className={styles.statLabel}>Upcycled Products</span>
+        {/* Search Bar */}
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '1rem 1.5rem',
+          marginBottom: '2rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <span style={{ fontSize: '1.25rem' }}>🔍</span>
+          <input
+            type="text"
+            placeholder="Search products, artisans, categories..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              fontSize: '1rem',
+              background: 'transparent'
+            }}
+          />
         </div>
-        <div className={styles.statItem}>
-          <span className={styles.statNumber}>
-            {loading ? '...' : `${new Set(products.map(p => p.artisanId?._id).filter(Boolean)).size}+`}
-          </span>
-          <span className={styles.statLabel}>Talented Artisans</span>
-        </div>
-        <div className={styles.statItem}>
-          <span className={styles.statNumber}>{loading ? '...' : `${categories.length}+`}</span>
-          <span className={styles.statLabel}>Categories</span>
-        </div>
-      </div>
 
-      {/* Loading State */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <p style={{ color: '#666', fontSize: '18px' }}>Loading amazing upcycled creations...</p>
-        </div>
-      )}
-
-      {/* Featured Products */}
-      {!loading && featuredProducts.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Featured Upcycled Creations</h2>
-          <p className={styles.sectionSubtitle}>Discover our latest unique items crafted from recycled materials</p>
+        {/* Stats Bar */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '3rem'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #88844D 0%, #BEC092 100%)',
+            borderRadius: '16px',
+            padding: '2rem',
+            color: 'white',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+              {products.length}
+            </div>
+            <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+              Upcycled Products
+            </div>
+          </div>
           
-          <div className={styles.featuredGrid}>
-            {featuredProducts.map((product) => (
-              <div 
-                key={product._id} 
-                className={styles.productCard}
-                onClick={() => handleProductClick(product)}
-              >
-                <div className={styles.productImage}>
-                  {product.images && product.images.length > 0 ? (
-                    <img src={product.images[0]} alt={product.title} onError={(e) => {
-                      e.currentTarget.src = homeDecorImage;
-                    }} />
-                  ) : (
-                    <img src={homeDecorImage} alt={product.title} />
-                  )}
-                </div>
-                <div className={styles.productInfo}>
-                  <h3 className={styles.productTitle}>{product.title}</h3>
-                  <p className={styles.productArtisan}>
-                    By {product.artisanId?.name || 'Local Artisan'}
-                  </p>
-                  <div className={styles.productPrice}>{formatPrice(product.price)}</div>
-                </div>
-              </div>
-            ))}
+          <div style={{
+            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+            borderRadius: '16px',
+            padding: '2rem',
+            color: 'white',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+              {new Set(products.map(p => p.creator_name)).size}
+            </div>
+            <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+              Talented Artisans
+            </div>
           </div>
-        </section>
-      )}
-
-      {/* Categories */}
-      {!loading && categories.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Browse Categories</h2>
-          <div className={styles.categoriesGrid}>
-            {categories.map((category) => (
-              <div 
-                key={category.name}
-                className={styles.categoryCard}
-                onClick={() => handleCategoryClick(category.name)}
-                style={{
-                  border: selectedCategory === category.name ? '2px solid #88844D' : 'none',
-                  transform: selectedCategory === category.name ? 'scale(1.05)' : 'scale(1)',
-                  transition: 'all 0.3s'
-                }}
-              >
-                <div className={styles.categoryImage}>
-                  <img src={category.image} alt={category.name} />
-                </div>
-                <div className={styles.categoryInfo}>
-                  <h3 className={styles.categoryName}>{category.name}</h3>
-                  <p className={styles.categoryCount}>{category.count} products</p>
-                </div>
-              </div>
-            ))}
+          
+          <div style={{
+            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            borderRadius: '16px',
+            padding: '2rem',
+            color: 'white',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}>
+            <div style={{ fontSize: '2.5rem', fontWeight: '700', marginBottom: '0.5rem' }}>
+              {categories.length}
+            </div>
+            <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
+              Categories
+            </div>
           </div>
-        </section>
-      )}
+        </div>
 
-      {/* All Products Grid */}
-      {!loading && (
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>
-              {selectedCategory 
-                ? `${selectedCategory} Products` 
-                : searchQuery 
-                  ? `Search Results` 
-                  : 'All Upcycled Products'}
+        {/* Categories */}
+        {categories.length > 0 && (
+          <div style={{ marginBottom: '3rem' }}>
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#88844D',
+              marginBottom: '1.5rem'
+            }}>
+              📂 Browse by Category
             </h2>
-            {!isLoggedIn && (
-              <div className={styles.signUpPrompt}>
-                <span className="material-symbols-outlined">info</span>
-                <span>Sign up to connect with artisans</span>
-              </div>
-            )}
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}>
+              {categories.map(category => (
+                <button
+                  key={category.name}
+                  onClick={() => handleCategoryClick(category.name)}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: selectedCategory === category.name ? '#88844D' : 'white',
+                    color: selectedCategory === category.name ? 'white' : '#88844D',
+                    border: `2px solid ${selectedCategory === category.name ? '#88844D' : '#BEC092'}`,
+                    borderRadius: '24px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '0.875rem',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                  onMouseOver={(e) => {
+                    if (selectedCategory !== category.name) {
+                      e.currentTarget.style.background = '#f3f4f6';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (selectedCategory !== category.name) {
+                      e.currentTarget.style.background = 'white';
+                    }
+                  }}
+                >
+                  {category.name}
+                  <span style={{
+                    background: selectedCategory === category.name ? 'rgba(255,255,255,0.3)' : '#BEC092',
+                    color: selectedCategory === category.name ? 'white' : '#88844D',
+                    padding: '0.125rem 0.5rem',
+                    borderRadius: '12px',
+                    fontSize: '0.75rem',
+                    fontWeight: '700'
+                  }}>
+                    {category.count}
+                  </span>
+                </button>
+              ))}
+              {selectedCategory && (
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '24px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  ✕ Clear Filter
+                </button>
+              )}
+            </div>
           </div>
+        )}
 
-          {selectedCategory && (
-            <button 
-              onClick={() => setSelectedCategory(null)}
-              style={{
-                background: '#88844D',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                marginBottom: '16px',
-                fontSize: '14px'
-              }}
-            >
-              ← Show All Categories
-            </button>
-          )}
+        {/* Featured Products */}
+        {featuredProducts.length > 0 && !selectedCategory && !searchQuery && (
+          <div style={{ marginBottom: '3rem' }}>
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#88844D',
+              marginBottom: '1rem'
+            }}>
+              ⭐ Featured Products
+            </h2>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+              Discover our latest unique items crafted from recycled materials
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '1.5rem'
+            }}>
+              {featuredProducts.map(product => (
+                <div
+                  key={product.id}
+                  onClick={() => handleProductClick(product)}
+                  style={{
+                    background: 'white',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-8px)';
+                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.15)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
+                  }}
+                >
+                  <div style={{
+                    height: '200px',
+                    overflow: 'hidden',
+                    background: '#f3f4f6'
+                  }}>
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.title}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400';
+                      }}
+                    />
+                  </div>
+                  <div style={{ padding: '1.25rem' }}>
+                    <h3 style={{
+                      margin: '0 0 0.5rem 0',
+                      fontSize: '1.125rem',
+                      fontWeight: '700',
+                      color: '#1f2937',
+                      lineHeight: '1.4'
+                    }}>
+                      {product.title}
+                    </h3>
+                    <p style={{
+                      margin: '0 0 0.75rem 0',
+                      fontSize: '0.875rem',
+                      color: '#6b7280',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {product.description}
+                    </p>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: '1rem'
+                    }}>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: '#88844D',
+                        fontWeight: '600'
+                      }}>
+                        By {product.creator_name}
+                      </span>
+                      <span style={{
+                        fontSize: '1.25rem',
+                        fontWeight: '700',
+                        color: '#88844D'
+                      }}>
+                        {formatPrice(product.price)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All Products */}
+        <div>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#88844D',
+            marginBottom: '1.5rem'
+          }}>
+            {selectedCategory 
+              ? `${selectedCategory} Products (${filteredProducts.length})` 
+              : searchQuery 
+                ? `Search Results (${filteredProducts.length})`
+                : `All Products (${products.length})`}
+          </h2>
 
           {filteredProducts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔍</div>
-              <p style={{ color: '#666', fontSize: '18px' }}>
+            <div style={{
+              textAlign: 'center',
+              padding: '4rem 2rem',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+            }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🔍</div>
+              <h3 style={{ fontSize: '1.5rem', color: '#374151', marginBottom: '0.5rem' }}>
+                No Products Found
+              </h3>
+              <p style={{ color: '#6b7280' }}>
                 {searchQuery 
-                  ? `No products found for "${searchQuery}"` 
-                  : 'No products available yet'}
+                  ? `No products match "${searchQuery}". Try a different search term.`
+                  : selectedCategory
+                    ? `No products in "${selectedCategory}" category yet.`
+                    : 'No products available in the database yet.'}
               </p>
             </div>
           ) : (
-            <div className={styles.productsGrid}>
-              {filteredProducts.map((product) => (
-                <div 
-                  key={product._id}
-                  className={styles.productCard}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+              gap: '1.5rem'
+            }}>
+              {filteredProducts.map(product => (
+                <div
+                  key={product.id}
                   onClick={() => handleProductClick(product)}
+                  style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.12)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+                  }}
                 >
-                  <div className={styles.productImage}>
-                    {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.title} onError={(e) => {
-                        e.currentTarget.src = homeDecorImage;
-                      }} />
-                    ) : (
-                      <img src={homeDecorImage} alt={product.title} />
-                    )}
+                  <div style={{
+                    height: '180px',
+                    overflow: 'hidden',
+                    background: '#f3f4f6'
+                  }}>
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.title}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=400';
+                      }}
+                    />
                   </div>
-                  <div className={styles.productInfo}>
-                    <h3 className={styles.productTitle}>{product.title}</h3>
-                    <p className={styles.productArtisan}>
-                      By {product.artisanId?.name || 'Local Artisan'}
+                  <div style={{ padding: '1rem' }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      marginBottom: '0.5rem'
+                    }}>
+                      <h3 style={{
+                        margin: 0,
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        color: '#1f2937',
+                        flex: 1
+                      }}>
+                        {product.title}
+                      </h3>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        background: '#BEC092',
+                        color: '#88844D',
+                        borderRadius: '6px',
+                        fontSize: '0.7rem',
+                        fontWeight: '600',
+                        marginLeft: '0.5rem'
+                      }}>
+                        {product.category}
+                      </span>
+                    </div>
+                    <p style={{
+                      margin: '0 0 0.75rem 0',
+                      fontSize: '0.75rem',
+                      color: '#6b7280'
+                    }}>
+                      By {product.creator_name}
                     </p>
-                    <div className={styles.productMeta}>
-                      <span className={styles.productCategory}>{product.category}</span>
-                      <span className={styles.productPrice}>{formatPrice(product.price)}</span>
+                    <div style={{
+                      fontSize: '1.125rem',
+                      fontWeight: '700',
+                      color: '#88844D'
+                    }}>
+                      {formatPrice(product.price)}
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </section>
-      )}
+        </div>
+      </div>
 
-      {/* Sign Up CTA Section */}
-      {!isLoggedIn && !loading && (
-        <section className={styles.ctaSection}>
-          <div className={styles.ctaContent}>
-            <div className={styles.ctaIcon}>
-              <span className="material-symbols-outlined">eco</span>
-            </div>
-            <h2 className={styles.ctaTitle}>Join Our Creative Community</h2>
-            <p className={styles.ctaDescription}>
-              Unlock access to hundreds of unique upcycled products, connect with talented artisans, 
-              and be part of the sustainable movement.
-            </p>
-            <div className={styles.ctaButtons}>
-              <button 
-                className={styles.primaryButton}
-                onClick={handleSignUp}
+      {/* Product Detail Modal */}
+      {showProductModal && selectedProduct && (
+        <div
+          onClick={() => setShowProductModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '2rem'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '24px',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.3)'
+            }}
+          >
+            <div style={{ position: 'relative' }}>
+              <img
+                src={getProductImage(selectedProduct)}
+                alt={selectedProduct.title}
+                style={{
+                  width: '100%',
+                  height: '400px',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800';
+                }}
+              />
+              <button
+                onClick={() => setShowProductModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  right: '1rem',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                }}
               >
-                Sign Up to Explore
-              </button>
-              <button className={styles.secondaryButton}>
-                Learn More
+                ✕
               </button>
             </div>
-          </div>
-        </section>
-      )}
+            <div style={{ padding: '2rem' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                marginBottom: '1rem'
+              }}>
+                <div>
+                  <h2 style={{
+                    margin: '0 0 0.5rem 0',
+                    fontSize: '2rem',
+                    fontWeight: '700',
+                    color: '#1f2937'
+                  }}>
+                    {selectedProduct.title}
+                  </h2>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '1rem',
+                    color: '#6b7280'
+                  }}>
+                    By {selectedProduct.creator_name}
+                  </p>
+                </div>
+                <div style={{
+                  fontSize: '2rem',
+                  fontWeight: '700',
+                  color: '#88844D'
+                }}>
+                  {formatPrice(selectedProduct.price)}
+                </div>
+              </div>
 
-      {/* Sign Up Modal */}
-      {showSignUpModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <span className="material-symbols-outlined">auto_awesome</span>
-              <h3>Join Our Community</h3>
-              <button 
-                className={styles.closeButton}
-                onClick={() => setShowSignUpModal(false)}
+              <div style={{
+                padding: '1rem',
+                background: '#F7F2E4',
+                borderRadius: '12px',
+                marginBottom: '1.5rem'
+              }}>
+                <p style={{
+                  margin: 0,
+                  fontSize: '1rem',
+                  color: '#374151',
+                  lineHeight: '1.6'
+                }}>
+                  {selectedProduct.description}
+                </p>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#6b7280',
+                    marginBottom: '0.25rem',
+                    fontWeight: '600'
+                  }}>
+                    Category
+                  </div>
+                  <div style={{
+                    fontSize: '1rem',
+                    color: '#1f2937',
+                    fontWeight: '600'
+                  }}>
+                    {selectedProduct.category}
+                  </div>
+                </div>
+                {selectedProduct.condition && (
+                  <div>
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      marginBottom: '0.25rem',
+                      fontWeight: '600'
+                    }}>
+                      Condition
+                    </div>
+                    <div style={{
+                      fontSize: '1rem',
+                      color: '#1f2937',
+                      fontWeight: '600'
+                    }}>
+                      {selectedProduct.condition}
+                    </div>
+                  </div>
+                )}
+                {selectedProduct.materials_used && (
+                  <div>
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      marginBottom: '0.25rem',
+                      fontWeight: '600'
+                    }}>
+                      Materials Used
+                    </div>
+                    <div style={{
+                      fontSize: '1rem',
+                      color: '#1f2937',
+                      fontWeight: '600'
+                    }}>
+                      {selectedProduct.materials_used}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  background: '#88844D',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '1.125rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#6d6a3d'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#88844D'}
               >
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className={styles.modalContent}>
-              <p>{getModalMessage()}</p>
-              <ul className={styles.benefitsList}>
-                <li>Connect directly with artisans</li>
-                <li>Get detailed product information</li>
-                <li>Save your favorite products</li>
-                <li>Purchase unique upcycled items</li>
-              </ul>
-            </div>
-            <div className={styles.modalActions}>
-              <button 
-                className={styles.primaryButton}
-                onClick={handleSignUp}
-              >
-                Sign Up Now
-              </button>
-              <button 
-                className={styles.secondaryButton}
-                onClick={() => setShowSignUpModal(false)}
-              >
-                Continue Browsing
+                💬 Contact Artisan
               </button>
             </div>
           </div>
@@ -532,4 +814,4 @@ const UpcycledProductsGallery: React.FC = () => {
   );
 };
 
-export default UpcycledProductsGallery;
+export default RealProductsGallery;
