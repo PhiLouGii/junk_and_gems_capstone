@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Recycle, TrendingUp, Package, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Recycle, TrendingUp, Package, AlertCircle, CheckCircle, Clock, Moon, Sun, ArrowLeft } from 'lucide-react';
 
 interface Material {
   id: string;
@@ -25,6 +25,8 @@ interface WasteStats {
 
 const WasteListing: React.FC = () => {
   const navigate = useNavigate();
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  const isDark = theme === 'dark';
 
   const [wasteStats, setWasteStats] = useState<WasteStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +39,27 @@ const WasteListing: React.FC = () => {
     overallClaimRate: 0,
     totalWeight: 0
   });
+
+  const colors = {
+    background: isDark ? '#1a1a1a' : '#ECE8D6',
+    cardBg: isDark ? '#2d2d2d' : '#F7F2E4',
+    containerBg: isDark ? '#262626' : '#ffffff',
+    text: isDark ? '#e5e7eb' : '#1f2937',
+    textSecondary: isDark ? '#9ca3af' : '#666',
+    border: isDark ? '#404040' : '#e5e7eb',
+    primary: '#88844D',
+    success: '#22c55e',
+    info: '#3b82f6',
+    warning: '#f59e0b',
+    chartGrid: isDark ? '#404040' : '#e5e7eb',
+    chartText: isDark ? '#9ca3af' : '#6b7280'
+  };
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
 
   useEffect(() => {
     fetchMaterials();
@@ -52,25 +75,12 @@ const WasteListing: React.FC = () => {
       }
       
       const data = await response.json();
-      console.log('API Response:', data);
-      console.log('Is Array?', Array.isArray(data));
-      console.log('Length:', data.length);
-      
-      // Check if data is an array or if it's wrapped in an object
       const materialsArray = Array.isArray(data) ? data : (data.materials || data.data || []);
-      
-      console.log('Materials Array:', materialsArray);
-      console.log('Materials Count:', materialsArray.length);
-      
-      if (materialsArray.length > 0) {
-        console.log('First Material:', materialsArray[0]);
-      }
       
       if (materialsArray.length === 0) {
         setError('No materials data available from API yet.');
         processWasteData([]);
       } else {
-        console.log('Processing materials...');
         processWasteData(materialsArray);
         setError('');
       }
@@ -83,11 +93,7 @@ const WasteListing: React.FC = () => {
     }
   };
 
-
   const processWasteData = (materialsData: Material[]) => {
-    console.log('=== PROCESSING WASTE DATA ===');
-    console.log('Input materials:', materialsData);
-    
     const categoryMap: { [key: string]: { listed: number; claimed: number; available: number } } = {
       'Plastic': { listed: 0, claimed: 0, available: 0 },
       'Fabric': { listed: 0, claimed: 0, available: 0 },
@@ -103,14 +109,10 @@ const WasteListing: React.FC = () => {
     let totalAvailable = 0;
     let totalWeight = 0;
 
-    materialsData.forEach((material, index) => {
-      console.log(`Processing material ${index + 1}:`, material);
-      
+    materialsData.forEach((material) => {
       const category = material.category;
-      console.log(`Category: ${category}`);
       
-      // Parse quantity - could be string like "5 items" or number
-      let itemCount = 1; // Default to 1 item if can't parse
+      let itemCount = 1;
       if (typeof material.quantity === 'number') {
         itemCount = material.quantity;
       } else if (typeof material.quantity === 'string') {
@@ -120,36 +122,22 @@ const WasteListing: React.FC = () => {
         }
       }
       
-      console.log(`Quantity: ${material.quantity}, Parsed: ${itemCount}`);
-      
-      // Estimate weight: assume 0.5 kg per item as baseline
       const estimatedWeight = itemCount * 0.5;
-      console.log(`Estimated weight: ${estimatedWeight} kg`);
-      
       totalWeight += estimatedWeight;
       
       if (categoryMap[category]) {
         categoryMap[category].listed += estimatedWeight;
         totalListed += estimatedWeight;
         
-        console.log(`Claim status: ${material.claim_status}`);
-        
         if (material.claim_status === 'confirmed') {
           categoryMap[category].claimed += estimatedWeight;
           totalClaimed += estimatedWeight;
-          console.log('Added to CLAIMED');
         } else if (material.claim_status === 'available' || material.claim_status === 'pending') {
           categoryMap[category].available += estimatedWeight;
           totalAvailable += estimatedWeight;
-          console.log('Added to AVAILABLE');
         }
-      } else {
-        console.warn(`Unknown category: ${category}`);
       }
     });
-
-    console.log('Category Map:', categoryMap);
-    console.log('Totals:', { totalListed, totalClaimed, totalAvailable, totalWeight });
 
     const stats: WasteStats[] = Object.entries(categoryMap).map(([material, data]) => ({
       material,
@@ -158,8 +146,6 @@ const WasteListing: React.FC = () => {
       available: Math.round(data.available * 10) / 10,
       claimRate: data.listed > 0 ? Math.round((data.claimed / data.listed) * 100) : 0
     }));
-
-    console.log('Final stats:', stats);
 
     setWasteStats(stats);
     setSummary({
@@ -171,343 +157,346 @@ const WasteListing: React.FC = () => {
     });
   };
 
-  const COLORS = {
-    listed: '#88844D',
-    claimed: '#BEC092'
-  };
-
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '1.2rem', color: '#88844D' }}>Loading waste materials data...</div>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        background: colors.background,
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <div style={{ 
+          border: '4px solid ' + (isDark ? '#404040' : '#f3f3f3'),
+          borderTop: '4px solid #88844D',
+          borderRadius: '50%',
+          width: '50px',
+          height: '50px',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <p style={{ color: colors.text }}>Loading waste materials data...</p>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }}`}</style>
       </div>
     );
   }
 
   return (
-    
-     <div style={{ padding: '2rem', maxWidth: '1400px', margin: '6rem auto 0 auto', background: '#f9f9f9', minHeight: '100vh' }}>
-      
-      {/* Back Button */}
-      <div style={{ marginBottom: '1rem' }}>
-        <button
-          onClick={() => navigate('/')}
-          style={{
-            padding: '0.5rem 1rem',
-            background: '#88844D',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
-        >
-          ← Back
-        </button>
-      </div>
-    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', background: '#f9f9f9', minHeight: '100vh' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', color: '#88844D', marginBottom: '0.5rem' }}>
-          ♻️ Waste Material Tracking
-        </h1>
-        <p style={{ color: '#666', fontSize: '1rem' }}>
-          Monitor waste listings, claim rates, and material distribution across the platform
-        </p>
-      </div>
-
-      {error && (
+    <div style={{ 
+      minHeight: '100vh',
+      background: colors.background,
+      padding: 'clamp(1rem, 3vw, 2rem)',
+      transition: 'background 0.3s ease'
+    }}>
+      <div style={{ 
+        maxWidth: '1400px', 
+        margin: '0 auto',
+        width: '100%'
+      }}>
+        {/* Header with Back Button and Theme Toggle */}
         <div style={{ 
-          padding: '1rem', 
-          background: '#fee2e2', 
-          border: '1px solid #ef4444', 
-          borderRadius: '8px', 
-          marginBottom: '1.5rem',
-          display: 'flex',
+          display: 'flex', 
+          justifyContent: 'space-between', 
           alignItems: 'center',
-          gap: '0.5rem'
+          marginBottom: '2rem',
+          flexWrap: 'wrap',
+          gap: '1rem'
         }}>
-          <AlertCircle size={20} color="#991b1b" />
-          <div>
-            <strong>Error:</strong> {error}
-            <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-              Check browser console for details. Ensure materials are being added to the database.
-            </div>
-          </div>
-        </div>
-      )}
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              padding: '0.5rem 1rem',
+              background: colors.primary,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            <ArrowLeft size={20} />
+            Back
+          </button>
 
-      {!error && wasteStats.length === 0 && !loading && (
-        <div style={{ 
-          padding: '1rem', 
-          background: '#dbeafe', 
-          border: '1px solid #3b82f6', 
-          borderRadius: '8px', 
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          <AlertCircle size={20} color="#1e40af" />
-          <div>
-            <strong>No data yet:</strong> Start by adding waste materials through the platform to see statistics here.
-          </div>
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
-        gap: '1.5rem', 
-        marginBottom: '2rem' 
-      }}>
-        <div style={{ 
-          background: '#F7F2E4', 
-          borderRadius: '12px', 
-          padding: '1.5rem', 
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          borderLeft: '4px solid #88844D'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h3 style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>Total Listed</h3>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#88844D' }}>
-                {summary.totalListed} kg
-              </div>
-            </div>
-            <Package size={32} color="#88844D" />
-          </div>
+          <button
+            onClick={toggleTheme}
+            style={{
+              padding: '0.75rem',
+              background: colors.containerBg,
+              color: colors.text,
+              border: '2px solid ' + colors.border,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease'
+            }}
+            title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          >
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
 
-        <div style={{ 
-          background: '#F7F2E4', 
-          borderRadius: '12px', 
-          padding: '1.5rem', 
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          borderLeft: '4px solid #22c55e'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h3 style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>Total Claimed</h3>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#22c55e' }}>
-                {summary.totalClaimed} kg
-              </div>
-            </div>
-            <CheckCircle size={32} color="#22c55e" />
-          </div>
-        </div>
-
-        <div style={{ 
-          background: '#F7F2E4', 
-          borderRadius: '12px', 
-          padding: '1.5rem', 
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          borderLeft: '4px solid #3b82f6'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h3 style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>Available</h3>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
-                {summary.totalAvailable} kg
-              </div>
-            </div>
-            <Clock size={32} color="#3b82f6" />
-          </div>
-        </div>
-
-        <div style={{ 
-          background: '#F7F2E4', 
-          borderRadius: '12px', 
-          padding: '1.5rem', 
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          borderLeft: '4px solid #BEC092'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h3 style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>Claim Rate</h3>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#88844D' }}>
-                {summary.overallClaimRate}%
-              </div>
-            </div>
-            <TrendingUp size={32} color="#88844D" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Chart */}
-      <div style={{ 
-        background: '#F7F2E4', 
-        borderRadius: '12px', 
-        padding: '2rem', 
-        marginBottom: '2rem', 
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' 
-      }}>
-        <h2 style={{ color: '#88844D', marginBottom: '0.5rem' }}>
-          ♻️ Environmental Impact: Waste Material Distribution
-        </h2>
-        <p style={{ color: '#666', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-          Tracking waste listed vs. claimed across material types
-        </p>
-        
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={wasteStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="material" 
-              angle={-15} 
-              textAnchor="end" 
-              height={80}
-              style={{ fontSize: '0.85rem' }}
-            />
-            <YAxis 
-              label={{ value: 'Weight (kg)', angle: -90, position: 'insideLeft' }}
-              style={{ fontSize: '0.85rem' }}
-            />
-            <Tooltip 
-              contentStyle={{ 
-                background: '#fff', 
-                border: '1px solid #ccc', 
-                borderRadius: '8px',
-                padding: '10px'
-              }}
-            />
-            <Legend 
-              wrapperStyle={{ paddingTop: '20px' }}
-            />
-            <Bar dataKey="listed" fill={COLORS.listed} name="Listed (kg)" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="claimed" fill={COLORS.claimed} name="Claimed (kg)" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-
-        <div style={{ 
-          marginTop: '1.5rem', 
-          padding: '1rem', 
-          background: '#FFF8DC', 
-          borderRadius: '8px',
-          borderLeft: '4px solid #88844D'
-        }}>
-          <strong style={{ color: '#88844D' }}>Key Insight:</strong>
-          <span style={{ color: '#666' }}> Platform has diverted <strong>{summary.totalClaimed} kg</strong> of waste from landfills with a <strong>{summary.overallClaimRate}% claim rate</strong>. Plastic materials show highest engagement, validating focus on addressing plastic pollution.</span>
-        </div>
-      </div>
-
-      {/* Material Breakdown Table */}
-      <div style={{ 
-        background: '#F7F2E4', 
-        borderRadius: '12px', 
-        padding: '2rem', 
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' 
-      }}>
-        <h2 style={{ color: '#88844D', marginBottom: '1.5rem' }}>
-          📊 Detailed Material Breakdown
-        </h2>
-        
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ 
-            width: '100%', 
-            borderCollapse: 'collapse',
-            background: 'white',
-            borderRadius: '8px',
-            overflow: 'hidden'
+        {/* Title */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ 
+            fontSize: 'clamp(1.75rem, 4vw, 2rem)', 
+            color: colors.text, 
+            marginBottom: '0.5rem',
+            transition: 'color 0.3s ease'
           }}>
-            <thead>
-              <tr style={{ background: '#88844D', color: 'white' }}>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Material Type</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Listed (kg)</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Claimed (kg)</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Available (kg)</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Claim Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {wasteStats.map((stat, index) => (
-                <tr 
-                  key={stat.material}
-                  style={{ 
-                    borderBottom: '1px solid #e5e7eb',
-                    background: index % 2 === 0 ? '#fafafa' : 'white'
-                  }}
-                >
-                  <td style={{ padding: '1rem', fontWeight: '600', color: '#88844D' }}>
-                    <Recycle size={16} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
-                    {stat.material}
-                  </td>
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>{stat.listed}</td>
-                  <td style={{ padding: '1rem', textAlign: 'center', color: '#22c55e', fontWeight: '600' }}>
-                    {stat.claimed}
-                  </td>
-                  <td style={{ padding: '1rem', textAlign: 'center', color: '#3b82f6' }}>
-                    {stat.available}
-                  </td>
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
-                    <span style={{
-                      padding: '0.25rem 0.75rem',
-                      borderRadius: '12px',
-                      background: stat.claimRate >= 70 ? '#d1fae5' : stat.claimRate >= 40 ? '#fef3c7' : '#fee2e2',
-                      color: stat.claimRate >= 70 ? '#065f46' : stat.claimRate >= 40 ? '#92400e' : '#991b1b',
-                      fontWeight: '600',
-                      fontSize: '0.875rem'
-                    }}>
-                      {stat.claimRate}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            ♻️ Waste Material Tracking
+          </h1>
+          <p style={{ 
+            color: colors.textSecondary, 
+            fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+            transition: 'color 0.3s ease'
+          }}>
+            Monitor waste listings, claim rates, and material distribution across the platform
+          </p>
         </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div style={{ 
-        marginTop: '2rem', 
-        display: 'flex', 
-        gap: '1rem', 
-        flexWrap: 'wrap',
-        justifyContent: 'center'
-      }}>
-        <button 
-          onClick={fetchMaterials}
-          style={{ 
-            padding: '0.75rem 1.5rem', 
-            background: '#88844D', 
-            color: 'white', 
-            border: 'none', 
+        {error && (
+          <div style={{ 
+            padding: '1rem', 
+            background: isDark ? '#4c1d1d' : '#fee2e2', 
+            border: '1px solid #ef4444', 
             borderRadius: '8px', 
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '1rem',
+            marginBottom: '1.5rem',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '0.5rem'
-          }}
-        >
-          🔄 Refresh Data
-        </button>
-        
-        <button 
-          onClick={() => alert('Export functionality would generate CSV/PDF report')}
-          style={{ 
-            padding: '0.75rem 1.5rem', 
-            background: '#BEC092', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '8px', 
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '1rem'
-          }}
-        >
-          📥 Export Report
-        </button>
+          }}>
+            <AlertCircle size={20} color="#ef4444" style={{ flexShrink: 0 }} />
+            <div style={{ color: isDark ? '#fca5a5' : '#991b1b', fontSize: '0.9rem' }}>
+              <strong>Error:</strong> {error}
+            </div>
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', 
+          gap: '1.5rem', 
+          marginBottom: '2rem' 
+        }}>
+          {[
+            { label: 'Total Listed', value: `${summary.totalListed} kg`, icon: Package, color: colors.primary },
+            { label: 'Total Claimed', value: `${summary.totalClaimed} kg`, icon: CheckCircle, color: colors.success },
+            { label: 'Available', value: `${summary.totalAvailable} kg`, icon: Clock, color: colors.info },
+            { label: 'Claim Rate', value: `${summary.overallClaimRate}%`, icon: TrendingUp, color: colors.warning }
+          ].map((item, index) => (
+            <div key={index} style={{ 
+              background: colors.cardBg, 
+              borderRadius: '12px', 
+              padding: '1.5rem', 
+              boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 6px rgba(0, 0, 0, 0.1)',
+              borderLeft: `4px solid ${item.color}`,
+              transition: 'all 0.3s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ 
+                    fontSize: '0.9rem', 
+                    color: colors.textSecondary, 
+                    margin: '0 0 0.5rem 0',
+                    transition: 'color 0.3s ease'
+                  }}>
+                    {item.label}
+                  </h3>
+                  <div style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)', fontWeight: 'bold', color: item.color }}>
+                    {item.value}
+                  </div>
+                </div>
+                <item.icon size={32} color={item.color} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Main Chart */}
+        <div style={{ 
+          background: colors.cardBg, 
+          borderRadius: '12px', 
+          padding: 'clamp(1rem, 3vw, 2rem)', 
+          marginBottom: '2rem', 
+          boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 6px rgba(0, 0, 0, 0.1)',
+          transition: 'all 0.3s ease'
+        }}>
+          <h2 style={{ 
+            color: colors.text, 
+            marginBottom: '0.5rem',
+            fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+            transition: 'color 0.3s ease'
+          }}>
+            ♻️ Waste Material Distribution
+          </h2>
+          <p style={{ 
+            color: colors.textSecondary, 
+            fontSize: 'clamp(0.875rem, 2vw, 0.95rem)', 
+            marginBottom: '1.5rem',
+            transition: 'color 0.3s ease'
+          }}>
+            Tracking waste listed vs. claimed across material types
+          </p>
+          
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={wasteStats} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.chartGrid} />
+              <XAxis 
+                dataKey="material" 
+                angle={-15} 
+                textAnchor="end" 
+                height={80}
+                stroke={colors.chartText}
+                style={{ fontSize: '0.85rem' }}
+              />
+              <YAxis 
+                label={{ value: 'Weight (kg)', angle: -90, position: 'insideLeft', fill: colors.chartText }}
+                stroke={colors.chartText}
+                style={{ fontSize: '0.85rem' }}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  background: colors.containerBg, 
+                  border: '1px solid ' + colors.border, 
+                  borderRadius: '8px',
+                  padding: '10px',
+                  color: colors.text
+                }}
+              />
+              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+              <Bar dataKey="listed" fill={colors.primary} name="Listed (kg)" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="claimed" fill={colors.success} name="Claimed (kg)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Material Breakdown Table */}
+        <div style={{ 
+          background: colors.cardBg, 
+          borderRadius: '12px', 
+          padding: 'clamp(1rem, 3vw, 2rem)', 
+          boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 6px rgba(0, 0, 0, 0.1)',
+          marginBottom: '2rem',
+          transition: 'all 0.3s ease',
+          overflowX: 'auto'
+        }}>
+          <h2 style={{ 
+            color: colors.text, 
+            marginBottom: '1.5rem',
+            fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+            transition: 'color 0.3s ease'
+          }}>
+            📊 Detailed Material Breakdown
+          </h2>
+          
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ 
+              width: '100%', 
+              borderCollapse: 'collapse',
+              background: colors.containerBg,
+              borderRadius: '8px',
+              overflow: 'hidden'
+            }}>
+              <thead>
+                <tr style={{ background: colors.primary, color: 'white' }}>
+                  <th style={{ padding: '1rem', textAlign: 'left', minWidth: '140px' }}>Material Type</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', minWidth: '100px' }}>Listed (kg)</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', minWidth: '100px' }}>Claimed (kg)</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', minWidth: '120px' }}>Available (kg)</th>
+                  <th style={{ padding: '1rem', textAlign: 'center', minWidth: '100px' }}>Claim Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {wasteStats.map((stat, index) => (
+                  <tr 
+                    key={stat.material}
+                    style={{ 
+                      borderBottom: '1px solid ' + colors.border,
+                      background: index % 2 === 0 ? (isDark ? '#333' : '#fafafa') : colors.containerBg
+                    }}
+                  >
+                    <td style={{ padding: '1rem', fontWeight: '600', color: colors.text }}>
+                      <Recycle size={16} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+                      {stat.material}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: colors.text }}>{stat.listed}</td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: colors.success, fontWeight: '600' }}>
+                      {stat.claimed}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center', color: colors.info }}>
+                      {stat.available}
+                    </td>
+                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                      <span style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '12px',
+                        background: stat.claimRate >= 70 ? '#d1fae5' : stat.claimRate >= 40 ? '#fef3c7' : '#fee2e2',
+                        color: stat.claimRate >= 70 ? '#065f46' : stat.claimRate >= 40 ? '#92400e' : '#991b1b',
+                        fontWeight: '600',
+                        fontSize: '0.875rem'
+                      }}>
+                        {stat.claimRate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '1rem', 
+          flexWrap: 'wrap',
+          justifyContent: 'center'
+        }}>
+          <button 
+            onClick={fetchMaterials}
+            style={{ 
+              padding: '0.75rem 1.5rem', 
+              background: colors.primary, 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '8px', 
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            🔄 Refresh Data
+          </button>
+          
+          <button 
+            onClick={() => alert('Export functionality would generate CSV/PDF report')}
+            style={{ 
+              padding: '0.75rem 1.5rem', 
+              background: '#BEC092', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '8px', 
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            📥 Export Report
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-
   );
 };
 

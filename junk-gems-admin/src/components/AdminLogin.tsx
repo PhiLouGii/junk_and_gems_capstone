@@ -1,14 +1,33 @@
 import React, { useState } from 'react';
-import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Moon, Sun } from 'lucide-react';
 import axios from 'axios';
 
 const AdminLogin: React.FC = () => {
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+  const isDark = theme === 'dark';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const API_BASE_URL = 'https://junk-and-gems-api.onrender.com';
+
+  const colors = {
+    background: isDark ? 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)' : 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)',
+    cardBg: isDark ? '#2d2d2d' : 'white',
+    text: isDark ? '#e5e7eb' : '#1f2937',
+    textSecondary: isDark ? '#9ca3af' : '#666',
+    border: isDark ? '#404040' : '#BEC092',
+    inputBg: isDark ? '#1a1a1a' : 'white',
+    infoBg: isDark ? '#262626' : '#F7F2E4',
+    primary: '#88844D'
+  };
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,8 +39,6 @@ const AdminLogin: React.FC = () => {
         email,
         password
       });
-
-      console.log('Login response:', response.data);
 
       const token = response.data.token;
       const user = response.data.user;
@@ -37,15 +54,11 @@ const AdminLogin: React.FC = () => {
         window.location.href = '/';
       } else {
         setError('Login successful but no token received. Please contact support.');
-        console.error('No token in response:', response.data);
       }
     } catch (err) {
       console.error('Login error:', err);
       
       if (axios.isAxiosError(err)) {
-        console.error('Error response:', err.response?.data);
-        console.error('Error status:', err.response?.status);
-        
         if (err.response?.status === 400) {
           setError(err.response.data.error || 'Invalid email or password.');
         } else if (err.response?.status === 401) {
@@ -79,23 +92,48 @@ const AdminLogin: React.FC = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #F7F2E4 0%, #E4E5C2 100%)'
+      background: colors.background,
+      padding: '1rem',
+      transition: 'background 0.3s ease'
     }}>
       <div style={{
-        background: 'white',
+        background: colors.cardBg,
         borderRadius: '12px',
-        padding: '2.5rem',
-        width: '420px',
-        maxWidth: '90%',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)'
+        padding: 'clamp(1.5rem, 4vw, 2.5rem)',
+        width: '100%',
+        maxWidth: '420px',
+        boxShadow: isDark ? '0 20px 40px rgba(0, 0, 0, 0.5)' : '0 20px 40px rgba(0, 0, 0, 0.1)',
+        transition: 'all 0.3s ease'
       }}>
+        {/* Theme Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <button
+            onClick={toggleTheme}
+            style={{
+              padding: '0.5rem',
+              background: colors.infoBg,
+              color: colors.text,
+              border: '2px solid ' + colors.border,
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease'
+            }}
+            title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+          >
+            {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
+
         {/* Logo/Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
             width: '80px',
             height: '80px',
             margin: '0 auto 1rem',
-            background: '#88844D',
+            background: colors.primary,
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
@@ -118,21 +156,35 @@ const AdminLogin: React.FC = () => {
               }}
             />
           </div>
-          <h1 style={{ color: '#88844D', margin: '0 0 0.5rem 0' }}>Junk & Gems</h1>
-          <p style={{ color: '#666', fontSize: '0.95rem', margin: 0 }}>Admin Dashboard Login</p>
+          <h1 style={{ 
+            color: colors.text, 
+            margin: '0 0 0.5rem 0',
+            fontSize: 'clamp(1.5rem, 4vw, 1.75rem)',
+            transition: 'color 0.3s ease'
+          }}>
+            Junk & Gems
+          </h1>
+          <p style={{ 
+            color: colors.textSecondary, 
+            fontSize: 'clamp(0.875rem, 2vw, 0.95rem)', 
+            margin: 0,
+            transition: 'color 0.3s ease'
+          }}>
+            Admin Dashboard Login
+          </p>
         </div>
 
         {/* Error Message */}
         {error && (
           <div style={{
-            background: '#fee2e2',
+            background: isDark ? '#4c1d1d' : '#fee2e2',
             border: '2px solid #ef4444',
             borderRadius: '8px',
             padding: '1rem',
             marginBottom: '1.5rem',
             display: 'flex',
             alignItems: 'center',
-            color: '#991b1b'
+            color: isDark ? '#fca5a5' : '#991b1b'
           }}>
             <AlertCircle size={20} style={{ marginRight: '12px', flexShrink: 0 }} />
             <div style={{ fontSize: '0.9rem' }}>{error}</div>
@@ -146,7 +198,7 @@ const AdminLogin: React.FC = () => {
               display: 'block', 
               marginBottom: '0.5rem', 
               fontWeight: '600',
-              color: '#88844D',
+              color: colors.primary,
               fontSize: '0.9rem'
             }}>
               Email Address
@@ -157,7 +209,7 @@ const AdminLogin: React.FC = () => {
                 left: '12px', 
                 top: '50%', 
                 transform: 'translateY(-50%)', 
-                color: '#88844D' 
+                color: colors.primary 
               }} />
               <input
                 type="email"
@@ -168,15 +220,17 @@ const AdminLogin: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem 0.75rem 2.5rem',
-                  border: '2px solid #BEC092',
+                  border: '2px solid ' + colors.border,
                   borderRadius: '8px',
                   fontSize: '0.95rem',
                   outline: 'none',
                   transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  background: colors.inputBg,
+                  color: colors.text
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#88844D'}
-                onBlur={(e) => e.target.style.borderColor = '#BEC092'}
+                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                onBlur={(e) => e.target.style.borderColor = colors.border}
               />
             </div>
           </div>
@@ -186,7 +240,7 @@ const AdminLogin: React.FC = () => {
               display: 'block', 
               marginBottom: '0.5rem', 
               fontWeight: '600',
-              color: '#88844D',
+              color: colors.primary,
               fontSize: '0.9rem'
             }}>
               Password
@@ -197,7 +251,7 @@ const AdminLogin: React.FC = () => {
                 left: '12px', 
                 top: '50%', 
                 transform: 'translateY(-50%)', 
-                color: '#88844D' 
+                color: colors.primary 
               }} />
               <input
                 type="password"
@@ -208,15 +262,17 @@ const AdminLogin: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem 0.75rem 2.5rem',
-                  border: '2px solid #BEC092',
+                  border: '2px solid ' + colors.border,
                   borderRadius: '8px',
                   fontSize: '0.95rem',
                   outline: 'none',
                   transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  background: colors.inputBg,
+                  color: colors.text
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#88844D'}
-                onBlur={(e) => e.target.style.borderColor = '#BEC092'}
+                onFocus={(e) => e.target.style.borderColor = colors.primary}
+                onBlur={(e) => e.target.style.borderColor = colors.border}
               />
             </div>
           </div>
@@ -227,11 +283,11 @@ const AdminLogin: React.FC = () => {
             style={{
               width: '100%',
               padding: '0.875rem',
-              background: loading ? '#BEC092' : '#88844D',
+              background: loading ? '#BEC092' : colors.primary,
               color: 'white',
               border: 'none',
               borderRadius: '8px',
-              fontSize: '1rem',
+              fontSize: 'clamp(0.95rem, 2vw, 1rem)',
               fontWeight: '600',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s',
@@ -244,7 +300,7 @@ const AdminLogin: React.FC = () => {
               if (!loading) e.currentTarget.style.background = '#6d6a3d';
             }}
             onMouseLeave={(e) => {
-              if (!loading) e.currentTarget.style.background = '#88844D';
+              if (!loading) e.currentTarget.style.background = colors.primary;
             }}
           >
             {loading ? (
@@ -269,13 +325,14 @@ const AdminLogin: React.FC = () => {
         <div style={{
           marginTop: '2rem',
           padding: '1rem',
-          background: '#F7F2E4',
+          background: colors.infoBg,
           borderRadius: '8px',
-          fontSize: '0.85rem',
-          color: '#666',
-          textAlign: 'center'
+          fontSize: 'clamp(0.8rem, 2vw, 0.85rem)',
+          color: colors.textSecondary,
+          textAlign: 'center',
+          transition: 'all 0.3s ease'
         }}>
-          <strong>Admin Access Only</strong><br />
+          <strong style={{ color: colors.text }}>Admin Access Only</strong><br />
           Contact support if you need admin credentials
         </div>
 
