@@ -21,7 +21,7 @@
 
 ## 📱 Quick Links
 
-- **[Download APK](https://drive.google.com/file/d/1oWpL2Dd_lKYNlqw24O8_7eBPznq9HzXH/view?usp=sharing)** - Install on Android
+- **[Download APK](https://drive.google.com/file/d/1PYnKHtEEIEreb-Qpb2HsI7rqEcLBF0iI/view?usp=sharing)** - Install on Android
 - **[Watch Final Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)** - 5-minute walkthrough
 - **[Web App](https://junk-and-gems-web.vercel.app/)** - View in browser
 - **[Admin Dashboard](https://junk-gems-admin-jiqt9nks0-philougiis-projects.vercel.app/)** - Manage platform
