@@ -883,10 +883,15 @@ Widget _buildLocationSection(bool isDarkMode) {
 }
 
 Widget _buildSetupRequiredBadge(bool isDarkMode) {
-  final setupRequired = _fullProductData['setup_required'] == 'true' ||  // ✅ Changed
-                        _fullProductData['setup_required'] == true;      // ✅ Changed
+  final setupRequired = _fullProductData['setup_required'];
   
-  if (!setupRequired) {
+  // ✅ Check multiple possible values
+  final isSetupRequired = setupRequired == 'true' || 
+                          setupRequired == true || 
+                          setupRequired == '1' ||
+                          setupRequired == 1;
+  
+  if (!isSetupRequired) {
     return const SizedBox.shrink();
   }
 
