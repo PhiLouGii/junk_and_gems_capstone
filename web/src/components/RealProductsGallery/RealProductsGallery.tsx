@@ -872,9 +872,11 @@ const RealProductsGallery = () => {
               gap: '1rem',
               flexDirection: 'column'
             }}>
-              <button
-                onClick={() => setShowDownloadModal(false)}
+              <a
+                href="/junk-and-gems.apk"
+                download="junk-and-gems.apk"
                 style={{
+                  display: 'block',
                   padding: '1rem 2rem',
                   background: '#88844D',
                   color: 'white',
@@ -883,13 +885,15 @@ const RealProductsGallery = () => {
                   fontSize: '1rem',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  transition: 'background 0.2s'
+                  transition: 'background 0.2s',
+                  textDecoration: 'none',
+                  textAlign: 'center'
                 }}
                 onMouseOver={(e) => e.currentTarget.style.background = '#6d6a3d'}
                 onMouseOut={(e) => e.currentTarget.style.background = '#88844D'}
               >
                 Get the App
-              </button>
+              </a>
               
               <button
                 onClick={() => setShowDownloadModal(false)}
