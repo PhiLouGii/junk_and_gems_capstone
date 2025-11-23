@@ -165,16 +165,39 @@ const RealProductsGallery = () => {
           padding: '1.5rem 2rem',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          gap: '1rem'
         }}>
-          <h1 style={{
-            margin: 0,
-            fontSize: '1.75rem',
-            fontWeight: '700',
-            color: '#88844D'
-          }}>
-            Upcycled Products Gallery
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <a
+              href="/"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                background: '#F7F2E4',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                fontSize: '1.25rem',
+                transition: 'background 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#E4E5C2'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#F7F2E4'}
+              title="Back to Home"
+            >
+              ←
+            </a>
+            <h1 style={{
+              margin: 0,
+              fontSize: '1.75rem',
+              fontWeight: '700',
+              color: '#88844D'
+            }}>
+              Upcycled Products Gallery
+            </h1>
+          </div>
           <button
             onClick={fetchProducts}
             style={{
@@ -257,7 +280,7 @@ const RealProductsGallery = () => {
           </div>
           
           <div style={{
-            background: 'linear-gradient(135deg, #88844D 0%, #BEC092 100%)',
+            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
             borderRadius: '16px',
             padding: '2rem',
             color: 'white',
@@ -273,7 +296,7 @@ const RealProductsGallery = () => {
           </div>
           
           <div style={{
-            background: 'linear-gradient(135deg, #88844D 0%, #BEC092 100%)',
+            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
             borderRadius: '16px',
             padding: '2rem',
             color: 'white',
