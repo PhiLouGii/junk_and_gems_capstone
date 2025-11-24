@@ -23,24 +23,6 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
   Set<Marker> _markers = {};
   String _addressText = 'Select a location on the map';
   bool _isLoading = false;
-  String? _nearestArea;
-
-  // Maseru neighborhoods with approximate coordinates
-  final Map<String, LatLng> _maseruAreas = {
-    'Thetsane': LatLng(-29.2833, 27.4667),
-    'Lithabaneng': LatLng(-29.3500, 27.4500),
-    'Katlehong': LatLng(-29.3167, 27.5000),
-    'Ha Tšosane': LatLng(-29.3000, 27.4700),
-    'Maseru West': LatLng(-29.3200, 27.4600),
-    'Ha Matala': LatLng(-29.3100, 27.4900),
-    'Masowe': LatLng(-29.3300, 27.4800),
-    'Ha Thetsane': LatLng(-29.2900, 27.4650),
-    'Pioneer Mall': LatLng(-29.3095, 27.4786),
-    'Maseru Mall': LatLng(-29.3158, 27.4872),
-    'Kick4Life Centre': LatLng(-29.3123, 27.4901),
-    'NRH Mall': LatLng(-29.3200, 27.4850),
-    'Setsoto Stadium': LatLng(-29.3089, 27.4912),
-  };
 
   @override
   void initState() {
@@ -48,6 +30,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
     if (widget.initialLocation != null) {
       _selectedLocation = widget.initialLocation!;
       _updateMarker(_selectedLocation);
+      _getAddressFromCoordinates(_selectedLocation);
     }
     _checkLocationPermission();
   }
@@ -88,6 +71,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           CameraUpdate.newLatLngZoom(_selectedLocation, 15),
         );
         _updateMarker(_selectedLocation);
+        _getAddressFromCoordinates(_selectedLocation);
       }
     } catch (e) {
       print('Error getting location: $e');
@@ -139,8 +123,14 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
     });
 
     _updateMarker(location);
+    await _getAddressFromCoordinates(location);
 
-    // Get address from coordinates
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _getAddressFromCoordinates(LatLng location) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         location.latitude,
@@ -149,47 +139,38 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
+        
+        // Build address from available components
+        List<String> addressParts = [];
+        
+        if (place.street != null && place.street!.isNotEmpty) {
+          addressParts.add(place.street!);
+        }
+        if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+          addressParts.add(place.subLocality!);
+        }
+        if (place.locality != null && place.locality!.isNotEmpty) {
+          addressParts.add(place.locality!);
+        } else {
+          addressParts.add('Maseru');
+        }
+        
         setState(() {
-          _addressText = '${place.street ?? ''}, ${place.subLocality ?? ''}, ${place.locality ?? 'Maseru'}'
-              .replaceAll(', ,', ',')
-              .trim();
+          _addressText = addressParts.join(', ');
+        });
+      } else {
+        // Fallback to coordinates if no placemark found
+        setState(() {
+          _addressText = 'Maseru, Lesotho (${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)})';
         });
       }
     } catch (e) {
       print('Geocoding error: $e');
+      // Fallback to coordinates
       setState(() {
-        _addressText = 'Location selected: ${location.latitude.toStringAsFixed(6)}, ${location.longitude.toStringAsFixed(6)}';
+        _addressText = 'Maseru, Lesotho (${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)})';
       });
     }
-
-    // Find nearest predefined area
-    _nearestArea = _findNearestArea(location);
-
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  String? _findNearestArea(LatLng location) {
-    String? nearest;
-    double minDistance = double.infinity;
-
-    _maseruAreas.forEach((areaName, areaLocation) {
-      double distance = Geolocator.distanceBetween(
-        location.latitude,
-        location.longitude,
-        areaLocation.latitude,
-        areaLocation.longitude,
-      );
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = areaName;
-      }
-    });
-
-    // Only return if within 2km
-    return minDistance < 2000 ? nearest : null;
   }
 
   void _confirmLocation() {
@@ -197,7 +178,6 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
       'latitude': _selectedLocation.latitude,
       'longitude': _selectedLocation.longitude,
       'address': _addressText,
-      'nearest_area': _nearestArea,
       'formatted': _addressText,
     };
 
@@ -275,17 +255,23 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                         ),
                       ],
                     ),
-                    if (_nearestArea != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Nearest area: $_nearestArea',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                          fontStyle: FontStyle.italic,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.gps_fixed, size: 16, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                              fontFamily: 'monospace',
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -307,7 +293,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Tap on the map or drag the marker to select your location',
+                        'Tap on the map or drag the marker to select your exact location',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[800],
