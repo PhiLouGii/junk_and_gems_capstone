@@ -24,7 +24,7 @@
 - **[Download APK](https://drive.google.com/file/d/1PYnKHtEEIEreb-Qpb2HsI7rqEcLBF0iI/view?usp=sharing)** - Install on Android
 - **[Watch Final Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)** - 5-minute walkthrough
 - **[Web App](https://junk-and-gems-web.vercel.app/)** - View in browser
-- **[Admin Dashboard](https://junk-gems-admin-jiqt9nks0-philougiis-projects.vercel.app/)** - Manage platform
+- **[Admin Dashboard](https://junk-gems-admin.vercel.app/)** - Manage platform
 - **[Backend API](https://junk-and-gems-api.onrender.com)** - Live API endpoint
 - **[Initial Prototype Demo Video](https://drive.google.com/file/d/1r-Ot0Vp1mtyxKzj-KHjuED-4P8NNOdtz/view?usp=sharing)** - Initial Project setup demo video
 
