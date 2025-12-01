@@ -19,7 +19,7 @@
 
 ---
 
-## 📱 Quick Links
+##  Quick Links
 
 - **[Download APK](https://drive.google.com/file/d/1PYnKHtEEIEreb-Qpb2HsI7rqEcLBF0iI/view?usp=sharing)** - Install on Android
 - **[Watch Final Demo Video](https://drive.google.com/file/d/1w-E5iKfpDcFJwErR5WTJbrLfCDQaspxc/view?usp=sharing)** - 5-minute walkthrough
@@ -32,35 +32,35 @@
 
 ## About
 
-Junk & Gems is a mobile marketplace connecting waste donors, artisans, and eco-entrepreneurs across Lesotho. The platform transforms waste materials into valuable, marketable products through upcycling, promoting sustainable entrepreneurship and environmental conservation.
+Junk & Gems is a mobile and web-based marketplace designed to support sustainable living in Lesotho by connecting waste donors with local artisans and eco-entrepreneurs. The platform helps transform discarded materials into valuable upcycled products, promoting environmental awareness and income generation. 
 
 ### The Problem
-Lesotho faces significant waste management challenges, with limited recycling infrastructure and growing pollution. Meanwhile, talented artisans lack access to affordable raw materials for their crafts.
+Lesotho struggles with poor waste management, limited recycling infrastructure, and growing pollution. At the same time, many artisans lack access to low-cost raw materials. 
 
 ### Solution
-Junk & Gems bridges this gap by:
+Junk & Gems addresses these challenges by:
 - Connecting waste donors with artisans who can transform materials
 - Providing a marketplace for upcycled products
-- Gamifying environmental responsibility through rewards and achievements
-- Fostering a circular economy within local communities
+- Encouraging eco-friendly behaviours through a reward system
+- Supporting a circular economy
 
 ---
 
 ## Features
+### User-Oriented Features
 - List unwanted materials for free collection
-- Earn eco-points (gems) for contributions
-- Access free/low-cost raw materials
-- Sell upcycled products on the marketplace
-- Connect directly with other users
-- Purchase unique, eco-friendly products
-- Support local artisans and sustainability
+- Claim available materials
+- Earn "gems" for eco-friendly actions
+- Browse and purchase upcycled products
+- Chat with donors/buyers in real-time
+- Manage your profile and listings
 
 ### Platform Features
 - Secure authentication with JWT
 - Real-time messaging between users
 - Gamification system with earning gems
 - Image upload via Cloudinary
-- Cross-platform (Android & iOS)
+- Multi-platform support (Android, iOS & Web)
 
 ---
 
@@ -238,25 +238,25 @@ The demo showcases:
 - Listing and creating materials
 - Claiming materials
 - Marketplace for upcycled products
-- Listing and creating upcycled
+- Listing and creating upcycled products 
 - Real-time messaging and notifications
-- Basic profile settings
-- Gamification features
+- Profile management
+- Daily rewards system
 
 ---
 
 ## Tech Stack
 
 ### Frontend
-![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
-![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+- Flutter
+- Dart
+- React 
+- TypeScript
 
 ### Backend
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)
-![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)
+- Node.js 
+- PostgreSQL
+-Cloudinary 
 
 ### Deployment
 - **Mobile App**: [APK](https://drive.google.com/file/d/1YLFANhQvok0WlsGNiQl5cJCVVlEml0qM/view?usp=sharing)
@@ -358,7 +358,7 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## License
 
-This project is part of an academic capstone project at African Leadership University.
+This project is part of an academic submission at African Leadership University (ALU).
 
 ---
 
@@ -376,7 +376,7 @@ BSc Software Engineering, ALU (2025)
 
 ## Acknowledgments
 
-- African Leadership University for project support
+- African Leadership University
 - The communities of Lesotho for inspiration
 - All contributors and testers
 
